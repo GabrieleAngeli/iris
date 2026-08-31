@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Iris.App.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Iris.App.Views"
+    Title="Iris"
+    FlyoutBehavior="Flyout"
+    FlyoutWidth="260">
+
+    <Shell.FlyoutHeader>
+        <Grid Padding="20,28,20,20" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource LayerDark}}">
+            <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                    BackgroundColor="#F4F0E6"
+                    StrokeShape="RoundRectangle 22">
+                <Image Source="iris_mark.png" WidthRequest="30" HeightRequest="30"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="Iris" FontFamily="{StaticResource FontSemibold}" FontSize="17"
+                       TextColor="{AppThemeBinding Light=White, Dark={StaticResource TextPrimaryDark}}" />
+                <Label Text="Fluent Design System" FontSize="12"
+                       TextColor="{AppThemeBinding Light=#DCEBFF, Dark={StaticResource TextSecondaryDark}}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
+
+    <!-- Login lives outside the flyout navigation -->
+    <ShellContent
+        x:Name="LoginContent"
+        Route="login"
+        FlyoutItemIsVisible="False"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:LoginPage}" />
+
+    <FlyoutItem Title="Dashboard" Route="main">
+        <ShellContent
+            Title="Dashboard"
+            Route="dashboard"
+            ContentTemplate="{DataTemplate views:DashboardPage}" />
+        <ShellContent
+            Title="Access"
+            Route="access"
+            ContentTemplate="{DataTemplate views:AccessPage}" />
+        <ShellContent
+            Title="Components"
+            Route="components"
+            ContentTemplate="{DataTemplate views:ComponentsPage}" />
+    </FlyoutItem>
+
+    <MenuItem Text="Sign out"
+              Clicked="OnSignOutClicked" />
+
+</Shell>

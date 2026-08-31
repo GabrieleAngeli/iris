@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.DashboardPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:models="clr-namespace:Iris.App.Models"
+    xmlns:views="clr-namespace:Iris.App.Views"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    x:Name="Page"
+    x:DataType="vm:DashboardViewModel"
+    Title="Dashboard">
+
+    <Grid>
+    <ScrollView>
+        <VerticalStackLayout Padding="28" Spacing="20">
+
+            <!-- ===================== Top bar ===================== -->
+            <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                <VerticalStackLayout>
+                    <Label Style="{StaticResource TitleLarge}">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="{Binding Greeting}" />
+                                <Span Text=", " />
+                                <Span Text="{Binding UserName}" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                    <Label Text="{Binding Today}" Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                    <Border Style="{StaticResource FieldBorder}" WidthRequest="240" Padding="12,0">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <Label Text="&#xE721;" FontFamily="{StaticResource FontIcons}" FontSize="15"
+                                   VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                            <Entry Grid.Column="1" Placeholder="Search…" />
+                        </Grid>
+                    </Border>
+
+                    <Button Style="{StaticResource SecondaryButton}" Padding="0" WidthRequest="40"
+                            Text="&#xE7E7;" FontFamily="{StaticResource FontIcons}" FontSize="16" />
+
+                    <Button Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                            Command="{Binding RefreshCommand}" />
+
+                    <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}"
+                            StrokeShape="RoundRectangle 20">
+                        <Label Text="&#xE77B;" FontFamily="{StaticResource FontIcons}" FontSize="18"
+                               TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                </HorizontalStackLayout>
+            </Grid>
+
+            <!-- ===================== KPI cards ===================== -->
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Stats}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="models:StatCard">
+                        <Border Style="{StaticResource Card}" WidthRequest="252" Margin="0,0,16,16" Padding="18">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding Title}" Style="{StaticResource Caption}" />
+                                    <Border Grid.Column="1" WidthRequest="34" HeightRequest="34" StrokeThickness="0"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}"
+                                            StrokeShape="RoundRectangle 8">
+                                        <Label Text="{Binding Glyph}" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                    </Border>
+                                </Grid>
+                                <Label Text="{Binding Value}" FontFamily="{StaticResource FontSemibold}" FontSize="26" />
+                                <HorizontalStackLayout Spacing="6">
+                                    <Label FontFamily="{StaticResource FontIcons}" FontSize="12" VerticalOptions="Center" Text="&#xE74A;">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsPositive}" Value="True">
+                                                <Setter Property="Text" Value="&#xE74A;" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource SuccessDark}}" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsPositive}" Value="False">
+                                                <Setter Property="Text" Value="&#xE74B;" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Label Text="{Binding Delta}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                    <Label Text="vs last month" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <!-- ===================== Charts + projects ===================== -->
+            <Grid ColumnDefinitions="1.6*,1*" ColumnSpacing="16">
+
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="16">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="Weekly traffic" Style="{StaticResource Subtitle}" />
+                                <Label Text="Sessions per day, last 7 days" Style="{StaticResource Caption}" />
+                            </VerticalStackLayout>
+                            <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
+                                <Label Text="Live" Style="{StaticResource Caption}" />
+                            </Border>
+                        </Grid>
+
+                        <HorizontalStackLayout Spacing="14" HeightRequest="170" VerticalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding Traffic}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:ChartBar">
+                                    <VerticalStackLayout Spacing="8" VerticalOptions="End" HorizontalOptions="Center">
+                                        <Label Text="{Binding Value, StringFormat='{0:0}'}" Style="{StaticResource Caption}"
+                                               HorizontalOptions="Center" />
+                                        <Border WidthRequest="34" HeightRequest="{Binding Height}" StrokeThickness="0"
+                                                StrokeShape="RoundRectangle 6,6,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                    <GradientStop Offset="0" Color="{AppThemeBinding Light=#2886DE, Dark=#62ABF5}" />
+                                                    <GradientStop Offset="1" Color="{AppThemeBinding Light=#0F6CBD, Dark=#2886DE}" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                        <Label Text="{Binding Label}" Style="{StaticResource Caption}" HorizontalOptions="Center" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="Projects" Style="{StaticResource Subtitle}" />
+                        <VerticalStackLayout Spacing="16" BindableLayout.ItemsSource="{Binding Projects}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:ProjectRow">
+                                    <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="{Binding Name}" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                            <Label Grid.Column="1" Text="{Binding Status}" FontSize="12"
+                                                   TextColor="{Binding Status, Converter={StaticResource StatusColorConverter}}" />
+                                        </Grid>
+                                        <Label Text="{Binding Owner}" Style="{StaticResource Caption}" />
+                                        <ProgressBar Progress="{Binding Progress}" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- ===================== Recent activity ===================== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <Label Text="Recent activity" Style="{StaticResource Subtitle}" />
+                        <Button Grid.Column="1" Text="View all" Style="{StaticResource LinkButton}" />
+                    </Grid>
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Activity}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="models:ActivityItem">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Padding="0,10">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Vm.OpenActivityCommand, Source={x:Reference Page}, x:DataType=views:DashboardPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </Grid.GestureRecognizers>
+
+                                    <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}"
+                                            StrokeShape="RoundRectangle 19" VerticalOptions="Center">
+                                        <Label Text="{Binding Glyph}" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                    </Border>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Description}" Style="{StaticResource Caption}" />
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" HorizontalOptions="End">
+                                        <Label Text="{Binding Timestamp}" Style="{StaticResource Caption}" HorizontalTextAlignment="End" />
+                                        <Border Style="{StaticResource Badge}" HorizontalOptions="End" Margin="0,4,0,0">
+                                            <Label Text="{Binding Category}" Style="{StaticResource Caption}" />
+                                        </Border>
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading dashboard…" />
+    </Grid>
+
+</ContentPage>

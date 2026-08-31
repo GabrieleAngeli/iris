@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Iris.Contracts</RootNamespace>
+    <AssemblyName>Iris.Contracts</AssemblyName>
+    <Description>DTOs and transport contracts shared between the Iris API and its clients.</Description>
+  </PropertyGroup>
+
+</Project>

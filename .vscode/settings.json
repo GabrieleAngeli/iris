@@ -1,0 +1,17 @@
+{
+  "dotnet.defaultSolution": "Iris.sln",
+  "dotnet.unitTests.runSettingsPath": "",
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp",
+    "editor.tabSize": 4
+  },
+  "omnisharp.enableEditorConfigSupport": true,
+  "omnisharp.enableRoslynAnalyzers": true,
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "dotnet.testWindow.disableAutoDiscovery": false
+}

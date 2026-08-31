@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Iris.Api (HTTPS)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Iris.Api/bin/Debug/net9.0/Iris.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Iris.Api",
+      "stopAtEntry": false,
+      "launchSettingsProfile": "Iris.Api (HTTPS)",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/openapi/v1.json"
+      },
+      "console": "internalConsole"
+    },
+    {
+      "name": "Iris.Api (HTTP)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Iris.Api/bin/Debug/net9.0/Iris.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Iris.Api",
+      "stopAtEntry": false,
+      "launchSettingsProfile": "Iris.Api (HTTP)",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/openapi/v1.json"
+      },
+      "console": "internalConsole"
+    },
+    {
+      "//": "VS Code has no 'maui' debug type for Windows heads; launch the built unpackaged exe with the .NET debugger instead.",
+      "name": "Iris.App (Windows)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-app",
+      "program": "${workspaceFolder}/src/Iris.App/bin/Debug/net9.0-windows10.0.19041.0/win10-x64/Iris.App.exe",
+      "cwd": "${workspaceFolder}/src/Iris.App/bin/Debug/net9.0-windows10.0.19041.0/win10-x64",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": ".NET Attach to Process",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Iris.Api</RootNamespace>
+    <AssemblyName>Iris.Api</AssemblyName>
+    <Description>HTTP adapter and composition root for Iris ICP.</Description>
+    <UserSecretsId>iris-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Iris.Application\Iris.Application.csproj" />
+    <ProjectReference Include="..\Iris.Infrastructure\Iris.Infrastructure.csproj" />
+    <ProjectReference Include="..\Iris.Migrations.Postgres\Iris.Migrations.Postgres.csproj" />
+    <ProjectReference Include="..\Iris.Contracts\Iris.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

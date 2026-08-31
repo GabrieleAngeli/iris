@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.AccessPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:sys="clr-namespace:System;assembly=netstandard"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:tenancy="clr-namespace:Iris.Contracts.Tenancy;assembly=Iris.Contracts"
+    x:DataType="vm:AccessViewModel"
+    Title="Access">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Access &amp; governance" Style="{StaticResource TitleLarge}" />
+                <Label Text="Live data from the Iris API (/me and /customers)." Style="{StaticResource Caption}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16" StrokeThickness="1">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding Identity}" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
+                    <Label Text="{Binding Scope}" Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" HorizontalOptions="Start" />
+            <Label Text="{Binding Error}" TextColor="#C0392B" />
+
+            <Label Text="Effective permissions" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+            <CollectionView ItemsSource="{Binding Permissions}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="sys:String">
+                        <Label Text="{Binding .}" Padding="0,3" FontSize="13" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label Text="Visible customers" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+            <CollectionView ItemsSource="{Binding Customers}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="tenancy:CustomerSummaryResponse">
+                        <VerticalStackLayout Padding="0,6">
+                            <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="14" />
+                            <Label Text="{Binding Key}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Iris.Domain</RootNamespace>
+    <AssemblyName>Iris.Domain</AssemblyName>
+    <Description>Pure domain model for Iris ICP. No dependencies on EF Core, HTTP, AWX or OpenBao.</Description>
+  </PropertyGroup>
+
+</Project>

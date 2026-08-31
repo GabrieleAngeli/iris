@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.ComponentsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:DataType="vm:ComponentsViewModel"
+    Title="Components">
+
+    <Grid>
+    <ScrollView>
+        <VerticalStackLayout Padding="28" Spacing="20" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Component gallery" Style="{StaticResource TitleLarge}" />
+                <Label Text="The main .NET MAUI controls, themed with the Fluent palette." Style="{StaticResource Caption}" />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="1*,1*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+
+                <!-- Buttons -->
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Buttons" Style="{StaticResource Subtitle}" />
+                        <FlexLayout Wrap="Wrap" AlignItems="Center">
+                            <Button Text="Primary" Command="{Binding PrimaryActionCommand}" Margin="0,0,10,10" />
+                            <Button Text="Secondary" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding SecondaryActionCommand}" Margin="0,0,10,10" />
+                            <Button Text="Link button" Style="{StaticResource LinkButton}" Margin="0,0,10,10" />
+                            <Button Text="&#xE710;  Icon" FontFamily="{StaticResource FontIcons}"
+                                    Style="{StaticResource SecondaryButton}" Margin="0,0,10,10" />
+                            <Button Text="Disabled" IsEnabled="False" Margin="0,0,10,10" />
+                        </FlexLayout>
+                        <Label Text="{Binding LastAction, StringFormat='Last action: {0}'}" Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Selection -->
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Selection" Style="{StaticResource Subtitle}" />
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="10">
+                            <Switch IsToggled="{Binding SwitchOn}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" VerticalOptions="Center" Style="{StaticResource Body}"
+                                   Text="{Binding SwitchOn, StringFormat='Switch is {0}'}" />
+                            <HorizontalStackLayout Grid.Row="1" Spacing="8">
+                                <CheckBox IsChecked="{Binding CheckboxChecked}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <Label Grid.Row="1" Grid.Column="1" VerticalOptions="Center" Style="{StaticResource Body}"
+                                   Text="{Binding CheckboxChecked, StringFormat='Checkbox is {0}'}" />
+                        </Grid>
+                        <Label Text="Radio group" Style="{StaticResource Caption}" />
+                        <VerticalStackLayout Spacing="2">
+                            <RadioButton Content="Standard delivery" GroupName="ship" IsChecked="True" />
+                            <RadioButton Content="Express delivery" GroupName="ship" />
+                            <RadioButton Content="Pick-up in store" GroupName="ship" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Text inputs -->
+                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Text input" Style="{StaticResource Subtitle}" />
+
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Placeholder="Single-line entry" Text="{Binding EntryText}" />
+                        </Border>
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Placeholder="Password" IsPassword="True" />
+                        </Border>
+                        <Border Style="{StaticResource FieldBorder}" Padding="12,8">
+                            <Editor Placeholder="Multi-line editor" Text="{Binding EditorText}" HeightRequest="72" AutoSize="TextChanges" />
+                        </Border>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker Title="Country" ItemsSource="{Binding Countries}" SelectedItem="{Binding SelectedCountry}" />
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource FieldBorder}">
+                                <DatePicker Date="{Binding SelectedDate}" />
+                            </Border>
+                        </Grid>
+                        <Border Style="{StaticResource FieldBorder}" HorizontalOptions="Start" WidthRequest="160">
+                            <TimePicker Time="{Binding SelectedTime}" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Range & progress -->
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="Range &amp; progress" Style="{StaticResource Subtitle}" />
+
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Slider" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="1" Text="{Binding SliderValue, StringFormat='{0:0}'}" Style="{StaticResource Caption}" />
+                            </Grid>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding SliderValue}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Progress bar" Style="{StaticResource Caption}" />
+                            <ProgressBar Progress="{Binding Progress}" />
+                        </VerticalStackLayout>
+
+                        <HorizontalStackLayout Spacing="12">
+                            <ActivityIndicator IsRunning="{Binding IsActivityRunning}" WidthRequest="24" HeightRequest="24" />
+                            <Button Text="Toggle spinner" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ToggleActivityCommand}" />
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout Spacing="8">
+                            <Border Style="{StaticResource Badge}"><Label Text="New" Style="{StaticResource Caption}" /></Border>
+                            <Border Style="{StaticResource Badge}" BackgroundColor="{AppThemeBinding Light=#DFF6DD, Dark=#294A29}">
+                                <Label Text="Success" Style="{StaticResource Caption}" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#4A2A2A}">
+                                <Label Text="Error" Style="{StaticResource Caption}" />
+                            </Border>
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Data display -->
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Collection view" Style="{StaticResource Subtitle}" />
+                        <CollectionView ItemsSource="{Binding People}" HeightRequest="240">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PersonItem">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="0,8">
+                                        <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}"
+                                                StrokeShape="RoundRectangle 20">
+                                            <Label Text="{Binding Initials}" TextColor="White"
+                                                   FontFamily="{StaticResource FontSemibold}"
+                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                            <Label Text="{Binding Role}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Layout & disclosure -->
+                <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Disclosure &amp; tabs" Style="{StaticResource Subtitle}" />
+
+                        <toolkit:Expander>
+                            <toolkit:Expander.Header>
+                                <Grid ColumnDefinitions="*,Auto" Padding="0,6">
+                                    <Label Text="What is included in this template?" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                    <Label Grid.Column="1" Text="&#xE70D;" FontFamily="{StaticResource FontIcons}" FontSize="12" />
+                                </Grid>
+                            </toolkit:Expander.Header>
+                            <Label Padding="0,4,0,12" Style="{StaticResource Body}"
+                                   Text="A login screen, a dashboard with KPI cards, a chart and an activity feed, this component gallery, MVVM view models, DI registration and light/dark Fluent theming." />
+                        </toolkit:Expander>
+
+                        <BoxView HeightRequest="1" />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Tooltip &amp; gestures" Style="{StaticResource Caption}" />
+                            <Button Text="Hover me" Style="{StaticResource SecondaryButton}" HorizontalOptions="Start"
+                                    ToolTipProperties.Text="This is a Fluent tooltip" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading components…" />
+    </Grid>
+
+</ContentPage>

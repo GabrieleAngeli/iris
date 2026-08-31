@@ -1,0 +1,61 @@
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+artifacts/
+publish/
+*.binlog
+
+# Rider / Visual Studio / VS Code
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+.idea/
+*.user
+*.suo
+*.userprefs
+*_i.c
+*_p.c
+
+# Test / coverage results
+[Tt]est[Rr]esults/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!nuget.config
+
+# Rider MAUI / user secrets
+*.DotSettings.user
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local environment overrides
+appsettings.*.local.json
+*.env.local
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*Project Reference

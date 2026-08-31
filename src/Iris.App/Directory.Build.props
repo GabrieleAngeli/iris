@@ -1,0 +1,16 @@
+<Project>
+
+  <!--
+    This file intentionally does NOT import the repository-root Directory.Build.props.
+    MSBuild imports only the nearest Directory.Build.props, so placing this here stops
+    the root one (which forces a single <TargetFramework>net9.0</TargetFramework> and
+    enables Central Package Management) from applying to the .NET MAUI head, which
+    manages its own multi-targeting and pins its package versions inline.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <Company>Gabriele Angeli</Company>
+    <Copyright>Copyright © 2026 Gabriele Angeli</Copyright>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "Iris.Api",
+    "Projects": [
+      {
+        "Path": "src\\Iris.Api\\Iris.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "Iris.Api (HTTPS)"
+      }
+    ]
+  }
+]

@@ -1,0 +1,63 @@
+@Iris.Api_HostAddress = http://localhost:5006
+@devUser = admin@iris.local
+
+### Service identity (anonymous)
+GET {{Iris.Api_HostAddress}}/
+Accept: application/json
+
+### Health probe (anonymous)
+GET {{Iris.Api_HostAddress}}/health
+
+### OpenAPI document (Development only)
+GET {{Iris.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+### Who am I — identity + effective permissions (global scope)
+GET {{Iris.Api_HostAddress}}/me
+X-Dev-User: {{devUser}}
+Accept: application/json
+
+### Who am I — evaluated at a customer scope
+GET {{Iris.Api_HostAddress}}/me?customerId=c0000000-0000-0000-0000-000000000001
+X-Dev-User: {{devUser}}
+
+### Who am I — evaluated at a context scope (Contoso / Production)
+GET {{Iris.Api_HostAddress}}/me?customerId=c0000000-0000-0000-0000-000000000001&contextId=c0000000-0000-0000-0000-0000000000a3
+X-Dev-User: marco@contoso.example
+
+### Customers visible to the caller
+GET {{Iris.Api_HostAddress}}/customers
+X-Dev-User: gio@globex.example
+
+### Role catalog — requires governance.roles.manage (403 for gio, 200 for admin)
+GET {{Iris.Api_HostAddress}}/governance/roles
+X-Dev-User: {{devUser}}
+
+### Permission catalog — any authenticated user
+GET {{Iris.Api_HostAddress}}/governance/permissions
+X-Dev-User: gio@globex.example
+
+### Users and their role assignments — requires governance.read
+GET {{Iris.Api_HostAddress}}/governance/users
+X-Dev-User: {{devUser}}
+
+### Register a customer — requires governance.customers.manage
+POST {{Iris.Api_HostAddress}}/customers
+X-Dev-User: {{devUser}}
+Content-Type: application/json
+
+{ "key": "northwind", "name": "Northwind Traders" }
+
+### Add a context to a customer — requires governance.customers.manage
+POST {{Iris.Api_HostAddress}}/customers/00000000-0000-0000-0000-000000000000/contexts
+X-Dev-User: {{devUser}}
+Content-Type: application/json
+
+{ "name": "Production", "kind": "Production" }
+
+### Assign a role to a user at a scope — requires governance.assignments.manage
+POST {{Iris.Api_HostAddress}}/governance/users/d0000000-0000-0000-0000-000000000005/assignments
+X-Dev-User: {{devUser}}
+Content-Type: application/json
+
+{ "roleKey": "reader", "scopeType": "Customer", "customerId": "c0000000-0000-0000-0000-000000000001" }

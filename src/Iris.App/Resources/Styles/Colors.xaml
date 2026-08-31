@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--
+        Fluent Design System palette (approximation of the WinUI 3 / Windows 11 tokens).
+        Light + dark values are paired and consumed through AppThemeBinding in Styles.xaml.
+    -->
+
+    <!-- Brand / Accent -->
+    <Color x:Key="AccentLight">#0F6CBD</Color>
+    <Color x:Key="AccentLightHover">#115EA3</Color>
+    <Color x:Key="AccentLightPressed">#0E4775</Color>
+    <Color x:Key="AccentDark">#479EF5</Color>
+    <Color x:Key="AccentDarkHover">#62ABF5</Color>
+    <Color x:Key="AccentDarkPressed">#2886DE</Color>
+
+    <!-- Kept for template compatibility -->
+    <Color x:Key="Primary">#0F6CBD</Color>
+    <Color x:Key="Secondary">#DFE9F2</Color>
+    <Color x:Key="Tertiary">#2B0B98</Color>
+
+    <!-- Neutral backgrounds -->
+    <Color x:Key="AppBackgroundLight">#F3F3F3</Color>
+    <Color x:Key="AppBackgroundDark">#202020</Color>
+
+    <Color x:Key="LayerLight">#FFFFFF</Color>
+    <Color x:Key="LayerDark">#2C2C2C</Color>
+
+    <Color x:Key="LayerAltLight">#FBFBFB</Color>
+    <Color x:Key="LayerAltDark">#272727</Color>
+
+    <Color x:Key="SubtleFillLight">#F5F5F5</Color>
+    <Color x:Key="SubtleFillDark">#323232</Color>
+
+    <!-- Strokes / dividers -->
+    <Color x:Key="StrokeLight">#E5E5E5</Color>
+    <Color x:Key="StrokeDark">#1F1F1F</Color>
+    <Color x:Key="ControlStrokeLight">#D1D1D1</Color>
+    <Color x:Key="ControlStrokeDark">#3D3D3D</Color>
+
+    <!-- Text -->
+    <Color x:Key="TextPrimaryLight">#1B1B1B</Color>
+    <Color x:Key="TextPrimaryDark">#FFFFFF</Color>
+    <Color x:Key="TextSecondaryLight">#5E5E5E</Color>
+    <Color x:Key="TextSecondaryDark">#C7C7C7</Color>
+    <Color x:Key="TextOnAccent">#FFFFFF</Color>
+
+    <!-- Status -->
+    <Color x:Key="Success">#0E700E</Color>
+    <Color x:Key="SuccessDark">#5EC75E</Color>
+    <Color x:Key="Warning">#9D5D00</Color>
+    <Color x:Key="WarningDark">#FCE100</Color>
+    <Color x:Key="Danger">#C42B1C</Color>
+    <Color x:Key="DangerDark">#FF99A4</Color>
+
+    <!-- Greyscale helpers used by the default template styles -->
+    <Color x:Key="White">White</Color>
+    <Color x:Key="Black">Black</Color>
+    <Color x:Key="Gray100">#E1E1E1</Color>
+    <Color x:Key="Gray200">#C8C8C8</Color>
+    <Color x:Key="Gray300">#ACACAC</Color>
+    <Color x:Key="Gray400">#919191</Color>
+    <Color x:Key="Gray500">#6E6E6E</Color>
+    <Color x:Key="Gray600">#404040</Color>
+    <Color x:Key="Gray900">#212121</Color>
+    <Color x:Key="Gray950">#141414</Color>
+
+</ResourceDictionary>
