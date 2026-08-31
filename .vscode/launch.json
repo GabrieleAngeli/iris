@@ -57,5 +57,13 @@
       "type": "coreclr",
       "request": "attach"
     }
+  ],
+  "compounds": [
+    {
+      "//": "Debug the API and the MAUI client together. The client shows a connection error until the API finishes starting — just retry the login.",
+      "name": "Iris (API + App)",
+      "configurations": ["Iris.Api (HTTP)", "Iris.App (Windows)"],
+      "stopAll": true
+    }
   ]
 }

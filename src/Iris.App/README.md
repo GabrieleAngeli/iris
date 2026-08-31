@@ -28,11 +28,15 @@ dotnet workload install maui-windows
 
 ## Run
 
-Start the API first (`dotnet run --project ../Iris.Api`), then:
+From VS Code the **run-app** task starts the API in the background first, then
+builds and launches this client; the **Iris (API + App)** compound launch config
+debugs both together.
+
+Manually (two shells, or start the API separately):
 
 ```powershell
-dotnet build ..\..\Iris.App.sln
-dotnet build -t:Run -f net9.0-windows10.0.19041.0
+dotnet run --project ..\Iris.Api                       # shell 1
+dotnet build -t:Run -f net9.0-windows10.0.19041.0      # shell 2 (from src/Iris.App)
 ```
 
 The window opens on the **login** screen.

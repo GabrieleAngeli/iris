@@ -71,8 +71,32 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "run-api",
+      "detail": "Run Iris.Api (HTTP) in the background; ready when it prints 'Now listening on'.",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/Iris.Api/Iris.Api.csproj",
+        "--launch-profile",
+        "Iris.Api (HTTP)"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^__never_match__$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "(Building\\.\\.\\.|Determining projects to restore)",
+          "endsPattern": "(Now listening on:|Application started\\.)"
+        }
+      }
+    },
+    {
       "label": "run-app",
-      "detail": "Build and launch the .NET MAUI desktop client (Windows). Start Iris.Api first.",
+      "detail": "Start Iris.Api, then build and launch the .NET MAUI desktop client (Windows).",
       "command": "dotnet",
       "type": "process",
       "args": [
@@ -82,7 +106,11 @@
         "-f",
         "net9.0-windows10.0.19041.0"
       ],
-      "problemMatcher": "$msCompile"
+      "problemMatcher": "$msCompile",
+      "dependsOn": [
+        "run-api"
+      ],
+      "dependsOrder": "sequence"
     }
   ]
 }

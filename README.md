@@ -145,11 +145,20 @@ dotnet build Iris.App.sln
 dotnet build src/Iris.App/Iris.App.csproj -t:Run -f net9.0-windows10.0.19041.0
 ```
 
-In VS Code: run task **run-app** (build + launch, no debugger), or the
-**Iris.App (Windows)** launch config, which builds and then attaches the .NET
-debugger to the unpackaged `Iris.App.exe` (VS Code has no dedicated MAUI debug
-type for Windows heads). In Visual Studio: open `Iris.App.sln` with the
-".NET MAUI" workload and press F5.
+In VS Code:
+
+- **Debug both** — run the **Iris (API + App)** compound launch config; it starts
+  the API and the client together (VS Code has no dedicated MAUI debug type for
+  Windows heads, so the client runs as the unpackaged `Iris.App.exe` under the
+  .NET debugger). The client shows a connection error until the API is up — retry
+  the login.
+- **Run without debugging** — the **run-app** task builds and launches the client
+  and first starts the API in the background (`run-api`), waiting until it prints
+  *Now listening on*.
+- **Client only** — the **Iris.App (Windows)** launch config (assumes the API is
+  already running).
+
+In Visual Studio: open `Iris.App.sln` with the ".NET MAUI" workload and press F5.
 
 ## License
 
