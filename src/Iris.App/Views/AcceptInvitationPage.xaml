@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.AcceptInvitationPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:AcceptInvitationViewModel"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    Title="Set your password"
+    BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+    <ScrollView>
+        <Grid Padding="24">
+            <Border Style="{StaticResource Card}" MaximumWidthRequest="440" WidthRequest="440"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Padding="8" Spacing="14">
+
+                    <Label Text="Set your password" Style="{StaticResource TitleLarge}" />
+                    <Label Style="{StaticResource Body}"
+                           Text="Paste the invitation link (or just the token) an administrator sent you, then choose a password for signing in without single sign-on." />
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Invitation link or token" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding TokenOrLink}" Placeholder="https://.../invitations/accept?token=…" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="New password" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewPassword}" IsPassword="True" Placeholder="At least 8 characters" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Confirm password" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding ConfirmPassword}" IsPassword="True" Placeholder="Repeat the password" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,4,0,0">
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+                        <Button Grid.Column="2" Text="Set password" Command="{Binding AcceptCommand}" />
+                    </Grid>
+
+                    <Button Text="Back to sign in" Style="{StaticResource LinkButton}" Clicked="OnBackToSignIn" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </ScrollView>
+</ContentPage>

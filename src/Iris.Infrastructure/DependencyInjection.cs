@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IServerRepository, ServerRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
+        services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

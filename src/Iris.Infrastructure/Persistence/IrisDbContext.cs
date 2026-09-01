@@ -12,6 +12,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+
     public DbSet<EditLock> EditLocks => Set<EditLock>();
 
     public DbSet<Role> Roles => Set<Role>();

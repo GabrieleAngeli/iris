@@ -154,6 +154,14 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:FirstLoginPasswordPage}" />
 
+    <!-- Invitation redemption (no SSO): reachable from the sign-in screen -->
+    <ShellContent
+        Route="accept-invitation"
+        FlyoutItemIsVisible="False"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:AcceptInvitationPage}" />
+
     <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
     <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
         <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />

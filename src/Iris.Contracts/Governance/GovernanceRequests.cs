@@ -17,3 +17,9 @@ public sealed record AssignRoleRequest(string RoleKey, string ScopeType, Guid? C
 
 /// <summary>Body of <c>POST /governance/users</c> — pre-provisions a user ahead of their first sign-in.</summary>
 public sealed record CreateUserRequest(string Email, string DisplayName);
+
+/// <summary>Body of <c>POST /invitations/accept</c> — the recipient redeeming their invitation link.</summary>
+public sealed record AcceptInvitationRequest(string Token, string NewPassword);
+
+/// <summary>Result of <c>POST /invitations/accept</c> — just enough to pre-fill the sign-in screen.</summary>
+public sealed record AcceptInvitationResponse(string Email);

@@ -32,6 +32,9 @@ public interface IIrisApiClient
 
 	Task<MeResponse?> GetMeAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>Signs in with a local email and password; returns a bearer session token. Anonymous — no prior auth needed.</summary>
+	Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
+
 	/// <summary>Sets or changes the caller's local (non-SSO) password. <c>currentPassword</c> is required only for a change.</summary>
 	Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default);
 
@@ -45,6 +48,9 @@ public interface IIrisApiClient
 
 	/// <summary>Adds an environment/context to a customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Redeems a one-time invitation link: sets the account's first local password. Anonymous.</summary>
+	Task<AcceptInvitationResponse> AcceptInvitationAsync(AcceptInvitationRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>Edits a customer's name and active flag. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request, CancellationToken cancellationToken = default);
@@ -128,6 +134,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 			.ConfigureAwait(false);
 	}
 
+	public Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<LoginResponse>("/auth/login", request, cancellationToken);
+
 	public Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default) =>
 		SendNoResultAsync(HttpMethod.Post, "/auth/password", request, cancellationToken);
 
@@ -142,6 +151,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ContextSummaryResponse>($"/customers/{customerId}/contexts", request, cancellationToken);
+
+	public Task<AcceptInvitationResponse> AcceptInvitationAsync(AcceptInvitationRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<AcceptInvitationResponse>("/invitations/accept", request, cancellationToken);
 
 	public Task<CustomerSummaryResponse> UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<CustomerSummaryResponse>(HttpMethod.Put, $"/customers/{customerId}", request, cancellationToken);

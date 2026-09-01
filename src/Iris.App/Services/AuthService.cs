@@ -11,9 +11,8 @@ public interface IAuthService
 	MeResponse? Me { get; }
 
 	/// <summary>
-	/// Dev-mode sign-in: the user name is an email that must match a configured
-	/// <c>Iris:Auth:DevUsers</c> entry on the API. The password is required only for users who
-	/// have set a local one (see the first-login prompt); otherwise it is ignored.
+	/// Signs in with a local email and password — for anyone without an SSO platform to lean on.
+	/// Verified against a real account; issues a session token used on every later request.
 	/// </summary>
 	Task<AuthResult> SignInAsync(string username, string password, CancellationToken ct = default);
 
@@ -46,32 +45,48 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 			return new AuthResult(false, "Enter your user name or email.");
 		}
 
-		api.DevUserEmail = username.Trim();
-		api.DevUserPassword = string.IsNullOrEmpty(password) ? null : password;
+		if (string.IsNullOrEmpty(password))
+		{
+			return new AuthResult(false, "Enter your password.");
+		}
+
+		try
+		{
+			var login = await api.LoginAsync(new LoginRequest(username.Trim(), password), ct);
+			api.BearerToken = login.Token;
+		}
+		catch (IrisApiException ex)
+		{
+			return new AuthResult(false, ex.Message);
+		}
+		catch (HttpRequestException ex)
+		{
+			return new AuthResult(false, $"Cannot reach the Iris API. Is it running? ({ex.Message})");
+		}
+		catch (TaskCanceledException)
+		{
+			return new AuthResult(false, "The Iris API did not respond in time.");
+		}
 
 		try
 		{
 			var me = await api.GetMeAsync(ct);
 			if (me is null)
 			{
-				api.DevUserEmail = null;
-				api.DevUserPassword = null;
-				return new AuthResult(false,
-					"The Iris API rejected this sign-in. Check the email and password (dev users, e.g. admin@iris.local).");
+				api.BearerToken = null;
+				return new AuthResult(false, "Signed in, but the Iris API rejected this session.");
 			}
 
 			return ApplySignedInUser(me);
 		}
 		catch (HttpRequestException ex)
 		{
-			api.DevUserEmail = null;
-			api.DevUserPassword = null;
+			api.BearerToken = null;
 			return new AuthResult(false, $"Cannot reach the Iris API. Is it running? ({ex.Message})");
 		}
 		catch (TaskCanceledException)
 		{
-			api.DevUserEmail = null;
-			api.DevUserPassword = null;
+			api.BearerToken = null;
 			return new AuthResult(false, "The Iris API did not respond in time.");
 		}
 	}

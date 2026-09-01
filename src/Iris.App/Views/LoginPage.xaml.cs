@@ -6,5 +6,7 @@ public partial class LoginPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = vm;
+
+		vm.AcceptInvitationRequested += async (_, _) => await Shell.Current.GoToAsync("//accept-invitation");
 	}
 }

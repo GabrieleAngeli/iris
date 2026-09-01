@@ -24,6 +24,8 @@ internal sealed class FakeStore
 
     public List<UserInvitation> Invitations { get; } = [];
 
+    public List<UserSession> Sessions { get; } = [];
+
     public List<EditLock> EditLocks { get; } = [];
 
     public Dictionary<string, string> SecretsByReference { get; } = [];
@@ -84,6 +86,8 @@ internal sealed class FakeStore
 
     public FakeUserInvitationRepository UserInvitationRepository => new(this);
 
+    public FakeUserSessionRepository UserSessionRepository => new(this);
+
     public FakeEditLockRepository EditLockRepository => new(this);
 
     /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
@@ -115,6 +119,20 @@ internal sealed class FakeUserInvitationRepository(FakeStore store) : IUserInvit
         Task.FromResult(store.Invitations.SingleOrDefault(i => i.TokenHash == tokenHash));
 
     public void Remove(UserInvitation invitation) => store.Invitations.Remove(invitation);
+}
+
+internal sealed class FakeUserSessionRepository(FakeStore store) : IUserSessionRepository
+{
+    public Task AddAsync(UserSession session, CancellationToken cancellationToken = default)
+    {
+        store.Sessions.Add(session);
+        return Task.CompletedTask;
+    }
+
+    public Task<UserSession?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Sessions.SingleOrDefault(s => s.TokenHash == tokenHash));
+
+    public void Remove(UserSession session) => store.Sessions.Remove(session);
 }
 
 internal sealed class FakeEditLockRepository(FakeStore store) : IEditLockRepository

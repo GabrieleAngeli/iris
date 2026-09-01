@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Iris.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Iris.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(IrisDbContext))]
-    partial class IrisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901202248_AddUserSessions")]
+    partial class AddUserSessions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

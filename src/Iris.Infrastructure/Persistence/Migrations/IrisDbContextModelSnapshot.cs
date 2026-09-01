@@ -236,6 +236,38 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("UserInvitations", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Access.UserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -643,6 +675,15 @@ namespace Iris.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Iris.Domain.Access.UserInvitation", b =>
+                {
+                    b.HasOne("Iris.Domain.Access.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Access.UserSession", b =>
                 {
                     b.HasOne("Iris.Domain.Access.User", null)
                         .WithMany()

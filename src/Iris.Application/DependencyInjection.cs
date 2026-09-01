@@ -25,6 +25,7 @@ public static class DependencyInjection
         // Queries
         services.TryAddScoped<GetMyAccessHandler>();
         services.TryAddScoped<SetMyPasswordHandler>();
+        services.TryAddScoped<LoginHandler>();
         services.TryAddScoped<SkipMyPasswordSetupHandler>();
         services.TryAddScoped<GetPermissionCatalogHandler>();
         services.TryAddScoped<ListRolesHandler>();
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.TryAddScoped<UpdateUserHandler>();
         services.TryAddScoped<DeleteUserHandler>();
         services.TryAddScoped<IssueUserInvitationHandler>();
+        services.TryAddScoped<AcceptInvitationHandler>();
         services.TryAddScoped<AcquireEditLockHandler>();
         services.TryAddScoped<ReleaseEditLockHandler>();
         services.TryAddScoped<GetEditLockHandler>();
