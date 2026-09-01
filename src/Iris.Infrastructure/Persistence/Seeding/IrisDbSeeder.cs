@@ -21,20 +21,46 @@ public sealed class IrisDbSeeder(IrisDbContext dbContext, ILogger<IrisDbSeeder> 
 
     private async Task SeedRolesAsync(CancellationToken cancellationToken)
     {
-        if (await dbContext.Roles.AnyAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
+        // Built-in roles are authoritative: create any that are missing and reconcile the
+        // name / description / permission set of the rest on every startup, so changes to
+        // SeedData (e.g. platform-admin gaining every permission) reach an existing database
+        // without a wipe. Operator-created roles are left untouched.
+        var existing = await dbContext.Roles
+            .Where(r => r.IsBuiltIn)
+            .ToDictionaryAsync(r => r.Id, cancellationToken)
+            .ConfigureAwait(false);
+
+        var created = 0;
+        var reconciled = 0;
 
         foreach (var (id, key, name, description, permissions) in SeedData.BuiltInRoles)
         {
-            var role = new Role(id, key, name, description, isBuiltIn: true);
-            role.ReplacePermissions(permissions.Select(PermissionId.Parse));
-            dbContext.Roles.Add(role);
+            var permissionIds = permissions.Select(PermissionId.Parse).ToArray();
+
+            if (existing.TryGetValue(id, out var role))
+            {
+                if (!role.Permissions.OrderBy(p => p, StringComparer.Ordinal)
+                        .SequenceEqual(permissionIds.Select(p => p.Value).OrderBy(p => p, StringComparer.Ordinal)))
+                {
+                    role.ReplacePermissions(permissionIds);
+                    reconciled++;
+                }
+
+                continue;
+            }
+
+            var fresh = new Role(id, key, name, description, isBuiltIn: true);
+            fresh.ReplacePermissions(permissionIds);
+            dbContext.Roles.Add(fresh);
+            created++;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Seeded {Count} built-in roles.", SeedData.BuiltInRoles.Count);
+        if (created + reconciled > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            logger.LogInformation(
+                "Built-in roles: {Created} created, {Reconciled} reconciled.", created, reconciled);
+        }
     }
 
     private async Task SeedCustomersAsync(CancellationToken cancellationToken)

@@ -22,7 +22,13 @@ public partial class UsersPage : ContentPage
 			await _dialogs.ShowAsync(new AssignRoleDialog(row), "dlg.assign-role", 620, 560);
 
 		_vm.EditUserRequested += async (_, row) =>
-			await _dialogs.ShowAsync(new EditUserDialog(row), "dlg.edit-user", 560, 560);
+			await _dialogs.ShowAsync(new EditUserDialog(row), "dlg.edit-user", 560, 620);
+
+		_vm.DeleteUserRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new ConfirmDeleteDialog(row), "dlg.confirm-delete", 460, 340);
+
+		_vm.InviteUserRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new InvitationDialog(row), "dlg.invitation", 560, 480);
 	}
 
 	protected override void OnAppearing()

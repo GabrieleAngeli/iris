@@ -6,13 +6,24 @@ namespace Iris.App.ViewModels;
 /// <summary>Infrastructure › Servers: registered servers and the OS-login credentials each holds.</summary>
 public partial class ServersViewModel : ObservableObject
 {
-	private readonly IIrisApiClient _api;
+	private const string SecretsManagePermission = "infrastructure.secrets.manage";
 
-	public ServersViewModel(IIrisApiClient api)
+	private readonly IIrisApiClient _api;
+	private readonly IAuthService _auth;
+
+	public ServersViewModel(IIrisApiClient api, IAuthService auth)
 	{
 		_api = api;
-		NewServerCredential = new CredentialFormViewModel(OwnerOptions);
+		_auth = auth;
+		NewServerCredential = NewCredentialForm(isEdit: false);
 	}
+
+	/// <summary>True when the signed-in user may rotate credential secrets (Global <c>infrastructure.secrets.manage</c>).</summary>
+	public bool CanManageSecrets =>
+		_auth.Me?.EffectivePermissions.Contains(SecretsManagePermission) == true;
+
+	internal CredentialFormViewModel NewCredentialForm(bool isEdit) =>
+		new(OwnerOptions, isEdit, CanManageSecrets);
 
 	public ObservableCollection<ServerRowViewModel> Servers { get; } = [];
 
@@ -108,7 +119,17 @@ public partial class ServersViewModel : ObservableObject
 	/// <summary>Raised from a row's edit button to open the edit/delete dialog for a server.</summary>
 	public event EventHandler<ServerRowViewModel>? EditServerRequested;
 
+	/// <summary>Raised from the edit dialog's "Delete this server" button to open the confirm-delete window.</summary>
+	public event EventHandler<ServerRowViewModel>? DeleteServerRequested;
+
 	public void RaiseEditRequested(ServerRowViewModel row) => EditServerRequested?.Invoke(this, row);
+
+	/// <summary>
+	/// Opens the confirm-delete window for <paramref name="row"/>, on the next UI tick so the edit
+	/// dialog it was launched from finishes closing first.
+	/// </summary>
+	public void RaiseDeleteRequested(ServerRowViewModel row) =>
+		MainThread.BeginInvokeOnMainThread(() => DeleteServerRequested?.Invoke(this, row));
 
 	public void RemoveRow(ServerRowViewModel row) => Servers.Remove(row);
 
@@ -236,11 +257,26 @@ public sealed record UserOption(Guid Id, string Display)
 /// </summary>
 public sealed partial class CredentialFormViewModel : ObservableObject
 {
-	public CredentialFormViewModel(IReadOnlyList<UserOption> ownerOptions)
+	private readonly bool _isEditMode;
+	private readonly bool _canManageSecrets;
+
+	public CredentialFormViewModel(
+		IReadOnlyList<UserOption> ownerOptions,
+		bool isEditMode = false,
+		bool canManageSecrets = false)
 	{
 		OwnerOptions = ownerOptions;
+		_isEditMode = isEditMode;
+		_canManageSecrets = canManageSecrets;
 		_selectedOwner = ownerOptions.Count > 0 ? ownerOptions[0] : UserOption.None;
 	}
+
+	/// <summary>
+	/// The secret input is always available when creating a credential. When editing an existing
+	/// one it stays hidden unless the caller holds <c>infrastructure.secrets.manage</c> (lead role) —
+	/// only they may rotate/replace the stored password or key.
+	/// </summary>
+	public bool ShowSecretField => !_isEditMode || _canManageSecrets;
 
 	public IReadOnlyList<UserOption> OwnerOptions { get; }
 
@@ -259,6 +295,20 @@ public sealed partial class CredentialFormViewModel : ObservableObject
 	public bool IsSystemUser => Kind == "SystemUser";
 
 	public bool IsServiceAccount => Kind == "ServiceAccount";
+
+	/// <summary>Password auth → a masked single-line secret field.</summary>
+	public bool IsPasswordAuth => AuthMethod == "Password";
+
+	/// <summary>SSH-key auth → a multi-line (text-area) secret field, not masked.</summary>
+	public bool IsSshKeyAuth => AuthMethod == "SshKey";
+
+	partial void OnAuthMethodChanged(string value)
+	{
+		OnPropertyChanged(nameof(IsPasswordAuth));
+		OnPropertyChanged(nameof(IsSshKeyAuth));
+		// A password and an SSH key aren't interchangeable text — start the field fresh.
+		SecretValue = string.Empty;
+	}
 
 	partial void OnKindChanged(string value)
 	{
@@ -297,7 +347,7 @@ public sealed partial class CredentialFormViewModel : ObservableObject
 			return false;
 		}
 
-		if (string.IsNullOrEmpty(SecretValue))
+		if (ShowSecretField && string.IsNullOrEmpty(SecretValue))
 		{
 			error = "Enter a password or SSH private key for the credential.";
 			return false;
@@ -335,7 +385,7 @@ public sealed partial class CredentialFormViewModel : ObservableObject
 }
 
 /// <summary>One server row: its identity/network details, plus the inline "add credential" form.</summary>
-public sealed partial class ServerRowViewModel : ObservableObject
+public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDeletable
 {
 	private readonly Guid _serverId;
 	private readonly IIrisApiClient _api;
@@ -350,7 +400,7 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		_serverId = server.Id;
 		_api = api;
 		_parent = parent;
-		AddCredentialForm = new CredentialFormViewModel(ownerOptions);
+		AddCredentialForm = parent.NewCredentialForm(isEdit: false);
 		Credentials = new ObservableCollection<CredentialRowViewModel>(
 			server.Credentials.Select(c => new CredentialRowViewModel(c, this)));
 		ApplyFrom(server);
@@ -402,8 +452,21 @@ public sealed partial class ServerRowViewModel : ObservableObject
 
 	// ----- Edit / delete -----
 
-	/// <summary>Raised after the server is saved or deleted so its edit dialog window can close.</summary>
+	/// <summary>Raised after the server is saved so its edit dialog window can close.</summary>
 	public event EventHandler? EditCompleted;
+
+	/// <summary>Raised after the server is deleted so the confirm-delete window can close.</summary>
+	public event EventHandler? DeleteCompleted;
+
+	/// <summary>Raised from the edit dialog to close it before the confirm-delete window opens.</summary>
+	public event EventHandler? DeleteRequested;
+
+	string IConfirmDeletable.DeleteDialogTitle => "Delete server";
+
+	string IConfirmDeletable.DeleteDialogPrompt =>
+		"This permanently removes the server and purges every stored credential secret. It cannot be undone.";
+
+	string IConfirmDeletable.DeleteTargetName => Name;
 
 	[ObservableProperty] private string _editName = string.Empty;
 	[ObservableProperty] private string _editHostname = string.Empty;
@@ -431,9 +494,42 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		DeleteCommand.NotifyCanExecuteChanged();
 	}
 
+	// ----- Concurrent-edit lock -----
+
+	private const string LockResource = "server";
+	private const int HeartbeatSeconds = 45;
+	private CancellationTokenSource? _heartbeatCts;
+
+	[ObservableProperty] private string? _editLockNotice;
+
+	/// <summary>Set when someone else holds the edit lock — the row shows it and the editor stays shut.</summary>
+	public bool HasEditLockNotice => !string.IsNullOrEmpty(EditLockNotice);
+
+	partial void OnEditLockNoticeChanged(string? value) => OnPropertyChanged(nameof(HasEditLockNotice));
+
 	[RelayCommand]
-	private void OpenEdit()
+	private async Task OpenEditAsync()
 	{
+		EditLockNotice = null;
+		EditError = null;
+
+		try
+		{
+			var slot = await _api.AcquireEditLockAsync(LockResource, _serverId);
+			if (!slot.Mine)
+			{
+				EditLockNotice = $"{slot.HolderDisplayName} is editing this server right now — try again in a moment.";
+				return;
+			}
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditLockNotice = ex.Message;
+			return;
+		}
+
+		StartHeartbeat();
+
 		EditName = Name;
 		EditHostname = Hostname ?? string.Empty;
 		EditOs = Os;
@@ -442,8 +538,74 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		EditPublicIp = PublicIpAddress ?? string.Empty;
 		EditPrivateIp = PrivateIpAddress ?? string.Empty;
 		DeleteConfirmName = string.Empty;
-		EditError = null;
 		_parent.RaiseEditRequested(this);
+	}
+
+	private void StartHeartbeat()
+	{
+		_heartbeatCts?.Cancel();
+		var cts = new CancellationTokenSource();
+		_heartbeatCts = cts;
+		_ = HeartbeatAsync(cts.Token);
+	}
+
+	private async Task HeartbeatAsync(CancellationToken token)
+	{
+		try
+		{
+			using var timer = new PeriodicTimer(TimeSpan.FromSeconds(HeartbeatSeconds));
+			while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+			{
+				try
+				{
+					await _api.AcquireEditLockAsync(LockResource, _serverId, token).ConfigureAwait(false);
+				}
+				catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+				{
+					// A dropped heartbeat just lets the lock lapse sooner; nothing to surface.
+				}
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// editor closed
+		}
+	}
+
+	/// <summary>Called by the edit dialog as it closes: stop the heartbeat and release the lock.</summary>
+	public void NotifyEditorClosed()
+	{
+		if (_heartbeatCts is null)
+		{
+			return;
+		}
+
+		_heartbeatCts.Cancel();
+		_heartbeatCts.Dispose();
+		_heartbeatCts = null;
+		_ = SafeReleaseLockAsync();
+	}
+
+	private async Task SafeReleaseLockAsync()
+	{
+		try
+		{
+			await _api.ReleaseEditLockAsync(LockResource, _serverId).ConfigureAwait(false);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			// The lock will expire on its own if the release didn't land.
+		}
+	}
+
+	/// <summary>From the edit dialog: close it and hand off to the dedicated confirm-delete window.</summary>
+	[RelayCommand]
+	private void RequestDelete()
+	{
+		DeleteConfirmName = string.Empty;
+		EditError = null;
+		DeleteRequested?.Invoke(this, EventArgs.Empty);
+		_parent.RaiseDeleteRequested(this);
 	}
 
 	[RelayCommand]
@@ -501,7 +663,7 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		{
 			await _api.DeleteServerAsync(_serverId);
 			_parent.RemoveRow(this);
-			EditCompleted?.Invoke(this, EventArgs.Empty);
+			DeleteCompleted?.Invoke(this, EventArgs.Empty);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{

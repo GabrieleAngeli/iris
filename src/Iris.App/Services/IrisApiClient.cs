@@ -31,6 +31,12 @@ public interface IIrisApiClient
 
 	Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
+	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Adds an environment/context to a customer. Requires <c>governance.customers.manage</c>.</summary>
+	Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default);
+
 	Task<IReadOnlyList<RoleResponse>> GetRolesAsync(CancellationToken cancellationToken = default);
 
 	Task<IReadOnlyList<string>> GetPermissionsAsync(CancellationToken cancellationToken = default);
@@ -46,6 +52,15 @@ public interface IIrisApiClient
 
 	/// <summary>Deletes a user and their role assignments. Requires <c>governance.assignments.manage</c>.</summary>
 	Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Mints a one-time invitation link for a user (supersedes any earlier one). Requires <c>governance.assignments.manage</c>.</summary>
+	Task<InvitationResponse> IssueUserInvitationAsync(Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Takes or refreshes the advisory edit lock on a resource; also the editor heartbeat.</summary>
+	Task<EditLockResponse> AcquireEditLockAsync(string resourceType, Guid resourceId, CancellationToken cancellationToken = default);
+
+	/// <summary>Releases an edit lock. <paramref name="force"/> requires <c>platform.admin</c>.</summary>
+	Task ReleaseEditLockAsync(string resourceType, Guid resourceId, bool force = false, CancellationToken cancellationToken = default);
 
 	/// <summary>Grants <paramref name="userId"/> a role at a scope. Requires <c>governance.assignments.manage</c>.</summary>
 	Task<AssignmentResponse> AssignRoleAsync(Guid userId, AssignRoleRequest request, CancellationToken cancellationToken = default);
@@ -102,6 +117,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<CustomerSummaryResponse>("/customers", cancellationToken);
 
+	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);
+
+	public Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ContextSummaryResponse>($"/customers/{customerId}/contexts", request, cancellationToken);
+
 	public Task<IReadOnlyList<RoleResponse>> GetRolesAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<RoleResponse>("/governance/roles", cancellationToken);
 
@@ -119,6 +140,15 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
 		DeleteAsync($"/governance/users/{userId}", cancellationToken);
+
+	public Task<InvitationResponse> IssueUserInvitationAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<InvitationResponse>(HttpMethod.Post, $"/governance/users/{userId}/invitation", cancellationToken);
+
+	public Task<EditLockResponse> AcquireEditLockAsync(string resourceType, Guid resourceId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<EditLockResponse>(HttpMethod.Post, $"/locks/{resourceType}/{resourceId}", cancellationToken);
+
+	public Task ReleaseEditLockAsync(string resourceType, Guid resourceId, bool force = false, CancellationToken cancellationToken = default) =>
+		DeleteAsync($"/locks/{resourceType}/{resourceId}{(force ? "?force=true" : string.Empty)}", cancellationToken);
 
 	public Task<AssignmentResponse> AssignRoleAsync(Guid userId, AssignRoleRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<AssignmentResponse>($"/governance/users/{userId}/assignments", request, cancellationToken);
@@ -163,6 +193,17 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	private async Task<T> SendAsync<T>(HttpMethod method, string path, object body, CancellationToken cancellationToken)
 	{
 		using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+		Authenticate(request);
+
+		using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+		await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+
+		return (await response.Content.ReadFromJsonAsync<T>(cancellationToken).ConfigureAwait(false))!;
+	}
+
+	private async Task<T> SendNoBodyAsync<T>(HttpMethod method, string path, CancellationToken cancellationToken)
+	{
+		using var request = new HttpRequestMessage(method, path);
 		Authenticate(request);
 
 		using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);

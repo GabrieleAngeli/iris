@@ -34,6 +34,10 @@ public static class DependencyInjection
         services.TryAddScoped<CreateUserHandler>();
         services.TryAddScoped<UpdateUserHandler>();
         services.TryAddScoped<DeleteUserHandler>();
+        services.TryAddScoped<IssueUserInvitationHandler>();
+        services.TryAddScoped<AcquireEditLockHandler>();
+        services.TryAddScoped<ReleaseEditLockHandler>();
+        services.TryAddScoped<GetEditLockHandler>();
         services.TryAddScoped<AssignRoleHandler>();
         services.TryAddScoped<RevokeRoleHandler>();
 

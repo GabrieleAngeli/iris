@@ -90,6 +90,11 @@
                             <Button Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//users" />
                         </Grid>
+                        <Grid>
+                            <Label Text="Customers" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                            <Button Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//customers" />
+                        </Grid>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding CanManageInfrastructure}">
@@ -144,6 +149,9 @@
     <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
     <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
         <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Customers" Route="customers" FlyoutItemIsVisible="False">
+        <ShellContent Title="Customers" ContentTemplate="{DataTemplate views:CustomersPage}" />
     </FlyoutItem>
     <FlyoutItem Title="Servers" Route="servers" FlyoutItemIsVisible="False">
         <ShellContent Title="Servers" ContentTemplate="{DataTemplate views:ServersPage}" />

@@ -22,7 +22,10 @@ public partial class ServersPage : ContentPage
 			await _dialogs.ShowAsync(new AddCredentialDialog(row), "dlg.add-credential", 560, 640);
 
 		_vm.EditServerRequested += async (_, row) =>
-			await _dialogs.ShowAsync(new EditServerDialog(row), "dlg.edit-server", 660, 760);
+			await _dialogs.ShowAsync(new EditServerDialog(row), "dlg.edit-server", 660, 640);
+
+		_vm.DeleteServerRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new ConfirmDeleteDialog(row), "dlg.confirm-delete", 460, 340);
 	}
 
 	protected override void OnAppearing()

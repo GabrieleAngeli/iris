@@ -65,6 +65,9 @@
                                         </HorizontalStackLayout>
                                     </Grid>
 
+                                    <Label Text="{Binding EditLockNotice}" IsVisible="{Binding HasEditLockNotice}"
+                                           Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+
                                     <!-- ===== Current assignments ===== -->
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Assignments}">
                                         <BindableLayout.ItemTemplate>

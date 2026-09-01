@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Application.Access;
 using Iris.Domain.Access;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Tenancy;
@@ -17,6 +18,10 @@ internal sealed class FakeStore
     public List<Customer> Customers { get; } = [];
 
     public List<ServerNode> Servers { get; } = [];
+
+    public List<UserInvitation> Invitations { get; } = [];
+
+    public List<EditLock> EditLocks { get; } = [];
 
     public Dictionary<string, string> SecretsByReference { get; } = [];
 
@@ -65,6 +70,74 @@ internal sealed class FakeStore
     public FakeServerRepository ServerRepository => new(this);
 
     public FakeSecretStore SecretStore => new(this);
+
+    public FakeUserInvitationRepository UserInvitationRepository => new(this);
+
+    public FakeEditLockRepository EditLockRepository => new(this);
+
+    /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
+    public UserAccessService AccessService => new(UserRepository, RoleAssignmentRepository, RoleRepository);
+}
+
+/// <summary>Mutable clock so tests can step time forward to expire locks and invitations.</summary>
+internal sealed class FakeClock(DateTimeOffset now) : IClock
+{
+    public DateTimeOffset UtcNow { get; set; } = now;
+
+    public void Advance(TimeSpan by) => UtcNow = UtcNow.Add(by);
+}
+
+internal sealed class FakeUserInvitationRepository(FakeStore store) : IUserInvitationRepository
+{
+    public Task AddAsync(UserInvitation invitation, CancellationToken cancellationToken = default)
+    {
+        store.Invitations.Add(invitation);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<UserInvitation>> GetForUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<UserInvitation>>(store.Invitations.Where(i => i.UserId == userId).ToList());
+
+    public Task<UserInvitation?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Invitations.SingleOrDefault(i => i.TokenHash == tokenHash));
+
+    public void Remove(UserInvitation invitation) => store.Invitations.Remove(invitation);
+}
+
+internal sealed class FakeEditLockRepository(FakeStore store) : IEditLockRepository
+{
+    public Task<EditLock?> FindAsync(
+        string resourceType,
+        Guid resourceId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.EditLocks
+            .SingleOrDefault(l => l.ResourceType == resourceType && l.ResourceId == resourceId));
+
+    public Task AddAsync(EditLock editLock, CancellationToken cancellationToken = default)
+    {
+        store.EditLocks.Add(editLock);
+        return Task.CompletedTask;
+    }
+
+    public void Remove(EditLock editLock) => store.EditLocks.Remove(editLock);
+}
+
+internal sealed class StubInvitationLinkBuilder : IInvitationLinkBuilder
+{
+    public string BuildAcceptLink(string rawToken) => $"https://iris.test/invitations/accept?token={rawToken}";
+}
+
+internal sealed class RecordingInvitationNotifier : IInvitationNotifier
+{
+    public List<InvitationNotification> Sent { get; } = [];
+
+    public Task SendAsync(InvitationNotification notification, CancellationToken cancellationToken = default)
+    {
+        Sent.Add(notification);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeUnitOfWork(FakeStore store) : IUnitOfWork

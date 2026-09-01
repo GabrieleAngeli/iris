@@ -162,6 +162,72 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
         Assert.DoesNotContain(users!, u => u.Id == user.Id);
     }
 
+    [Fact]
+    public async Task Admin_can_issue_an_invitation_link_and_reader_cannot()
+    {
+        var admin = Admin();
+        var email = $"invite-{Guid.NewGuid():N}@customer.example";
+        var create = await admin.PostAsJsonAsync("/governance/users", new { email, displayName = "Invitee" });
+        var user = await create.Content.ReadFromJsonAsync<UserDto>();
+
+        var issue = await admin.PostAsync($"/governance/users/{user!.Id}/invitation", null);
+        Assert.Equal(HttpStatusCode.OK, issue.StatusCode);
+        var invitation = await issue.Content.ReadFromJsonAsync<InvitationDto>();
+        Assert.NotNull(invitation);
+        Assert.NotEmpty(invitation!.Token);
+        Assert.Contains(invitation.Token, invitation.AcceptLink, StringComparison.Ordinal);
+        Assert.True(invitation.ExpiresAtUtc > DateTimeOffset.UtcNow);
+
+        // re-issuing gives a different token
+        var again = await admin.PostAsync($"/governance/users/{user.Id}/invitation", null);
+        var reissued = await again.Content.ReadFromJsonAsync<InvitationDto>();
+        Assert.NotEqual(invitation.Token, reissued!.Token);
+
+        // unknown user -> 404
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await admin.PostAsync($"/governance/users/{Guid.NewGuid()}/invitation", null)).StatusCode);
+
+        // reader is not allowed
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Reader().PostAsync($"/governance/users/{user.Id}/invitation", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Edit_locks_coordinate_two_operators()
+    {
+        var admin = Admin();
+        var reader = Reader();
+        var resource = Guid.NewGuid();
+
+        var mine = await admin.PostAsync($"/locks/user/{resource}", null);
+        Assert.Equal(HttpStatusCode.OK, mine.StatusCode);
+        var acquired = await mine.Content.ReadFromJsonAsync<LockDto>();
+        Assert.True(acquired!.Mine);
+
+        // the other operator sees it held, and cannot steal it
+        var seen = await reader.GetFromJsonAsync<LockDto>($"/locks/user/{resource}");
+        Assert.False(seen!.Mine);
+        Assert.Equal("Iris Platform Admin", seen.HolderDisplayName);
+
+        var readerTry = await reader.PostAsync($"/locks/user/{resource}", null);
+        Assert.False((await readerTry.Content.ReadFromJsonAsync<LockDto>())!.Mine);
+
+        // the other operator cannot release it without force
+        Assert.Equal(HttpStatusCode.Conflict, (await reader.DeleteAsync($"/locks/user/{resource}")).StatusCode);
+
+        // the holder releases it and the resource is free again
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/locks/user/{resource}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.GetAsync($"/locks/user/{resource}")).StatusCode);
+
+        // unknown resource type -> 400
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsync($"/locks/widget/{resource}", null)).StatusCode);
+    }
+
+    private sealed record InvitationDto(
+        Guid UserId, string Email, string DisplayName, string Token, string AcceptLink, DateTimeOffset ExpiresAtUtc);
+
+    private sealed record LockDto(string ResourceType, Guid ResourceId, bool Mine, string HolderDisplayName);
+
     private sealed record CustomerDto(Guid Id, string Key, string Name);
 
     private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<object> Assignments);

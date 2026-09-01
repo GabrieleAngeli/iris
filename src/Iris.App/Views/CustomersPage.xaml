@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.CustomersPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    x:DataType="vm:CustomersViewModel"
+    Title="Customers">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Customers" Style="{StaticResource TitleLarge}" />
+                        <Label Text="Every customer tenant and the environments (contexts) defined under it." Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
+                    <Button Grid.Column="2" Text="New customer" Command="{Binding RequestNewCustomerCommand}"
+                            IsVisible="{Binding CanManageCustomers}" VerticalOptions="Start" />
+                </Grid>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Customers}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CustomerRowViewModel">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="14">
+
+                                    <!-- ===== Customer header ===== -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0" StrokeShape="RoundRectangle 19"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}">
+                                            <Label Text="&#xE716;" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Key}" Style="{StaticResource Caption}" /></Border>
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                    <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                </Border>
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Contexts.Count, StringFormat='{0} environment(s)'}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                            <Button Text="&#xE710;" Style="{StaticResource IconButton}"
+                                                    Command="{Binding OpenAddContextCommand}"
+                                                    IsVisible="{Binding CanManageCustomers}"
+                                                    ToolTipProperties.Text="Add an environment / context" />
+                                        </HorizontalStackLayout>
+                                    </Grid>
+
+                                    <!-- ===== Contexts ===== -->
+                                    <Label Text="No environments defined yet." Style="{StaticResource Caption}"
+                                           IsVisible="{Binding HasNoContexts}" />
+
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Contexts}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ContextRowViewModel">
+                                                <Grid ColumnDefinitions="*,Auto" Padding="0,6" ColumnSpacing="8">
+                                                    <HorizontalStackLayout Spacing="8">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource Body}" FontAttributes="Bold" VerticalOptions="Center" />
+                                                        <Border Style="{StaticResource Badge}" VerticalOptions="Center">
+                                                            <Label Text="{Binding Kind}" Style="{StaticResource Caption}" />
+                                                        </Border>
+                                                    </HorizontalStackLayout>
+                                                    <Label Grid.Column="1" Text="Inactive" Style="{StaticResource Caption}"
+                                                           VerticalOptions="Center"
+                                                           IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading customers…" />
+    </Grid>
+
+</ContentPage>

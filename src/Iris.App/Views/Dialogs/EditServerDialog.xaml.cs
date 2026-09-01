@@ -12,6 +12,7 @@ public partial class EditServerDialog : ContentPage
 		InitializeComponent();
 		BindingContext = _row = row;
 		_row.EditCompleted += OnCompleted;
+		_row.DeleteRequested += OnCompleted;
 		Unloaded += (_, _) => Detach();
 	}
 
@@ -19,7 +20,12 @@ public partial class EditServerDialog : ContentPage
 
 	private void OnCancel(object? sender, EventArgs e) => Close();
 
-	private void Detach() => _row.EditCompleted -= OnCompleted;
+	private void Detach()
+	{
+		_row.EditCompleted -= OnCompleted;
+		_row.DeleteRequested -= OnCompleted;
+		_row.NotifyEditorClosed();
+	}
 
 	private void Close()
 	{

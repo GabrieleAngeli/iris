@@ -102,11 +102,20 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <VerticalStackLayout Spacing="4">
-                            <Label Text="Password or SSH private key" Style="{StaticResource Caption}" />
-                            <Border Style="{StaticResource FieldBorder}">
-                                <Entry Text="{Binding SecretValue}" IsPassword="True" Placeholder="Stored in the secret store — never shown again" />
-                            </Border>
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding ShowSecretField}">
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsPasswordAuth}">
+                                <Label Text="Password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding SecretValue}" IsPassword="True" Placeholder="Stored in the secret store — never shown again" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsSshKeyAuth}">
+                                <Label Text="SSH private key" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="150">
+                                    <Editor Text="{Binding SecretValue}" AutoSize="TextChanges" HeightRequest="140"
+                                            Placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…&#10;-----END OPENSSH PRIVATE KEY-----" />
+                                </Border>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="4">

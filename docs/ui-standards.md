@@ -153,6 +153,19 @@ border shows. **Always** use:
 `Picker` / `DatePicker` / `Switch` / `CheckBox` are used bare (styled by implicit
 styles: accent `OnColor` / `Color`, transparent background).
 
+**Secret fields** (server credential form) adapt to the chosen auth method and to
+the operator's role:
+
+- **Password** → single-line `Entry` with `IsPassword="True"` (masked).
+- **SSH key** → multi-line `Editor` (`AutoSize="TextChanges"`, ~140 px) in a
+  `FieldBorder` — never masked; a key is pasted and needs to be readable.
+- Switching auth method clears the field (a password and a key aren't the same text).
+- The secret input is always shown when **creating** a credential. When **editing**
+  an existing one it is hidden unless the caller holds
+  **`infrastructure.secrets.manage`** (lead role — seeded on `platform-admin` and
+  `customer-admin`); only they may rotate the stored password/key. Gate:
+  `CredentialFormViewModel.ShowSecretField`.
+
 ### Badge / pill
 
 `Badge` — `Secondary`/`SubtleFillDark` fill, radius 10, `Padding 10,3`, `Caption`
@@ -197,7 +210,8 @@ glyph with the `Icon` label style inside a coloured circle
 ## 7. Dialogs — real modal windows
 
 Secondary flows (**New server**, **Edit server**, **Add credential**, **New user**,
-**Edit user**, **Assign a role**) are **separate top-level OS windows**, not in-page
+**Edit user**, **Assign a role**, **Confirm deletion**, **Send invitation**,
+**New customer**, **Add context**) are **separate top-level OS windows**, not in-page
 panels.
 
 **Mechanics** (`IDialogService.ShowAsync` → `NativeWindowConfigurator`):
@@ -232,15 +246,36 @@ Grid RowDefinitions="*,Auto"          ← page background = AppBackground
 - The VM command does the API call; on success it raises **`…Completed`**; the dialog
   page subscribes and closes its window. Cancel and the native ✕ also close it (the
   page unsubscribes on `Unloaded`, and close is idempotent).
-- Creating an entity chains into its next dialog (server → add credential, user →
-  assign role) via `MainThread.BeginInvokeOnMainThread` so one window finishes
-  closing before the next opens.
+- One dialog hands off to the next via `MainThread.BeginInvokeOnMainThread`, so the
+  first window finishes closing before the second opens: creating an entity chains
+  into its setup dialog (server → add credential, user → assign role); the edit
+  dialog hands off to **confirm-delete**, **assign a role**, or **send invitation**.
 
-**Destructive actions** live in a **danger zone**: a `Border` with
-`#FDF3F3`/`#2A1E1E` fill and `#F1BBBB`/`#7A3B38` stroke, a `Danger` title, and a
-**type-to-confirm** gate — the Delete button is `IsEnabled` only when the operator
-types the entity's exact name (`ViewModel.CanDelete` compares `DeleteConfirmName` to
-`Name` ordinally). On success the row is removed from its list and the dialog closes.
+**Destructive actions** are their **own confirmation window**, not an inline panel.
+The edit dialog carries a `LinkButton` in `Danger` colour ("Delete this user…"); it
+raises **`DeleteRequested`** which closes the edit window, then the page opens
+**`ConfirmDeleteDialog`** on the next UI tick. That dialog is bound through the
+`IConfirmDeletable` interface (implemented by `UserRowViewModel` and
+`ServerRowViewModel`) and gates its Delete button with **type-to-confirm** — enabled
+only when `DeleteConfirmName` equals the entity's exact name ordinally
+(`CanDelete`). On success the row is removed from its list and `DeleteCompleted`
+closes the window. Same interface, same window for both users and servers.
+
+**Concurrent edit locks.** Opening any edit window first calls
+`POST /locks/{type}/{id}` (`AcquireEditLockAsync`). If `Mine` is false the window
+does **not** open — the row shows a `Warning`-coloured caption
+("*X is editing this … right now*"). While the window is open the VM heartbeats the
+lock every 45 s (TTL is 2 min server-side); on close (`NotifyEditorClosed`, called
+from the dialog's `Detach`) it cancels the heartbeat and `DELETE`s the lock.
+Locks are advisory — the PUT itself is not lock-checked — and lapse on their own if
+a client disappears. `platform.admin` may `DELETE …?force=true`.
+
+**Invitations.** The edit-user dialog's "Send invitation…" button raises
+`InviteRequested` (closes the edit window) → the page opens **`InvitationDialog`**.
+It calls `POST /governance/users/{id}/invitation`, shows the one-time link in a
+read-only `Editor` with **Copy link**, and an expiry caption. The link/token is
+returned once (Iris stores only a SHA-256 hash); re-generating supersedes the
+previous link. Delivery is otherwise a stub (`IInvitationNotifier` logs it).
 
 ---
 
@@ -298,7 +333,8 @@ FlyoutHeader
   └── Account strip  — LayerAlt; initials avatar + display name + email  (AppShellViewModel)
 
 FlyoutContent  (sections; a "Section" header is Semibold 12, TextSecondary, Padding 20,18,20,6)
-  ├── Governance      [visible when CanManageUsers]           → Users            (//users)
+  ├── Governance      [visible when CanManageUsers]           → Users            (//users),
+  │                                                             Customers        (//customers)
   ├── Infrastructure  [visible when CanManageInfrastructure]  → Servers          (//servers)
   └── Workspace                                               → Dashboard (//dashboard),
                                                                 Access (//access),
@@ -334,9 +370,9 @@ The project brief's operator navigation is the destination:
 Overview · Infrastructure · Applications · Deployments · Actions · Governance
 ```
 
-Today's flyout is an early slice: **Governance → Users**, **Infrastructure → Servers**,
-plus a `Workspace` group carrying the template's Dashboard/Access/Components while the
-real sections are built. When adding a section:
+Today's flyout is an early slice: **Governance → Users / Customers**,
+**Infrastructure → Servers**, plus a `Workspace` group carrying the template's
+Dashboard/Access/Components while the real sections are built. When adding a section:
 
 1. Add its pages under `Views/`, routes as hidden `FlyoutItem`s in `AppShell.xaml`.
 2. Add a section + rows to `Shell.FlyoutContentTemplate`, following the

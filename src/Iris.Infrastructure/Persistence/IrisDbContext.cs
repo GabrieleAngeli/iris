@@ -9,6 +9,10 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 {
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
+
+    public DbSet<EditLock> EditLocks => Set<EditLock>();
+
     public DbSet<Role> Roles => Set<Role>();
 
     public DbSet<RoleAssignment> RoleAssignments => Set<RoleAssignment>();

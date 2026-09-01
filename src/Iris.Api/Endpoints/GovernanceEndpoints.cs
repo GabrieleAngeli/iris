@@ -65,6 +65,20 @@ public static class GovernanceEndpoints
             .WithSummary("Delete a user and their role assignments.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
 
+        governance.MapPost("/users/{userId:guid}/invitation", async (
+                Guid userId,
+                IssueUserInvitationHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new IssueUserInvitationCommand(userId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("IssueUserInvitation")
+            .WithSummary("Mint a one-time invitation link for a user; supersedes any earlier one.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
+
         governance.MapPost("/users/{userId:guid}/assignments", async (
                 Guid userId,
                 AssignRoleRequest body,
@@ -94,6 +108,55 @@ public static class GovernanceEndpoints
             .WithName("RevokeRole")
             .WithSummary("Remove a role assignment from a user.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
+
+        // ----- Advisory edit locks -----
+        var locks = app.MapGroup("/locks").WithTags("Edit locks");
+
+        locks.MapGet("/{resourceType}/{resourceId:guid}", async (
+                string resourceType,
+                Guid resourceId,
+                GetEditLockHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new GetEditLockQuery(resourceType, resourceId), ct)
+                    .ConfigureAwait(false);
+                return result is null ? Results.NoContent() : Results.Ok(result);
+            })
+            .WithName("GetEditLock")
+            .WithSummary("Who, if anyone, is currently editing a resource.")
+            .RequireAuthorization();
+
+        locks.MapPost("/{resourceType}/{resourceId:guid}", async (
+                string resourceType,
+                Guid resourceId,
+                AcquireEditLockHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new AcquireEditLockCommand(resourceType, resourceId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("AcquireEditLock")
+            .WithSummary("Take or refresh the advisory lock on a resource (also the editor heartbeat).")
+            .RequireAuthorization();
+
+        locks.MapDelete("/{resourceType}/{resourceId:guid}", async (
+                string resourceType,
+                Guid resourceId,
+                bool? force,
+                ReleaseEditLockHandler handler,
+                CancellationToken ct) =>
+            {
+                await handler
+                    .HandleAsync(new ReleaseEditLockCommand(resourceType, resourceId, force ?? false), ct)
+                    .ConfigureAwait(false);
+                return Results.NoContent();
+            })
+            .WithName("ReleaseEditLock")
+            .WithSummary("Release the lock you hold on a resource (platform admins may force with ?force=true).")
+            .RequireAuthorization();
 
         // ----- Tenancy management -----
         var customers = app.MapGroup("/customers").WithTags("Customers");

@@ -49,7 +49,10 @@ internal static class SeedData
             "platform-admin",
             "Platform Administrator",
             "Full control over every customer, context and governance setting.",
-            [Permissions.PlatformAdmin]),
+            // Carries the platform.admin super-permission *and* every fine-grained code, so the
+            // permission list reads as complete everywhere (roles view, /me assignments) — not
+            // just as a single implied flag.
+            Permissions.All),
         new(
             CustomerAdminRoleId,
             "customer-admin",
@@ -58,6 +61,7 @@ internal static class SeedData
             [
                 Permissions.Overview.Read,
                 Permissions.Infrastructure.Read, Permissions.Infrastructure.Write, Permissions.Infrastructure.Delete,
+                Permissions.Infrastructure.SecretsManage,
                 Permissions.Applications.Read, Permissions.Applications.Write, Permissions.Applications.ImportKnowledge,
                 Permissions.Deployments.Read, Permissions.Deployments.Write, Permissions.Deployments.Validate,
                 Permissions.Deployments.Prepare,

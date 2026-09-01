@@ -72,6 +72,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<ComponentsViewModel>();
 		builder.Services.AddTransient<AccessViewModel>();
 		builder.Services.AddTransient<UsersViewModel>();
+		builder.Services.AddTransient<CustomersViewModel>();
 		builder.Services.AddTransient<ServersViewModel>();
 
 		// ---- Pages ----------------------------------------------
@@ -80,6 +81,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<ComponentsPage>();
 		builder.Services.AddTransient<AccessPage>();
 		builder.Services.AddTransient<UsersPage>();
+		builder.Services.AddTransient<CustomersPage>();
 		builder.Services.AddTransient<ServersPage>();
 
 #if DEBUG

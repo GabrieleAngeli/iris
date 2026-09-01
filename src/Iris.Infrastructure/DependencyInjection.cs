@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Infrastructure.Invitations;
 using Iris.Infrastructure.Persistence;
 using Iris.Infrastructure.Persistence.Interceptors;
 using Iris.Infrastructure.Persistence.Repositories;
@@ -54,7 +55,11 @@ public static class DependencyInjection
         services.AddScoped<IRoleAssignmentRepository, RoleAssignmentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IServerRepository, ServerRepository>();
+        services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
+        services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
+        services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();
+        services.TryAddScoped<IInvitationNotifier, LoggingInvitationNotifier>();
         services.AddScoped<IrisDbSeeder>();
 
         return services;

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.AddContextDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:CustomerRowViewModel"
+    Title="Add context">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="10">
+                <Label Text="{Binding Name, StringFormat='Add an environment to {0}.'}" Style="{StaticResource Caption}" />
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Name" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewContextName}" Placeholder="Production" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Kind" Style="{StaticResource Caption}" />
+                    <Picker ItemsSource="{Binding ContextKinds}" SelectedItem="{Binding NewContextKind}" />
+                </VerticalStackLayout>
+
+                <Label Text="{Binding ContextError}" IsVisible="{Binding HasContextError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsAddingContext}" IsVisible="{Binding IsAddingContext}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Add" Command="{Binding AddContextCommand}"
+                    IsEnabled="{Binding IsAddingContext, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>

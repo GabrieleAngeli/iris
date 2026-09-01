@@ -19,6 +19,9 @@ public static class Permissions
         public const string Read = "infrastructure.read";
         public const string Write = "infrastructure.write";
         public const string Delete = "infrastructure.delete";
+
+        /// <summary>Rotate/replace the secret behind a server credential (lead/manager only).</summary>
+        public const string SecretsManage = "infrastructure.secrets.manage";
     }
 
     public static class Applications
@@ -58,7 +61,7 @@ public static class Permissions
     public static readonly ImmutableArray<string> All =
     [
         Overview.Read,
-        Infrastructure.Read, Infrastructure.Write, Infrastructure.Delete,
+        Infrastructure.Read, Infrastructure.Write, Infrastructure.Delete, Infrastructure.SecretsManage,
         Applications.Read, Applications.Write, Applications.ImportKnowledge,
         Deployments.Read, Deployments.Write, Deployments.Validate, Deployments.Prepare,
         Actions.Read, Actions.Run,

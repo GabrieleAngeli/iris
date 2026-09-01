@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.InvitationDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:UserRowViewModel"
+    Title="Send invitation">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+
+                <Label Style="{StaticResource Body}"
+                       Text="{Binding DisplayName, StringFormat='Generate a one-time link {0} can use to reach Iris and sign in with their Microsoft 365 account.'}" />
+                <Label Style="{StaticResource Caption}"
+                       Text="The link is shown once — Iris keeps only a hash. Generating a new one invalidates the previous link." />
+
+                <Button Text="Generate invitation link" Command="{Binding IssueInviteCommand}"
+                        HorizontalOptions="Start"
+                        IsEnabled="{Binding IsInviteBusy, Converter={StaticResource InvertBoolConverter}}" />
+
+                <Label Text="{Binding InviteError}" IsVisible="{Binding HasInviteError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding HasInvitationLink}">
+                    <Label Text="Invitation link" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="90">
+                        <Editor Text="{Binding InvitationLink}" IsReadOnly="True" AutoSize="TextChanges" HeightRequest="80" />
+                    </Border>
+                    <Label Style="{StaticResource Caption}"
+                           Text="{Binding InvitationExpiresAt, StringFormat='Valid until {0:g} UTC'}" />
+                    <Button Text="Copy link" Command="{Binding CopyInvitationLinkCommand}"
+                            Style="{StaticResource SecondaryButton}" HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsInviteBusy}" IsVisible="{Binding IsInviteBusy}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Done" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+        </Grid>
+    </Grid>
+</ContentPage>
