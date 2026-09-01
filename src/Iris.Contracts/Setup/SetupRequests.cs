@@ -13,6 +13,12 @@ public sealed record MailProviderInput(
     string? FromDisplayName,
     bool EnableSsl);
 
+/// <summary>
+/// Body of <c>POST /setup/test-mail</c> — tries the given (not-necessarily-saved) settings by
+/// actually connecting and sending a real email to <see cref="TestRecipient"/>.
+/// </summary>
+public sealed record TestMailConnectionRequest(MailProviderInput Mail, string TestRecipient);
+
 /// <summary>Body of <c>POST /setup/complete</c> — the whole first-run wizard in one call.</summary>
 public sealed record CompleteSetupRequest(
     MailProviderInput Mail,

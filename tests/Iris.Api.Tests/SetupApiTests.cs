@@ -17,6 +17,44 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
     }
 
     [Fact]
+    public async Task Test_mail_connection_succeeds_with_the_fake_sender_and_validates_its_fields()
+    {
+        var anon = factory.CreateClient();
+
+        var ok = await anon.PostAsJsonAsync("/setup/test-mail", new
+        {
+            mail = new
+            {
+                smtpHost = "smtp.example.com",
+                smtpPort = 587,
+                smtpUsername = "no-reply",
+                smtpPassword = "s3cr3t",
+                fromAddress = "no-reply@example.com",
+                fromDisplayName = "Iris",
+                enableSsl = true,
+            },
+            testRecipient = "someone@example.com",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, ok.StatusCode);
+
+        var missingRecipient = await anon.PostAsJsonAsync("/setup/test-mail", new
+        {
+            mail = new
+            {
+                smtpHost = "smtp.example.com",
+                smtpPort = 587,
+                smtpUsername = (string?)null,
+                smtpPassword = (string?)null,
+                fromAddress = "no-reply@example.com",
+                fromDisplayName = (string?)null,
+                enableSsl = true,
+            },
+            testRecipient = "",
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, missingRecipient.StatusCode);
+    }
+
+    [Fact]
     public async Task Fresh_install_needs_setup_then_completes_and_cannot_run_twice()
     {
         // A brand new, isolated instance (own temp SQLite file) with demo seeding turned off —

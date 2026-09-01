@@ -24,6 +24,7 @@ public sealed class CompleteSetupHandler(
     IUserRepository users,
     IMailProviderSettingsRepository mailSettings,
     ISecretStore secretStore,
+    IEmailSender emailSender,
     IPasswordHasher passwordHasher,
     SessionIssuer sessionIssuer,
     IClock clock,
@@ -47,22 +48,7 @@ public sealed class CompleteSetupHandler(
             throw new ConflictException("Setup has already been completed.");
         }
 
-        var mail = command.Mail ?? throw new ValidationException("Mail provider settings are required.");
-        if (string.IsNullOrWhiteSpace(mail.SmtpHost))
-        {
-            throw new ValidationException("SMTP host is required.");
-        }
-
-        if (mail.SmtpPort is <= 0 or > 65535)
-        {
-            throw new ValidationException("SMTP port must be between 1 and 65535.");
-        }
-
-        if (string.IsNullOrWhiteSpace(mail.FromAddress))
-        {
-            throw new ValidationException("A \"from\" address is required.");
-        }
-
+        var mail = command.Mail;
         var email = command.AdminEmail?.Trim() ?? string.Empty;
         var displayName = command.AdminDisplayName?.Trim() ?? string.Empty;
         var password = command.AdminPassword ?? string.Empty;
@@ -80,6 +66,20 @@ public sealed class CompleteSetupHandler(
         if (password.Length < SetMyPasswordHandler.MinimumLength)
         {
             throw new ValidationException($"The password must be at least {SetMyPasswordHandler.MinimumLength} characters.");
+        }
+
+        // Verified for real — reachability, connection, a genuine test send — before anything
+        // about the mail settings (not even the secret) is persisted. The new admin's own
+        // address is the test recipient: a working mail setup and a real confirmation email,
+        // in one step, for someone who by definition can't have received an invitation for it.
+        var testRequest = TestMailConnectionHandler.BuildTestRequest(mail, email);
+        try
+        {
+            await emailSender.TestConnectionAsync(testRequest, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MailConnectionException ex)
+        {
+            throw new ValidationException(ex.Message);
         }
 
         string? passwordReference = null;

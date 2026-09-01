@@ -1,3 +1,4 @@
+using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Application.Common;
 using Iris.Application.Setup;
@@ -23,10 +24,13 @@ public sealed class SetupHandlerTests
         store.UserRepository,
         store.MailProviderSettingsRepository,
         store.SecretStore,
+        store.EmailSender,
         new FakePasswordHasher(),
         new SessionIssuer(store.UserSessionRepository, new FakeClock(Now)),
         new FakeClock(Now),
         store.UnitOfWork);
+
+    private static TestMailConnectionHandler TestMailHandler(FakeStore store) => new(store.EmailSender);
 
     private static MailProviderInput Mail(string? password = "s3cr3t") =>
         new("smtp.example.com", 587, "no-reply", password, "no-reply@example.com", "Iris", true);
@@ -72,7 +76,30 @@ public sealed class SetupHandlerTests
         Assert.NotNull(mail.SmtpPasswordSecretReference);
         Assert.Equal("s3cr3t", store.SecretsByReference[mail.SmtpPasswordSecretReference!]);
 
+        // verified for real — as the new admin's own address — before anything was saved
+        var tested = Assert.Single(store.EmailSender.TestedConnections);
+        Assert.Equal("admin@example.com", tested.TestRecipient);
+        Assert.Equal("smtp.example.com", tested.SmtpHost);
+
         Assert.False((await StatusHandler(store).HandleAsync(new GetSetupStatusQuery())).NeedsSetup);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_saves_nothing_when_the_mail_test_fails()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+        store.EmailSender.FailTestWith = new MailConnectionException(MailTestStage.Connect, "Could not reach smtp.example.com:587 — timed out");
+
+        await Assert.ThrowsAsync<ValidationException>(() => CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password")));
+
+        Assert.Empty(store.Users);
+        Assert.Empty(store.Assignments);
+        Assert.Empty(store.Sessions);
+        Assert.Empty(store.MailSettings);
+        Assert.Empty(store.SecretsByReference);
+        Assert.True((await StatusHandler(store).HandleAsync(new GetSetupStatusQuery())).NeedsSetup);
     }
 
     [Fact]
@@ -107,5 +134,45 @@ public sealed class SetupHandlerTests
             Mail(), "admin@example.com", "Admin", "short")));
 
         Assert.Empty(store.Users);
+    }
+
+    [Fact]
+    public async Task TestMailConnection_sends_a_real_test_email_to_the_given_recipient()
+    {
+        var store = new FakeStore();
+
+        await TestMailHandler(store).HandleAsync(new TestMailConnectionCommand(Mail(), "someone@example.com"));
+
+        var tested = Assert.Single(store.EmailSender.TestedConnections);
+        Assert.Equal("someone@example.com", tested.TestRecipient);
+        Assert.Equal("smtp.example.com", tested.SmtpHost);
+        Assert.Equal(587, tested.SmtpPort);
+    }
+
+    [Fact]
+    public async Task TestMailConnection_surfaces_a_staged_failure_as_a_validation_error()
+    {
+        var store = new FakeStore();
+        store.EmailSender.FailTestWith = new MailConnectionException(MailTestStage.Authenticate, "Connected, but authentication failed: bad credentials");
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() =>
+            TestMailHandler(store).HandleAsync(new TestMailConnectionCommand(Mail(), "someone@example.com")));
+
+        Assert.Contains("authentication failed", ex.Message);
+    }
+
+    [Fact]
+    public async Task TestMailConnection_validates_its_own_fields()
+    {
+        var store = new FakeStore();
+        var handler = TestMailHandler(store);
+
+        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(new TestMailConnectionCommand(
+            new MailProviderInput("", 587, null, null, "from@example.com", null, true), "someone@example.com")));
+
+        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(new TestMailConnectionCommand(
+            Mail(), "")));
+
+        Assert.Empty(store.EmailSender.TestedConnections);
     }
 }

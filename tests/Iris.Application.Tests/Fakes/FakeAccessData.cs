@@ -29,6 +29,8 @@ internal sealed class FakeStore
 
     public List<EditLock> EditLocks { get; } = [];
 
+    public FakeEmailSender EmailSender { get; } = new();
+
     public List<MailProviderSettings> MailSettings { get; } = [];
 
     public Dictionary<string, string> SecretsByReference { get; } = [];
@@ -149,6 +151,33 @@ internal sealed class FakeMailProviderSettingsRepository(FakeStore store) : IMai
     {
         store.MailSettings.Clear();
         store.MailSettings.Add(settings);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records every send/test call instead of touching real SMTP. Set <see cref="FailTestWith"/> to simulate a bad connection.</summary>
+internal sealed class FakeEmailSender : IEmailSender
+{
+    public List<EmailMessage> SentMessages { get; } = [];
+
+    public List<MailConnectionTestRequest> TestedConnections { get; } = [];
+
+    public MailConnectionException? FailTestWith { get; set; }
+
+    public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+    {
+        SentMessages.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public Task TestConnectionAsync(MailConnectionTestRequest request, CancellationToken cancellationToken = default)
+    {
+        TestedConnections.Add(request);
+        if (FailTestWith is not null)
+        {
+            throw FailTestWith;
+        }
+
         return Task.CompletedTask;
     }
 }

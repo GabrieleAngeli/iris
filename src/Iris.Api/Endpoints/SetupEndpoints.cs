@@ -15,6 +15,20 @@ public static class SetupEndpoints
             .WithSummary("Whether the first-run setup wizard (mail provider + super-admin) still needs to run.")
             .AllowAnonymous();
 
+        setup.MapPost("/test-mail", async (
+                TestMailConnectionRequest body,
+                TestMailConnectionHandler handler,
+                CancellationToken ct) =>
+            {
+                await handler
+                    .HandleAsync(new TestMailConnectionCommand(body.Mail, body.TestRecipient), ct)
+                    .ConfigureAwait(false);
+                return Results.NoContent();
+            })
+            .WithName("TestMailConnection")
+            .WithSummary("Tries mail settings before they're saved: connects and sends a real test email.")
+            .AllowAnonymous();
+
         setup.MapPost("/complete", async (
                 CompleteSetupRequest body,
                 CompleteSetupHandler handler,

@@ -24,22 +24,107 @@ internal sealed class SmtpEmailSender(IMailProviderSettingsRepository mailSettin
             password = await secretStore.RetrieveAsync(reference, cancellationToken).ConfigureAwait(false);
         }
 
-        var mime = new MimeMessage();
-        mime.From.Add(new MailboxAddress(settings.FromDisplayName ?? settings.FromAddress, settings.FromAddress));
-        mime.To.Add(MailboxAddress.Parse(message.To));
-        mime.Subject = message.Subject;
-        mime.Body = new TextPart(message.IsHtml ? "html" : "plain") { Text = message.Body };
+        using var client = new SmtpClient();
+        await ConnectAndAuthenticateAsync(
+            client, settings.SmtpHost, settings.SmtpPort, settings.EnableSsl,
+            settings.SmtpUsername, password, cancellationToken).ConfigureAwait(false);
+
+        var mime = BuildMessage(settings.FromAddress, settings.FromDisplayName, message.To, message.Subject, message.Body, message.IsHtml);
+
+        try
+        {
+            await client.SendAsync(mime, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await DisconnectQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public async Task TestConnectionAsync(MailConnectionTestRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
 
         using var client = new SmtpClient();
-        var secureOption = settings.EnableSsl ? SecureSocketOptions.Auto : SecureSocketOptions.None;
-        await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort, secureOption, cancellationToken).ConfigureAwait(false);
 
-        if (!string.IsNullOrEmpty(settings.SmtpUsername))
+        await ConnectAndAuthenticateAsync(
+            client, request.SmtpHost, request.SmtpPort, request.EnableSsl,
+            request.SmtpUsername, request.SmtpPassword, cancellationToken).ConfigureAwait(false);
+
+        var mime = BuildMessage(
+            request.FromAddress, request.FromDisplayName, request.TestRecipient,
+            "Iris — mail settings test", "This is a test email from Iris confirming your SMTP settings work.", isHtml: false);
+
+        try
         {
-            await client.AuthenticateAsync(settings.SmtpUsername, password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+            await client.SendAsync(mime, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new MailConnectionException(MailTestStage.Send, $"Connected, but sending the test email failed: {ex.Message}");
+        }
+        finally
+        {
+            await DisconnectQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Reachability + the SMTP/TLS handshake, then authentication if credentials are given.</summary>
+    private static async Task ConnectAndAuthenticateAsync(
+        SmtpClient client,
+        string host,
+        int port,
+        bool enableSsl,
+        string? username,
+        string? password,
+        CancellationToken cancellationToken)
+    {
+        var secureOption = enableSsl ? SecureSocketOptions.Auto : SecureSocketOptions.None;
+
+        try
+        {
+            await client.ConnectAsync(host, port, secureOption, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new MailConnectionException(MailTestStage.Connect, $"Could not reach {host}:{port} — {ex.Message}");
         }
 
-        await client.SendAsync(mime, cancellationToken).ConfigureAwait(false);
-        await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(username))
+        {
+            return;
+        }
+
+        try
+        {
+            await client.AuthenticateAsync(username, password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new MailConnectionException(MailTestStage.Authenticate, $"Connected, but authentication failed: {ex.Message}");
+        }
+    }
+
+    private static MimeMessage BuildMessage(
+        string fromAddress, string? fromDisplayName, string to, string subject, string body, bool isHtml)
+    {
+        var mime = new MimeMessage();
+        mime.From.Add(new MailboxAddress(fromDisplayName ?? fromAddress, fromAddress));
+        mime.To.Add(MailboxAddress.Parse(to));
+        mime.Subject = subject;
+        mime.Body = new TextPart(isHtml ? "html" : "plain") { Text = body };
+        return mime;
+    }
+
+    private static async Task DisconnectQuietlyAsync(SmtpClient client, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort — the send (or its failure) already happened either way.
+        }
     }
 }

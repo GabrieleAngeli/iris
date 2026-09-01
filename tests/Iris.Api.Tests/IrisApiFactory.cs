@@ -1,6 +1,9 @@
+using Iris.Application.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Iris.Api.Tests;
@@ -42,6 +45,13 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
                 ["Iris:Auth:DevUsers:1:Name"] = "Giovanni Neri",
                 ["Iris:Auth:DevUsers:1:ObjectId"] = "11111111-1111-1111-1111-111111111105",
             });
+        });
+
+        // Real SMTP has no place in an automated test run — /setup/complete and
+        // /setup/test-mail now genuinely try to send mail; swap in an always-succeeding fake.
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IEmailSender, FakeEmailSender>();
         });
     }
 

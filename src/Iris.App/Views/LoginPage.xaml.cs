@@ -14,31 +14,53 @@ public partial class LoginPage : ContentPage
 		vm.AcceptInvitationRequested += async (_, _) => await Shell.Current.GoToAsync("//accept-invitation");
 	}
 
+	/// <summary>
+	/// How many times to retry the setup-status check on a connection failure, and how long to
+	/// wait between attempts — smooths over the well-known race where the client (and this page)
+	/// is up before the API has finished starting (see the "Iris (API + App)" launch compound).
+	/// </summary>
+	private const int SetupCheckRetries = 5;
+	private static readonly TimeSpan SetupCheckRetryDelay = TimeSpan.FromSeconds(1);
+
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
 
 		// Only worth checking once per app launch — once past it, setup can't become "needed"
 		// again (see the replay guard in CompleteSetupHandler), so there's no point asking again.
+		// Only latched on an actual answer from the API (success) — a connectivity failure must
+		// not permanently suppress the check, or the wizard silently never shows once hit.
 		if (_checkedSetup)
 		{
 			return;
 		}
 
-		_checkedSetup = true;
-
-		try
+		for (var attempt = 1; attempt <= SetupCheckRetries; attempt++)
 		{
-			var status = await _api.GetSetupStatusAsync();
-			if (status.NeedsSetup)
+			try
 			{
-				await Shell.Current.GoToAsync("//setup");
+				var status = await _api.GetSetupStatusAsync();
+				_checkedSetup = true;
+
+				if (status.NeedsSetup)
+				{
+					await Shell.Current.GoToAsync("//setup");
+				}
+
+				return;
 			}
-		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException or TaskCanceledException)
-		{
-			// The API might just not be reachable yet — let the operator try to sign in normally
-			// (which will surface the same connectivity error) rather than blocking the screen.
+			catch (Exception ex) when (ex is IrisApiException or HttpRequestException or TaskCanceledException)
+			{
+				if (attempt == SetupCheckRetries)
+				{
+					// Still unreachable — let the operator try to sign in normally (which surfaces
+					// the same connectivity error) rather than blocking the screen. _checkedSetup
+					// stays false, so this runs again next time the page appears.
+					return;
+				}
+
+				await Task.Delay(SetupCheckRetryDelay);
+			}
 		}
 	}
 }

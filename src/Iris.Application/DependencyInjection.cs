@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.TryAddScoped<SetMyPasswordHandler>();
         services.TryAddScoped<LoginHandler>();
         services.TryAddScoped<GetSetupStatusHandler>();
+        services.TryAddScoped<TestMailConnectionHandler>();
         services.TryAddScoped<CompleteSetupHandler>();
         services.TryAddScoped<SkipMyPasswordSetupHandler>();
         services.TryAddScoped<GetPermissionCatalogHandler>();
