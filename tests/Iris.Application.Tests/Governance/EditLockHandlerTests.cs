@@ -134,4 +134,18 @@ public sealed class EditLockHandlerTests
         await Assert.ThrowsAsync<ValidationException>(() =>
             f.Acquire(f.Alice).HandleAsync(new AcquireEditLockCommand("widget", Target)));
     }
+
+    [Theory]
+    [InlineData("user")]
+    [InlineData("server")]
+    [InlineData("customer")]
+    public async Task Every_lockable_resource_type_is_accepted(string resourceType)
+    {
+        var f = new Fixture();
+
+        var acquired = await f.Acquire(f.Alice).HandleAsync(new AcquireEditLockCommand(resourceType, Target));
+
+        Assert.True(acquired.Mine);
+        Assert.Equal(resourceType, acquired.ResourceType);
+    }
 }
