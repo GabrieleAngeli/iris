@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.UsersPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    xmlns:access="clr-namespace:Iris.Contracts.Access;assembly=Iris.Contracts"
+    xmlns:tenancy="clr-namespace:Iris.Contracts.Tenancy;assembly=Iris.Contracts"
+    x:DataType="vm:UsersViewModel"
+    Title="Users">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Users" Style="{StaticResource TitleLarge}" />
+                        <Label Text="Every user and the roles they hold, across customers and contexts." Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
+                    <Button Grid.Column="2" Text="New user" Command="{Binding ToggleNewUserPanelCommand}" VerticalOptions="Start" />
+                </Grid>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <!-- ===== New user ===== -->
+                <Border IsVisible="{Binding IsNewUserPanelOpen}" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="New user" Style="{StaticResource Subtitle}" />
+                        <Label Text="Pre-provision someone before their first sign-in — assign their initial role right after." Style="{StaticResource Caption}" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Email" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewUserEmail}" Placeholder="name@company.com" Keyboard="Email" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Display name" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewUserDisplayName}" Placeholder="Full name" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="{Binding CreateUserError}" IsVisible="{Binding HasCreateUserError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Grid>
+                            <Button Text="Create" Command="{Binding CreateUserCommand}"
+                                    IsVisible="{Binding IsCreatingUser, Converter={StaticResource InvertBoolConverter}}"
+                                    HorizontalOptions="Start" />
+                            <ActivityIndicator IsRunning="{Binding IsCreatingUser}" IsVisible="{Binding IsCreatingUser}" HorizontalOptions="Start" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Users}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:UserRowViewModel">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="14">
+
+                                    <!-- ===== User header ===== -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0" StrokeShape="RoundRectangle 19"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}">
+                                            <Label Text="&#xE77B;" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding DisplayName}" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding IsProvisioned, Converter={StaticResource InvertBoolConverter}}">
+                                                    <Label Text="Pending" Style="{StaticResource Caption}" />
+                                                </Border>
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Email}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2" Text="Assign role" Style="{StaticResource SecondaryButton}"
+                                                Command="{Binding ToggleAssignPanelCommand}" VerticalOptions="Center" />
+                                    </Grid>
+
+                                    <!-- ===== Current assignments ===== -->
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Assignments}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AssignmentRowViewModel">
+                                                <Grid ColumnDefinitions="*,Auto" Padding="0,6" ColumnSpacing="8">
+                                                    <VerticalStackLayout Spacing="0">
+                                                        <Label Text="{Binding RoleName}" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                                        <Label Text="{Binding ScopeDescription}" Style="{StaticResource Caption}" />
+                                                    </VerticalStackLayout>
+                                                    <Button Grid.Column="1" Text="Revoke" Style="{StaticResource LinkButton}"
+                                                            Command="{Binding Owner.RevokeCommand}" CommandParameter="{Binding .}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                    <!-- ===== Inline "assign a role" form ===== -->
+                                    <Border IsVisible="{Binding IsAssignPanelOpen}" Style="{StaticResource SubtleCard}">
+                                        <VerticalStackLayout Spacing="10">
+
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Role" Style="{StaticResource Caption}" />
+                                                    <Picker ItemsSource="{Binding Roles}" ItemDisplayBinding="{Binding Name, x:DataType=access:RoleResponse}"
+                                                            SelectedItem="{Binding SelectedRole}" Title="Choose a role" />
+                                                </VerticalStackLayout>
+                                                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                    <Label Text="Scope" Style="{StaticResource Caption}" />
+                                                    <Picker ItemsSource="{Binding ScopeTypes}" SelectedItem="{Binding SelectedScopeType}" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                            <Label Text="{Binding SelectedRole.Description}" Style="{StaticResource Caption}" />
+
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding NeedsCustomer}">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Customer" Style="{StaticResource Caption}" />
+                                                    <Picker ItemsSource="{Binding Customers}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:CustomerSummaryResponse}"
+                                                            SelectedItem="{Binding SelectedCustomer}" Title="Choose a customer" />
+                                                </VerticalStackLayout>
+                                                <VerticalStackLayout Grid.Column="1" Spacing="4" IsVisible="{Binding NeedsContext}">
+                                                    <Label Text="Context" Style="{StaticResource Caption}" />
+                                                    <Picker ItemsSource="{Binding AvailableContexts}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:ContextSummaryResponse}"
+                                                            SelectedItem="{Binding SelectedContext}" Title="Choose a context" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                            <Label Text="{Binding AssignError}" IsVisible="{Binding HasAssignError}" FontSize="12"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                                            <Grid>
+                                                <Button Text="Assign" Command="{Binding AssignCommand}"
+                                                        IsVisible="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                                        HorizontalOptions="Start" />
+                                                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+                                            </Grid>
+
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading users…" />
+    </Grid>
+
+</ContentPage>

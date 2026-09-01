@@ -14,6 +14,7 @@ public sealed record UserResponse(
     string Email,
     string DisplayName,
     bool IsActive,
+    bool IsProvisioned,
     IReadOnlyList<UserAssignmentDto> Assignments);
 
 public sealed record AssignmentResponse(

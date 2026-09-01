@@ -1,5 +1,6 @@
 using Iris.Application.Access;
 using Iris.Application.Governance;
+using Iris.Application.Infrastructure;
 using Iris.Application.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -30,8 +31,15 @@ public static class DependencyInjection
         // Governance commands
         services.TryAddScoped<CreateCustomerHandler>();
         services.TryAddScoped<AddContextHandler>();
+        services.TryAddScoped<CreateUserHandler>();
         services.TryAddScoped<AssignRoleHandler>();
         services.TryAddScoped<RevokeRoleHandler>();
+
+        // Infrastructure commands
+        services.TryAddScoped<CreateServerHandler>();
+        services.TryAddScoped<AddServerCredentialHandler>();
+        services.TryAddScoped<RemoveServerCredentialHandler>();
+        services.TryAddScoped<ListServersHandler>();
 
         return services;
     }

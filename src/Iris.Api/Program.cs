@@ -52,6 +52,7 @@ app.MapHealthChecks("/health").WithName("GetHealth").AllowAnonymous();
 
 app.MapAccessEndpoints();
 app.MapGovernanceEndpoints();
+app.MapInfrastructureEndpoints();
 
 if (builder.Configuration.GetValue("Iris:Database:MigrateOnStartup", true))
 {

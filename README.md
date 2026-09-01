@@ -99,6 +99,12 @@ At runtime `AddIrisInfrastructure` picks the matching migrations assembly from
 
 Users are provisioned just-in-time on first authenticated request.
 
+The desktop client (`Iris.App`) supports both: username/email dev sign-in,
+and a **Continue with single sign-on** button that signs in against the
+vendor's Microsoft 365 tenant via MSAL.NET (Windows WAM broker). See
+[`docs/entra-id-setup.md`](docs/entra-id-setup.md) for creating the Entra ID
+App Registrations this requires and wiring up the resulting values.
+
 Seeded dev identities: `admin@iris.local` (platform-admin / Global),
 `lucia@contoso.example` (customer-admin / Contoso), `marco@contoso.example`
 (operator / Contoso·Production), `sara@iris.local` (auditor / Global),

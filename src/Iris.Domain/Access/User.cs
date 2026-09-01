@@ -25,6 +25,7 @@ public sealed class User : Entity<Guid>, IAggregateRoot, IAuditableEntity
         Email = Guard(email, nameof(email));
         DisplayName = Guard(displayName, nameof(displayName));
         IsActive = true;
+        IsProvisioned = true;
     }
 
     public string ExternalId { get; private set; }
@@ -35,15 +36,48 @@ public sealed class User : Entity<Guid>, IAggregateRoot, IAuditableEntity
 
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// False for a user an admin created ahead of their first sign-in (see
+    /// <see cref="Invite"/>) — <see cref="ExternalId"/> is a synthetic placeholder until
+    /// <see cref="ClaimIdentity"/> links the account to their real identity provider subject.
+    /// </summary>
+    public bool IsProvisioned { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Pre-provisions a user an admin wants to grant access to before they've ever signed
+    /// in. <see cref="ExternalId"/> is a synthetic placeholder, replaced by
+    /// <see cref="ClaimIdentity"/> the first time this person actually authenticates.
+    /// </summary>
+    public static User Invite(Guid id, string email, string displayName)
+    {
+        var user = new User(id, $"pending:{Guid.NewGuid():N}", email, displayName)
+        {
+            IsProvisioned = false,
+        };
+        return user;
+    }
 
     /// <summary>Refresh the mutable profile fields from the identity provider on sign-in.</summary>
     public void SyncProfile(string email, string displayName)
     {
         Email = Guard(email, nameof(email));
         DisplayName = Guard(displayName, nameof(displayName));
+    }
+
+    /// <summary>
+    /// Links a pre-provisioned (<see cref="IsProvisioned"/> false) user to the real identity
+    /// from their first sign-in. Called at most once per user.
+    /// </summary>
+    public void ClaimIdentity(string externalId, string email, string displayName)
+    {
+        ExternalId = Guard(externalId, nameof(externalId));
+        Email = Guard(email, nameof(email));
+        DisplayName = Guard(displayName, nameof(displayName));
+        IsProvisioned = true;
     }
 
     public void Activate() => IsActive = true;

@@ -9,6 +9,9 @@ internal sealed class UserRepository(IrisDbContext dbContext) : IUserRepository
     public Task<User?> FindByExternalIdAsync(string externalId, CancellationToken cancellationToken = default) =>
         dbContext.Users.SingleOrDefaultAsync(u => u.ExternalId == externalId, cancellationToken);
 
+    public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken = default) =>
+        dbContext.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), cancellationToken);
+
     public Task<User?> GetAsync(Guid userId, CancellationToken cancellationToken = default) =>
         dbContext.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
 

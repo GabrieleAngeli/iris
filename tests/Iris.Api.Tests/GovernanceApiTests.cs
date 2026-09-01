@@ -87,9 +87,49 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
         Assert.Equal(HttpStatusCode.NotFound, revokeAgain.StatusCode);
     }
 
+    [Fact]
+    public async Task Reader_cannot_create_a_user()
+    {
+        var response = await Reader().PostAsJsonAsync(
+            "/governance/users", new { email = "nope@customer.example", displayName = "Nope" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_pre_provision_a_user_and_assign_it_a_role()
+    {
+        var admin = Admin();
+        var email = $"invited-{Guid.NewGuid():N}@customer.example";
+
+        // 1. create the pending user
+        var create = await admin.PostAsJsonAsync("/governance/users", new { email, displayName = "Invited Person" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var created = await create.Content.ReadFromJsonAsync<UserDto>();
+        Assert.NotNull(created);
+        Assert.False(created!.IsProvisioned);
+        Assert.Empty(created.Assignments);
+
+        // duplicate email -> 409
+        var dup = await admin.PostAsJsonAsync("/governance/users", new { email, displayName = "Someone else" });
+        Assert.Equal(HttpStatusCode.Conflict, dup.StatusCode);
+
+        // it shows up in the list, still pending
+        var users = await admin.GetFromJsonAsync<List<UserDto>>("/governance/users");
+        var listed = Assert.Single(users!, u => u.Id == created.Id);
+        Assert.False(listed.IsProvisioned);
+
+        // 2. assign it a role — the existing assignment endpoint already works on a user
+        // that has never signed in, since it only requires the user record to exist
+        var assign = await admin.PostAsJsonAsync(
+            $"/governance/users/{created.Id}/assignments",
+            new { roleKey = "reader", scopeType = "Global", customerId = (Guid?)null, contextId = (Guid?)null });
+        Assert.Equal(HttpStatusCode.Created, assign.StatusCode);
+    }
+
     private sealed record CustomerDto(Guid Id, string Key, string Name);
 
-    private sealed record UserDto(Guid Id, string Email);
+    private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<object> Assignments);
 
     private sealed record AssignmentDto(Guid Id, Guid UserId, string RoleKey);
 }

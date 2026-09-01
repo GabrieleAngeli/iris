@@ -69,6 +69,10 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="CommunityToolkit.Maui" Version="11.2.0" />
+
+		<!-- Microsoft 365 / Entra ID single sign-on (Windows Web Account Manager broker). -->
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.88.0" />
+		<PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.88.0" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -3,6 +3,7 @@ using Iris.Infrastructure.Persistence;
 using Iris.Infrastructure.Persistence.Interceptors;
 using Iris.Infrastructure.Persistence.Repositories;
 using Iris.Infrastructure.Persistence.Seeding;
+using Iris.Infrastructure.Secrets;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,6 +53,8 @@ public static class DependencyInjection
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IRoleAssignmentRepository, RoleAssignmentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<IServerRepository, ServerRepository>();
+        services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
         services.AddScoped<IrisDbSeeder>();
 
         return services;

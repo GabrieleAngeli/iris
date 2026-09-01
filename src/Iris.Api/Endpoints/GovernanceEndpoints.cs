@@ -24,6 +24,20 @@ public static class GovernanceEndpoints
             .WithSummary("Users and the roles they hold.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.Read));
 
+        governance.MapPost("/users", async (
+                CreateUserRequest body,
+                CreateUserHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new CreateUserCommand(body.Email, body.DisplayName), ct)
+                    .ConfigureAwait(false);
+                return Results.Created($"/governance/users/{result.Id}", result);
+            })
+            .WithName("CreateUser")
+            .WithSummary("Pre-provision a user ahead of their first sign-in.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
+
         governance.MapPost("/users/{userId:guid}/assignments", async (
                 Guid userId,
                 AssignRoleRequest body,

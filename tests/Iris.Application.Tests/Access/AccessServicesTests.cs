@@ -90,6 +90,28 @@ public sealed class AccessServicesTests
     }
 
     [Fact]
+    public async Task Provisioning_claims_a_pending_user_by_email_on_first_real_sign_in()
+    {
+        var (store, _, _) = SeedRoles();
+        var pending = User.Invite(Guid.NewGuid(), "invited@iris.local", "Invited Person");
+        store.WithUser(pending);
+
+        var provisioning = new UserProvisioningService(store.UserRepository, store.UnitOfWork);
+        var principal = new StubCurrentUser("real-oid-123", "invited@iris.local", "Invited Person");
+
+        var claimed = await provisioning.EnsureProvisionedAsync(principal);
+
+        Assert.Equal(pending.Id, claimed.Id);
+        Assert.True(claimed.IsProvisioned);
+        Assert.Equal("real-oid-123", claimed.ExternalId);
+
+        // signing in again resolves the same, now-provisioned, user by external id.
+        var again = await provisioning.EnsureProvisionedAsync(principal);
+        Assert.Equal(pending.Id, again.Id);
+        Assert.Single(store.Users);
+    }
+
+    [Fact]
     public async Task ListAccessibleCustomers_returns_only_visible_customers_and_contexts()
     {
         var (store, op, _) = SeedRoles();

@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.ServersPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    x:DataType="vm:ServersViewModel"
+    Title="Servers">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Servers" Style="{StaticResource TitleLarge}" />
+                        <Label Text="Registered infrastructure and the OS-login credentials each server holds." Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
+                    <Button Grid.Column="2" Text="New server" Command="{Binding ToggleNewServerPanelCommand}" VerticalOptions="Start" />
+                </Grid>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <!-- ===== New server ===== -->
+                <Border IsVisible="{Binding IsNewServerPanelOpen}" Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="New server" Style="{StaticResource Subtitle}" />
+                        <Label Text="Register a server, then add the OS-login credential(s) tooling will use to reach it." Style="{StaticResource Caption}" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Name" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewServerName}" Placeholder="web-01" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Hostname / FQDN" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewServerHostname}" Placeholder="web-01.contoso.internal" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="OS" Style="{StaticResource Caption}" />
+                                <Picker ItemsSource="{Binding OsOptions}" SelectedItem="{Binding NewServerOs}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Hosting" Style="{StaticResource Caption}" />
+                                <Picker ItemsSource="{Binding HostingTypeOptions}" SelectedItem="{Binding NewServerHostingType}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="4">
+                                <Label Text="Environment" Style="{StaticResource Caption}" />
+                                <Picker ItemsSource="{Binding EnvironmentOptions}" SelectedItem="{Binding NewServerEnvironment}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Public IP" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewServerPublicIp}" Placeholder="203.0.113.10" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Private IP" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewServerPrivateIp}" Placeholder="10.0.4.12" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Label Text="At least one of the two IPs is required." Style="{StaticResource Caption}" />
+
+                        <Label Text="{Binding CreateServerError}" IsVisible="{Binding HasCreateServerError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Grid>
+                            <Button Text="Create" Command="{Binding CreateServerCommand}"
+                                    IsVisible="{Binding IsCreatingServer, Converter={StaticResource InvertBoolConverter}}"
+                                    HorizontalOptions="Start" />
+                            <ActivityIndicator IsRunning="{Binding IsCreatingServer}" IsVisible="{Binding IsCreatingServer}" HorizontalOptions="Start" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Servers}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ServerRowViewModel">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="14">
+
+                                    <!-- ===== Server header ===== -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0" StrokeShape="RoundRectangle 19"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}">
+                                            <Label Text="&#xE7F4;" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Os}" Style="{StaticResource Caption}" /></Border>
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding HostingType}" Style="{StaticResource Caption}" /></Border>
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Environment}" Style="{StaticResource Caption}" /></Border>
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Hostname, TargetNullValue='(no hostname)'}" Style="{StaticResource Caption}" />
+                                            <HorizontalStackLayout Spacing="14">
+                                                <Label Text="{Binding PublicIpAddress, StringFormat='Public: {0}', TargetNullValue='Public: —'}" Style="{StaticResource Caption}" />
+                                                <Label Text="{Binding PrivateIpAddress, StringFormat='Private: {0}', TargetNullValue='Private: —'}" Style="{StaticResource Caption}" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2" Text="Add credential" Style="{StaticResource SecondaryButton}"
+                                                Command="{Binding ToggleAddCredentialPanelCommand}" VerticalOptions="Center" />
+                                    </Grid>
+
+                                    <!-- ===== Current credentials ===== -->
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Credentials}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:CredentialRowViewModel">
+                                                <Grid ColumnDefinitions="*,Auto" Padding="0,6" ColumnSpacing="8">
+                                                    <HorizontalStackLayout Grid.Column="0" Spacing="8">
+                                                        <VerticalStackLayout Spacing="0">
+                                                            <Label Text="{Binding Username}" Style="{StaticResource Body}" FontAttributes="Bold" />
+                                                            <Label Text="{Binding Label, TargetNullValue=''}" Style="{StaticResource Caption}" />
+                                                        </VerticalStackLayout>
+                                                        <Border Style="{StaticResource Badge}" VerticalOptions="Center">
+                                                            <Label Text="{Binding AuthMethod}" Style="{StaticResource Caption}" />
+                                                        </Border>
+                                                    </HorizontalStackLayout>
+                                                    <Button Grid.Column="1" Text="Revoke" Style="{StaticResource LinkButton}"
+                                                            Command="{Binding Owner.RemoveCredentialCommand}" CommandParameter="{Binding .}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                    <!-- ===== Inline "add credential" form ===== -->
+                                    <Border IsVisible="{Binding IsAddCredentialPanelOpen}" Style="{StaticResource SubtleCard}">
+                                        <VerticalStackLayout Spacing="10">
+
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Username" Style="{StaticResource Caption}" />
+                                                    <Border Style="{StaticResource FieldBorder}">
+                                                        <Entry Text="{Binding NewUsername}" Placeholder="root" />
+                                                    </Border>
+                                                </VerticalStackLayout>
+                                                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                    <Label Text="Auth method" Style="{StaticResource Caption}" />
+                                                    <Picker ItemsSource="{Binding AuthMethods}" SelectedItem="{Binding NewAuthMethod}" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                            <VerticalStackLayout Spacing="4">
+                                                <Label Text="Password or SSH private key" Style="{StaticResource Caption}" />
+                                                <Border Style="{StaticResource FieldBorder}">
+                                                    <Entry Text="{Binding NewSecretValue}" IsPassword="True" Placeholder="Never shown again after saving" />
+                                                </Border>
+                                            </VerticalStackLayout>
+
+                                            <VerticalStackLayout Spacing="4">
+                                                <Label Text="Label (optional)" Style="{StaticResource Caption}" />
+                                                <Border Style="{StaticResource FieldBorder}">
+                                                    <Entry Text="{Binding NewLabel}" Placeholder="e.g. CI deploy account" />
+                                                </Border>
+                                            </VerticalStackLayout>
+
+                                            <Label Text="{Binding CredentialError}" IsVisible="{Binding HasCredentialError}" FontSize="12"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                                            <Grid>
+                                                <Button Text="Add" Command="{Binding AddCredentialCommand}"
+                                                        IsVisible="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                                        HorizontalOptions="Start" />
+                                                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+                                            </Grid>
+
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading servers…" />
+    </Grid>
+
+</ContentPage>

@@ -1,5 +1,6 @@
 using Iris.Application.Abstractions;
 using Iris.Domain.Access;
+using Iris.Domain.Infrastructure;
 using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Tests.Fakes;
@@ -14,6 +15,10 @@ internal sealed class FakeStore
     public List<RoleAssignment> Assignments { get; } = [];
 
     public List<Customer> Customers { get; } = [];
+
+    public List<ServerNode> Servers { get; } = [];
+
+    public Dictionary<string, string> SecretsByReference { get; } = [];
 
     public int SaveChangesCalls { get; set; }
 
@@ -41,6 +46,12 @@ internal sealed class FakeStore
         return this;
     }
 
+    public FakeStore WithServer(ServerNode server)
+    {
+        Servers.Add(server);
+        return this;
+    }
+
     public FakeUnitOfWork UnitOfWork => new(this);
 
     public FakeUserRepository UserRepository => new(this);
@@ -50,6 +61,10 @@ internal sealed class FakeStore
     public FakeRoleAssignmentRepository RoleAssignmentRepository => new(this);
 
     public FakeCustomerRepository CustomerRepository => new(this);
+
+    public FakeServerRepository ServerRepository => new(this);
+
+    public FakeSecretStore SecretStore => new(this);
 }
 
 internal sealed class FakeUnitOfWork(FakeStore store) : IUnitOfWork
@@ -65,6 +80,10 @@ internal sealed class FakeUserRepository(FakeStore store) : IUserRepository
 {
     public Task<User?> FindByExternalIdAsync(string externalId, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.Users.SingleOrDefault(u => u.ExternalId == externalId));
+
+    public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Users
+            .FirstOrDefault(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)));
 
     public Task<User?> GetAsync(Guid userId, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.Users.SingleOrDefault(u => u.Id == userId));
@@ -149,6 +168,41 @@ internal sealed class FakeCustomerRepository(FakeStore store) : ICustomerReposit
     public Task AddAsync(Customer customer, CancellationToken cancellationToken = default)
     {
         store.Customers.Add(customer);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeServerRepository(FakeStore store) : IServerRepository
+{
+    public Task<IReadOnlyList<ServerNode>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ServerNode>>(store.Servers.ToList());
+
+    public Task<ServerNode?> GetAsync(Guid serverId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Servers.SingleOrDefault(s => s.Id == serverId));
+
+    public Task<ServerNode?> GetForUpdateAsync(Guid serverId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Servers.SingleOrDefault(s => s.Id == serverId));
+
+    public Task AddAsync(ServerNode server, CancellationToken cancellationToken = default)
+    {
+        store.Servers.Add(server);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Fake stand-in for OpenBao: records what was stored so tests can assert the raw secret never reaches the DB.</summary>
+internal sealed class FakeSecretStore(FakeStore store) : ISecretStore
+{
+    public Task<string> StoreAsync(string logicalPath, string secretValue, CancellationToken cancellationToken = default)
+    {
+        var reference = $"fake-secret:{logicalPath}";
+        store.SecretsByReference[reference] = secretValue;
+        return Task.FromResult(reference);
+    }
+
+    public Task DeleteAsync(string reference, CancellationToken cancellationToken = default)
+    {
+        store.SecretsByReference.Remove(reference);
         return Task.CompletedTask;
     }
 }

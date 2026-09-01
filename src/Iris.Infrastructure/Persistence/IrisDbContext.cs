@@ -1,4 +1,5 @@
 using Iris.Domain.Access;
+using Iris.Domain.Infrastructure;
 using Iris.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,10 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
     public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<CustomerContext> CustomerContexts => Set<CustomerContext>();
+
+    public DbSet<ServerNode> Servers => Set<ServerNode>();
+
+    public DbSet<ServerCredential> ServerCredentials => Set<ServerCredential>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

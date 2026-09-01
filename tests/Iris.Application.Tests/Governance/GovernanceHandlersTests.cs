@@ -105,6 +105,35 @@ public sealed class GovernanceHandlersTests
     }
 
     [Fact]
+    public async Task CreateUser_pre_provisions_and_rejects_duplicate_email()
+    {
+        var store = new FakeStore();
+        var handler = new CreateUserHandler(store.UserRepository, store.UnitOfWork);
+
+        var created = await handler.HandleAsync(new CreateUserCommand("new.admin@customer.example", "New Admin"));
+
+        Assert.False(created.IsProvisioned);
+        Assert.Equal("new.admin@customer.example", created.Email);
+        Assert.Empty(created.Assignments);
+        Assert.Single(store.Users);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            handler.HandleAsync(new CreateUserCommand("new.admin@customer.example", "Someone else")));
+    }
+
+    [Fact]
+    public async Task CreateUser_requires_email_and_display_name()
+    {
+        var store = new FakeStore();
+        var handler = new CreateUserHandler(store.UserRepository, store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            handler.HandleAsync(new CreateUserCommand("", "Someone")));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            handler.HandleAsync(new CreateUserCommand("someone@iris.local", "")));
+    }
+
+    [Fact]
     public async Task RevokeRole_removes_only_the_users_own_assignment()
     {
         var store = StoreWithReaderRole(out var reader);

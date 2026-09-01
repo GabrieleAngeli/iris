@@ -4,27 +4,133 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:views="clr-namespace:Iris.App.Views"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:AppShellViewModel"
     Title="Iris"
     FlyoutBehavior="Flyout"
     FlyoutWidth="260">
 
     <Shell.FlyoutHeader>
-        <Grid Padding="20,28,20,20" ColumnDefinitions="Auto,*" ColumnSpacing="12"
-              BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource LayerDark}}">
-            <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0"
-                    BackgroundColor="#F4F0E6"
-                    StrokeShape="RoundRectangle 22">
-                <Image Source="iris_mark.png" WidthRequest="30" HeightRequest="30"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                <Label Text="Iris" FontFamily="{StaticResource FontSemibold}" FontSize="17"
-                       TextColor="{AppThemeBinding Light=White, Dark={StaticResource TextPrimaryDark}}" />
-                <Label Text="Fluent Design System" FontSize="12"
-                       TextColor="{AppThemeBinding Light=#DCEBFF, Dark={StaticResource TextSecondaryDark}}" />
-            </VerticalStackLayout>
-        </Grid>
+        <VerticalStackLayout>
+
+            <!-- ===================== Brand ===================== -->
+            <Grid Padding="20,28,20,20" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource LayerDark}}">
+                <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="#F4F0E6"
+                        StrokeShape="RoundRectangle 22">
+                    <Image Source="iris_mark.png" WidthRequest="30" HeightRequest="30"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                    <Label Text="Iris" FontFamily="{StaticResource FontSemibold}" FontSize="17"
+                           TextColor="{AppThemeBinding Light=White, Dark={StaticResource TextPrimaryDark}}" />
+                    <Label Text="Fluent Design System" FontSize="12"
+                           TextColor="{AppThemeBinding Light=#DCEBFF, Dark={StaticResource TextSecondaryDark}}" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- ===================== Account ===================== -->
+            <Grid Padding="20,14" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}">
+                <Border WidthRequest="36" HeightRequest="36" StrokeThickness="0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}"
+                        StrokeShape="RoundRectangle 18">
+                    <Label Text="{Binding Initials}" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="13"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                    <Label Text="{Binding DisplayName}" FontFamily="{StaticResource FontSemibold}" FontSize="13"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                    <Label Text="{Binding Email}" FontSize="11" LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                </VerticalStackLayout>
+            </Grid>
+
+        </VerticalStackLayout>
     </Shell.FlyoutHeader>
+
+    <!--
+        Shell.MenuItemTemplate turned out unreliable for section headers on the Windows
+        handler (the DataTemplate never received the MenuItem as its BindingContext, so
+        bound header/item text silently rendered blank) — so the flyout body is fully
+        custom instead. FlyoutHeader's binding (above) proved this pattern works; this
+        just extends it below the header. FlyoutItem/ShellContent further down still
+        register the routes GoToAsync navigates to — they just aren't auto-rendered.
+
+        Each row layers a real, borderless Button (FlyoutRowButtonStyle — transparent
+        background/text) over a plain Label: a Grid+TapGestureRecognizer alone has no
+        UIA Invoke pattern and isn't keyboard-focusable, so it's unreachable by keyboard
+        or a screen reader. The Button on top supplies the real click/keyboard/automation
+        target while the Label underneath supplies the visible, left-aligned text.
+    -->
+    <Shell.Resources>
+        <Style x:Key="FlyoutRowButtonStyle" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="TextColor" Value="Transparent" />
+            <Setter Property="BorderWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalOptions" Value="Fill" />
+            <Setter Property="VerticalOptions" Value="Fill" />
+        </Style>
+    </Shell.Resources>
+
+    <Shell.FlyoutContentTemplate>
+        <DataTemplate x:DataType="vm:AppShellViewModel">
+            <ScrollView>
+                <VerticalStackLayout Spacing="0" Padding="0,8">
+
+                    <VerticalStackLayout IsVisible="{Binding CanManageUsers}">
+                        <Label Text="Governance" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                        <Grid>
+                            <Label Text="Users" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                            <Button Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//users" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout IsVisible="{Binding CanManageInfrastructure}">
+                        <Label Text="Infrastructure" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                        <Grid>
+                            <Label Text="Servers" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                            <Button Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//servers" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Label Text="Workspace" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                    <Grid>
+                        <Label Text="Dashboard" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                        <Button Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
+                                Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
+                    </Grid>
+                    <Grid>
+                        <Label Text="Access" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                        <Button Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
+                                Command="{Binding NavigateCommand}" CommandParameter="//access" />
+                    </Grid>
+                    <Grid>
+                        <Label Text="Components" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+                        <Button Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
+                                Command="{Binding NavigateCommand}" CommandParameter="//components" />
+                    </Grid>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </DataTemplate>
+    </Shell.FlyoutContentTemplate>
+
+    <Shell.FlyoutFooter>
+        <Grid>
+            <Label Text="Sign out" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+            <Button Text="Sign out" Style="{StaticResource FlyoutRowButtonStyle}" Clicked="OnSignOutClicked" />
+        </Grid>
+    </Shell.FlyoutFooter>
 
     <!-- Login lives outside the flyout navigation -->
     <ShellContent
@@ -35,22 +141,21 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:LoginPage}" />
 
-    <FlyoutItem Title="Dashboard" Route="main">
-        <ShellContent
-            Title="Dashboard"
-            Route="dashboard"
-            ContentTemplate="{DataTemplate views:DashboardPage}" />
-        <ShellContent
-            Title="Access"
-            Route="access"
-            ContentTemplate="{DataTemplate views:AccessPage}" />
-        <ShellContent
-            Title="Components"
-            Route="components"
-            ContentTemplate="{DataTemplate views:ComponentsPage}" />
+    <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
+    <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
+        <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />
     </FlyoutItem>
-
-    <MenuItem Text="Sign out"
-              Clicked="OnSignOutClicked" />
+    <FlyoutItem Title="Servers" Route="servers" FlyoutItemIsVisible="False">
+        <ShellContent Title="Servers" ContentTemplate="{DataTemplate views:ServersPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Dashboard" Route="dashboard" FlyoutItemIsVisible="False">
+        <ShellContent Title="Dashboard" ContentTemplate="{DataTemplate views:DashboardPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Access" Route="access" FlyoutItemIsVisible="False">
+        <ShellContent Title="Access" ContentTemplate="{DataTemplate views:AccessPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Components" Route="components" FlyoutItemIsVisible="False">
+        <ShellContent Title="Components" ContentTemplate="{DataTemplate views:ComponentsPage}" />
+    </FlyoutItem>
 
 </Shell>

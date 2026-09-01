@@ -23,6 +23,16 @@ internal sealed class UserProvisioningService(IUserRepository users, IUnitOfWork
 
         if (user is null)
         {
+            // An admin may have pre-provisioned this person (by email) before their first
+            // sign-in — if so, claim that account instead of creating a duplicate one.
+            var pending = await users.FindByEmailAsync(email, cancellationToken).ConfigureAwait(false);
+            if (pending is { IsProvisioned: false })
+            {
+                pending.ClaimIdentity(principal.ExternalId, email, displayName);
+                await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                return pending;
+            }
+
             user = new User(Guid.CreateVersion7(), principal.ExternalId, email, displayName);
             await users.AddAsync(user, cancellationToken).ConfigureAwait(false);
             await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

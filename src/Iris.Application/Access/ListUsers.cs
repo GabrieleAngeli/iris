@@ -31,6 +31,7 @@ public sealed class ListUsersHandler(
                 user.Email,
                 user.DisplayName,
                 user.IsActive,
+                user.IsProvisioned,
                 allAssignments
                     .Where(a => a.UserId == user.Id)
                     .Select(a => new UserAssignmentDto(

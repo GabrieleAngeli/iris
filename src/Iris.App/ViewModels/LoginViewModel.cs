@@ -20,7 +20,11 @@ public partial class LoginViewModel : ObservableObject
 
 	partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SignInCommand.NotifyCanExecuteChanged();
+	partial void OnIsBusyChanged(bool value)
+	{
+		SignInCommand.NotifyCanExecuteChanged();
+		UseSsoCommand.NotifyCanExecuteChanged();
+	}
 
 	[RelayCommand]
 	private void TogglePasswordVisibility() => IsPasswordHidden = !IsPasswordHidden;
@@ -43,7 +47,7 @@ public partial class LoginViewModel : ObservableObject
 				return;
 			}
 
-			await Shell.Current.GoToAsync("//main/dashboard");
+			await Shell.Current.GoToAsync("//dashboard");
 			Password = string.Empty;
 		}
 		finally
@@ -60,9 +64,29 @@ public partial class LoginViewModel : ObservableObject
 			"Dev mode: the user name is a configured Iris dev user (e.g. admin@iris.local). The password is ignored.",
 			"Got it");
 
-	[RelayCommand]
-	private async Task UseSsoAsync() =>
-		await Shell.Current.DisplayAlert("Single sign-on",
-			"Microsoft 365 SSO is served by the API (Iris:Auth:Mode=EntraId). This client currently uses dev-header auth.",
-			"OK");
+	[RelayCommand(CanExecute = nameof(CanSignIn))]
+	private async Task UseSsoAsync()
+	{
+		if (IsBusy)
+			return;
+
+		IsBusy = true;
+		ErrorMessage = null;
+
+		try
+		{
+			var result = await _auth.SignInWithSsoAsync();
+			if (!result.Success)
+			{
+				ErrorMessage = result.Error;
+				return;
+			}
+
+			await Shell.Current.GoToAsync("//dashboard");
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
 }
