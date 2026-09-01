@@ -1,6 +1,7 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Domain.Access;
+using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Tenancy;
 
@@ -18,6 +19,8 @@ internal sealed class FakeStore
     public List<Customer> Customers { get; } = [];
 
     public List<ServerNode> Servers { get; } = [];
+
+    public List<ApplicationDefinition> Applications { get; } = [];
 
     public List<UserInvitation> Invitations { get; } = [];
 
@@ -57,6 +60,12 @@ internal sealed class FakeStore
         return this;
     }
 
+    public FakeStore WithApplication(ApplicationDefinition application)
+    {
+        Applications.Add(application);
+        return this;
+    }
+
     public FakeUnitOfWork UnitOfWork => new(this);
 
     public FakeUserRepository UserRepository => new(this);
@@ -68,6 +77,8 @@ internal sealed class FakeStore
     public FakeCustomerRepository CustomerRepository => new(this);
 
     public FakeServerRepository ServerRepository => new(this);
+
+    public FakeApplicationRepository ApplicationRepository => new(this);
 
     public FakeSecretStore SecretStore => new(this);
 
@@ -269,6 +280,27 @@ internal sealed class FakeServerRepository(FakeStore store) : IServerRepository
     }
 
     public void Remove(ServerNode server) => store.Servers.Remove(server);
+}
+
+internal sealed class FakeApplicationRepository(FakeStore store) : IApplicationRepository
+{
+    public Task<IReadOnlyList<ApplicationDefinition>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ApplicationDefinition>>(store.Applications.ToList());
+
+    public Task<ApplicationDefinition?> GetAsync(Guid applicationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.SingleOrDefault(a => a.Id == applicationId));
+
+    public Task<ApplicationDefinition?> GetForUpdateAsync(Guid applicationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.SingleOrDefault(a => a.Id == applicationId));
+
+    public Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.Any(a => a.Slug == slug));
+
+    public Task AddAsync(ApplicationDefinition application, CancellationToken cancellationToken = default)
+    {
+        store.Applications.Add(application);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Fake stand-in for OpenBao: records what was stored so tests can assert the raw secret never reaches the DB.</summary>

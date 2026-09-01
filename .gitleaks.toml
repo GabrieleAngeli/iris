@@ -1,0 +1,26 @@
+# Iris gitleaks allowlist. Adattato dalla convenzione di F:\Work\Iris_v3 ("Momentum") —
+# vedi docs/analisi-iris-v2-v3.md. Estendere solo per falsi positivi giustificati; una
+# nuova regola qui va motivata nel messaggio di commit che la introduce.
+title = "Iris gitleaks"
+extends = "gitleaks:latest"
+
+[allowlist]
+description = "Falsi positivi noti: placeholder documentati, dati demo, migrazioni EF"
+paths = [
+  '''^docs/''',
+  '''^\.contex/''',
+  '''^\.context/''',
+  '''^.*\.md$''',
+  '''.*Migrations/.*\.Designer\.cs$''',
+  '''^tests/.*'''
+]
+regexes = [
+  # Le GUID placeholder "00000000-..." usate in appsettings.json/EntraIdOptions
+  # (Iris.Api/appsettings.json, Iris.App/Services/EntraIdOptions.cs) non sono segreti —
+  # sono guardie esplicite che fanno fallire l'avvio finché non vengono sostituite con
+  # valori reali (vedi Iris.Api/Auth/AuthenticationSetup.cs GuardEntraIdConfiguration).
+  '''00000000-0000-0000-0000-000000000000''',
+  # Password/secret di sviluppo esplicitamente etichettate come tali nei seed/demo.
+  '''(?i)\b(dummy|placeholder|changeme|dev-only)\b'''
+]
+stopwords = ["example", "sample", "test", "demo", "pending"]

@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleAssignmentRepository, RoleAssignmentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IServerRepository, ServerRepository>();
+        services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();

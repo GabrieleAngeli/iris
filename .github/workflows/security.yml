@@ -1,0 +1,56 @@
+name: Security scanning
+
+# Solo due scanner, non l'intera pipeline di F:\Work\Iris_v3 ("Momentum"): Iris è un
+# repository .NET puro, senza Docker/Terraform/Kubernetes/Node — Checkov, tfsec e gli
+# scan container/IaC di quella pipeline non avrebbero nulla da scansionare. Vedi
+# docs/analisi-iris-v2-v3.md per il ragionamento completo.
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".contex/**"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".contex/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Gitleaks (secret scanning)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  semgrep-scan:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/csharp
+            p/security-audit
+            p/secrets
+        env:
+          SEMGREP_RULES: p/csharp p/security-audit p/secrets

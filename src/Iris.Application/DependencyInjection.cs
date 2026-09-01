@@ -1,4 +1,5 @@
 using Iris.Application.Access;
+using Iris.Application.Applications;
 using Iris.Application.Governance;
 using Iris.Application.Infrastructure;
 using Iris.Application.Tenancy;
@@ -51,6 +52,13 @@ public static class DependencyInjection
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();
         services.TryAddScoped<ListServersHandler>();
+
+        // Applications commands
+        services.TryAddScoped<CreateApplicationHandler>();
+        services.TryAddScoped<AddApplicationVersionHandler>();
+        services.TryAddScoped<ImportConfigurationPackageHandler>();
+        services.TryAddScoped<ListApplicationsHandler>();
+        services.TryAddScoped<GetApplicationVersionDetailHandler>();
 
         return services;
     }

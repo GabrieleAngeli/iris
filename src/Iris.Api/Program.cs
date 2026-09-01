@@ -54,6 +54,7 @@ app.MapAccessEndpoints();
 app.MapAuthEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
+app.MapApplicationsEndpoints();
 
 if (builder.Configuration.GetValue("Iris:Database:MigrateOnStartup", true))
 {
