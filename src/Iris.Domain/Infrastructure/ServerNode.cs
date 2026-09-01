@@ -70,6 +70,9 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         string username,
         ServerCredentialAuthMethod authMethod,
         string secretReference,
+        ServerCredentialKind kind,
+        Guid? ownerUserId,
+        string? serviceName,
         string? label)
     {
         if (_credentials.Any(c => string.Equals(c.Username, username.Trim(), StringComparison.OrdinalIgnoreCase)))
@@ -77,7 +80,8 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
             throw new InvalidOperationException($"Server '{Name}' already has a credential for user '{username}'.");
         }
 
-        var credential = new ServerCredential(credentialId, Id, username, authMethod, secretReference, label);
+        var credential = new ServerCredential(
+            credentialId, Id, username, authMethod, secretReference, kind, ownerUserId, serviceName, label);
         _credentials.Add(credential);
         return credential;
     }

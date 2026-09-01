@@ -32,39 +32,6 @@
                            TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
                 </Border>
 
-                <!-- ===== New user ===== -->
-                <Border IsVisible="{Binding IsNewUserPanelOpen}" Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="New user" Style="{StaticResource Subtitle}" />
-                        <Label Text="Pre-provision someone before their first sign-in — assign their initial role right after." Style="{StaticResource Caption}" />
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="Email" Style="{StaticResource Caption}" />
-                                <Border Style="{StaticResource FieldBorder}">
-                                    <Entry Text="{Binding NewUserEmail}" Placeholder="name@company.com" Keyboard="Email" />
-                                </Border>
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="4">
-                                <Label Text="Display name" Style="{StaticResource Caption}" />
-                                <Border Style="{StaticResource FieldBorder}">
-                                    <Entry Text="{Binding NewUserDisplayName}" Placeholder="Full name" />
-                                </Border>
-                            </VerticalStackLayout>
-                        </Grid>
-
-                        <Label Text="{Binding CreateUserError}" IsVisible="{Binding HasCreateUserError}" FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
-
-                        <Grid>
-                            <Button Text="Create" Command="{Binding CreateUserCommand}"
-                                    IsVisible="{Binding IsCreatingUser, Converter={StaticResource InvertBoolConverter}}"
-                                    HorizontalOptions="Start" />
-                            <ActivityIndicator IsRunning="{Binding IsCreatingUser}" IsVisible="{Binding IsCreatingUser}" HorizontalOptions="Start" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Users}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:UserRowViewModel">
@@ -89,7 +56,7 @@
                                             <Label Text="{Binding Email}" Style="{StaticResource Caption}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="2" Text="Assign role" Style="{StaticResource SecondaryButton}"
-                                                Command="{Binding ToggleAssignPanelCommand}" VerticalOptions="Center" />
+                                                Command="{Binding OpenAssignCommand}" VerticalOptions="Center" />
                                     </Grid>
 
                                     <!-- ===== Current assignments ===== -->
@@ -108,50 +75,6 @@
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
 
-                                    <!-- ===== Inline "assign a role" form ===== -->
-                                    <Border IsVisible="{Binding IsAssignPanelOpen}" Style="{StaticResource SubtleCard}">
-                                        <VerticalStackLayout Spacing="10">
-
-                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                                                <VerticalStackLayout Spacing="4">
-                                                    <Label Text="Role" Style="{StaticResource Caption}" />
-                                                    <Picker ItemsSource="{Binding Roles}" ItemDisplayBinding="{Binding Name, x:DataType=access:RoleResponse}"
-                                                            SelectedItem="{Binding SelectedRole}" Title="Choose a role" />
-                                                </VerticalStackLayout>
-                                                <VerticalStackLayout Grid.Column="1" Spacing="4">
-                                                    <Label Text="Scope" Style="{StaticResource Caption}" />
-                                                    <Picker ItemsSource="{Binding ScopeTypes}" SelectedItem="{Binding SelectedScopeType}" />
-                                                </VerticalStackLayout>
-                                            </Grid>
-
-                                            <Label Text="{Binding SelectedRole.Description}" Style="{StaticResource Caption}" />
-
-                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding NeedsCustomer}">
-                                                <VerticalStackLayout Spacing="4">
-                                                    <Label Text="Customer" Style="{StaticResource Caption}" />
-                                                    <Picker ItemsSource="{Binding Customers}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:CustomerSummaryResponse}"
-                                                            SelectedItem="{Binding SelectedCustomer}" Title="Choose a customer" />
-                                                </VerticalStackLayout>
-                                                <VerticalStackLayout Grid.Column="1" Spacing="4" IsVisible="{Binding NeedsContext}">
-                                                    <Label Text="Context" Style="{StaticResource Caption}" />
-                                                    <Picker ItemsSource="{Binding AvailableContexts}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:ContextSummaryResponse}"
-                                                            SelectedItem="{Binding SelectedContext}" Title="Choose a context" />
-                                                </VerticalStackLayout>
-                                            </Grid>
-
-                                            <Label Text="{Binding AssignError}" IsVisible="{Binding HasAssignError}" FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
-
-                                            <Grid>
-                                                <Button Text="Assign" Command="{Binding AssignCommand}"
-                                                        IsVisible="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
-                                                        HorizontalOptions="Start" />
-                                                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
-                                            </Grid>
-
-                                        </VerticalStackLayout>
-                                    </Border>
-
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
@@ -160,6 +83,85 @@
 
             </VerticalStackLayout>
         </ScrollView>
+
+        <!-- ===== New user (modal) ===== -->
+        <controls:ModalPanel IsOpen="{Binding IsNewUserPanelOpen}" HeaderText="New user"
+                             CloseCommand="{Binding ToggleNewUserPanelCommand}" CardWidth="560">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Pre-provision someone before their first sign-in — assign their initial role right after." Style="{StaticResource Caption}" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Email" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewUserEmail}" Placeholder="name@company.com" Keyboard="Email" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Display name" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewUserDisplayName}" Placeholder="Full name" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Label Text="{Binding CreateUserError}" IsVisible="{Binding HasCreateUserError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                <Grid>
+                    <Button Text="Create" Command="{Binding CreateUserCommand}"
+                            IsVisible="{Binding IsCreatingUser, Converter={StaticResource InvertBoolConverter}}"
+                            HorizontalOptions="Start" />
+                    <ActivityIndicator IsRunning="{Binding IsCreatingUser}" IsVisible="{Binding IsCreatingUser}" HorizontalOptions="Start" />
+                </Grid>
+            </VerticalStackLayout>
+        </controls:ModalPanel>
+
+        <!-- ===== Assign role (modal) ===== -->
+        <controls:ModalPanel IsOpen="{Binding IsAssignModalOpen}" HeaderText="Assign a role"
+                             CloseCommand="{Binding CloseAssignPanelCommand}" CardWidth="620">
+            <VerticalStackLayout Spacing="10"
+                                 BindingContext="{Binding ActiveAssignRow}"
+                                 x:DataType="vm:UserRowViewModel">
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Role" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding Roles}" ItemDisplayBinding="{Binding Name, x:DataType=access:RoleResponse}"
+                                SelectedItem="{Binding SelectedRole}" Title="Choose a role" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Scope" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding ScopeTypes}" SelectedItem="{Binding SelectedScopeType}" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Label Text="{Binding SelectedRole.Description}" Style="{StaticResource Caption}" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding NeedsCustomer}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Customer" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding Customers}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:CustomerSummaryResponse}"
+                                SelectedItem="{Binding SelectedCustomer}" Title="Choose a customer" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4" IsVisible="{Binding NeedsContext}">
+                        <Label Text="Context" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding AvailableContexts}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:ContextSummaryResponse}"
+                                SelectedItem="{Binding SelectedContext}" Title="Choose a context" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Label Text="{Binding AssignError}" IsVisible="{Binding HasAssignError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                <Grid>
+                    <Button Text="Assign" Command="{Binding AssignCommand}"
+                            IsVisible="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                            HorizontalOptions="Start" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+                </Grid>
+            </VerticalStackLayout>
+        </controls:ModalPanel>
 
         <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading users…" />
     </Grid>

@@ -5,6 +5,10 @@ public sealed record ServerCredentialResponse(
     Guid Id,
     string Username,
     string AuthMethod,
+    string Kind,
+    Guid? OwnerUserId,
+    string? OwnerDisplayName,
+    string? ServiceName,
     string? Label);
 
 public sealed record ServerResponse(

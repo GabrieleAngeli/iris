@@ -25,15 +25,45 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
         var response = await Reader().PostAsJsonAsync("/servers", new
         {
             name = "nope",
-            hostname = (string?)null,
             os = "Linux",
             hostingType = "SelfHosted",
             publicIpAddress = "1.2.3.4",
-            privateIpAddress = (string?)null,
             environment = "Test",
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Server_can_be_registered_with_its_first_credential_in_one_call()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+
+        var create = await admin.PostAsJsonAsync("/servers", new
+        {
+            name,
+            os = "Linux",
+            hostingType = "SelfHosted",
+            privateIpAddress = "10.0.9.9",
+            environment = "Production",
+            credential = new
+            {
+                username = "ansible",
+                authMethod = "SshKey",
+                secretValue = "-----BEGIN OPENSSH PRIVATE KEY-----abc",
+                kind = "ServiceAccount",
+                serviceName = "ansible",
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var server = await create.Content.ReadFromJsonAsync<ServerDto>();
+        var cred = Assert.Single(server!.Credentials);
+        Assert.Equal("ansible", cred.Username);
+        Assert.Equal("ServiceAccount", cred.Kind);
+        Assert.Equal("ansible", cred.ServiceName);
+        Assert.DoesNotContain("BEGIN OPENSSH", System.Text.Json.JsonSerializer.Serialize(server));
     }
 
     [Fact]
@@ -42,75 +72,64 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
         var admin = Admin();
         var name = "web-" + Guid.NewGuid().ToString("N")[..8];
 
-        // 1. register the server
         var create = await admin.PostAsJsonAsync("/servers", new
         {
             name,
             hostname = $"{name}.internal",
             os = "Linux",
             hostingType = "SelfHosted",
-            publicIpAddress = (string?)null,
             privateIpAddress = "10.0.4.12",
             environment = "Staging",
         });
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var server = await create.Content.ReadFromJsonAsync<ServerDto>();
-        Assert.NotNull(server);
         Assert.Empty(server!.Credentials);
 
         // needs at least one IP -> 400
         var missingIp = await admin.PostAsJsonAsync("/servers", new
         {
-            name = name + "-2",
-            hostname = (string?)null,
-            os = "Windows",
-            hostingType = "Cloud",
-            publicIpAddress = (string?)null,
-            privateIpAddress = (string?)null,
-            environment = "Test",
+            name = name + "-2", os = "Windows", hostingType = "Cloud", environment = "Test",
         });
         Assert.Equal(HttpStatusCode.BadRequest, missingIp.StatusCode);
 
-        // 2. add two independent OS-login credentials
+        // a system-user credential linked to an Iris user
+        var users = await admin.GetFromJsonAsync<List<UserDto>>("/governance/users");
+        var lucia = Assert.Single(users!, u => u.Email == "lucia@contoso.example");
+
+        var addLucia = await admin.PostAsJsonAsync($"/servers/{server.Id}/credentials", new
+        {
+            username = "lucia",
+            authMethod = "SshKey",
+            secretValue = "-----BEGIN OPENSSH PRIVATE KEY-----",
+            kind = "SystemUser",
+            ownerUserId = lucia.Id,
+        });
+        Assert.Equal(HttpStatusCode.Created, addLucia.StatusCode);
+        var luciaCred = await addLucia.Content.ReadFromJsonAsync<CredentialDto>();
+        Assert.Equal(lucia.Id, luciaCred!.OwnerUserId);
+        Assert.Equal("Lucia Bianchi", luciaCred.OwnerDisplayName);
+
         var addRoot = await admin.PostAsJsonAsync($"/servers/{server.Id}/credentials", new
         {
-            username = "root",
-            authMethod = "Password",
-            secretValue = "correct-horse-battery-staple",
-            label = (string?)null,
+            username = "root", authMethod = "Password", secretValue = "correct-horse", kind = "SystemUser",
         });
         Assert.Equal(HttpStatusCode.Created, addRoot.StatusCode);
         var rootCredential = await addRoot.Content.ReadFromJsonAsync<CredentialDto>();
-        Assert.NotNull(rootCredential);
-
-        var addDeploy = await admin.PostAsJsonAsync($"/servers/{server.Id}/credentials", new
-        {
-            username = "deploy",
-            authMethod = "SshKey",
-            secretValue = "-----BEGIN OPENSSH PRIVATE KEY-----",
-            label = "CI deploy account",
-        });
-        Assert.Equal(HttpStatusCode.Created, addDeploy.StatusCode);
 
         // duplicate username on the same server -> 409
         var dup = await admin.PostAsJsonAsync($"/servers/{server.Id}/credentials", new
         {
-            username = "root",
-            authMethod = "Password",
-            secretValue = "another-one",
-            label = (string?)null,
+            username = "root", authMethod = "Password", secretValue = "another", kind = "SystemUser",
         });
         Assert.Equal(HttpStatusCode.Conflict, dup.StatusCode);
 
-        // 3. list shows both credentials, never a secret value
+        // list shows both, never a secret
         var servers = await admin.GetFromJsonAsync<List<ServerDto>>("/servers");
         var listed = Assert.Single(servers!, s => s.Id == server.Id);
         Assert.Equal(2, listed.Credentials.Count);
-        var listedJson = System.Text.Json.JsonSerializer.Serialize(listed);
-        Assert.DoesNotContain("correct-horse-battery-staple", listedJson);
-        Assert.DoesNotContain("BEGIN OPENSSH PRIVATE KEY", listedJson);
+        Assert.DoesNotContain("correct-horse", System.Text.Json.JsonSerializer.Serialize(listed));
 
-        // 4. remove one
+        // remove one
         var remove = await admin.DeleteAsync($"/servers/{server.Id}/credentials/{rootCredential!.Id}");
         Assert.Equal(HttpStatusCode.NoContent, remove.StatusCode);
 
@@ -120,5 +139,9 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
 
     private sealed record ServerDto(Guid Id, string Name, List<CredentialDto> Credentials);
 
-    private sealed record CredentialDto(Guid Id, string Username, string AuthMethod, string? Label);
+    private sealed record CredentialDto(
+        Guid Id, string Username, string AuthMethod, string Kind,
+        Guid? OwnerUserId, string? OwnerDisplayName, string? ServiceName, string? Label);
+
+    private sealed record UserDto(Guid Id, string Email);
 }

@@ -1,6 +1,20 @@
 namespace Iris.Contracts.Infrastructure;
 
-/// <summary>Body of <c>POST /servers</c>.</summary>
+/// <summary>
+/// An OS-login credential supplied by the operator. <c>SecretValue</c> is write-only (a password or an
+/// SSH private key) and is never echoed back. <c>Kind</c> is <c>SystemUser</c> (optionally tied to an
+/// Iris user via <c>OwnerUserId</c>) or <c>ServiceAccount</c> (named by <c>ServiceName</c>, e.g. "ansible").
+/// </summary>
+public sealed record ServerCredentialInputRequest(
+    string Username,
+    string AuthMethod,
+    string SecretValue,
+    string Kind,
+    Guid? OwnerUserId,
+    string? ServiceName,
+    string? Label);
+
+/// <summary>Body of <c>POST /servers</c>. <c>Credential</c> is optional — the server's first OS login.</summary>
 public sealed record CreateServerRequest(
     string Name,
     string? Hostname,
@@ -8,11 +22,15 @@ public sealed record CreateServerRequest(
     string HostingType,
     string? PublicIpAddress,
     string? PrivateIpAddress,
-    string Environment);
+    string Environment,
+    ServerCredentialInputRequest? Credential = null);
 
-/// <summary>Body of <c>POST /servers/{serverId}/credentials</c>. <c>SecretValue</c> is write-only — never echoed back.</summary>
+/// <summary>Body of <c>POST /servers/{serverId}/credentials</c>.</summary>
 public sealed record AddServerCredentialRequest(
     string Username,
     string AuthMethod,
     string SecretValue,
+    string Kind,
+    Guid? OwnerUserId,
+    string? ServiceName,
     string? Label);

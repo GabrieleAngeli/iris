@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.TryAddScoped<RevokeRoleHandler>();
 
         // Infrastructure commands
+        services.TryAddScoped<ServerCredentialFactory>();
         services.TryAddScoped<CreateServerHandler>();
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();

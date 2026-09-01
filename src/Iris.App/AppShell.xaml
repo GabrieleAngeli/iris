@@ -16,16 +16,16 @@
             <!-- ===================== Brand ===================== -->
             <Grid Padding="20,28,20,20" ColumnDefinitions="Auto,*" ColumnSpacing="12"
                   BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource LayerDark}}">
-                <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
                         BackgroundColor="#F4F0E6"
-                        StrokeShape="RoundRectangle 22">
-                    <Image Source="iris_mark.png" WidthRequest="30" HeightRequest="30"
+                        StrokeShape="RoundRectangle 24">
+                    <Image Source="iris_mark.png" WidthRequest="38" HeightRequest="38"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                     <Label Text="Iris" FontFamily="{StaticResource FontSemibold}" FontSize="17"
                            TextColor="{AppThemeBinding Light=White, Dark={StaticResource TextPrimaryDark}}" />
-                    <Label Text="Fluent Design System" FontSize="12"
+                    <Label Text="ICP · Infrastructure Control Plane" FontSize="12"
                            TextColor="{AppThemeBinding Light=#DCEBFF, Dark={StaticResource TextSecondaryDark}}" />
                 </VerticalStackLayout>
             </Grid>

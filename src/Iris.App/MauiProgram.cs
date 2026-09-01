@@ -9,6 +9,10 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
+#if WINDOWS
+		WindowsInputStyling.Apply();
+#endif
+
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()

@@ -161,8 +161,16 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Label")
                         .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SecretReference")
@@ -171,6 +179,10 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("ServerNodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ServiceName")
+                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
@@ -182,6 +194,8 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId");
 
                     b.HasIndex("ServerNodeId", "Username")
                         .IsUnique();

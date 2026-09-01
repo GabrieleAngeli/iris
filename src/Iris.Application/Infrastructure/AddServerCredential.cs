@@ -1,7 +1,6 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Common;
 using Iris.Contracts.Infrastructure;
-using Iris.Domain.Infrastructure;
 
 namespace Iris.Application.Infrastructure;
 
@@ -11,11 +10,14 @@ public sealed record AddServerCredentialCommand(
     string Username,
     string AuthMethod,
     string SecretValue,
+    string Kind,
+    Guid? OwnerUserId,
+    string? ServiceName,
     string? Label);
 
 public sealed class AddServerCredentialHandler(
     IServerRepository servers,
-    ISecretStore secretStore,
+    ServerCredentialFactory credentialFactory,
     IUnitOfWork unitOfWork)
 {
     public async Task<ServerCredentialResponse> HandleAsync(
@@ -24,44 +26,24 @@ public sealed class AddServerCredentialHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.Username))
-        {
-            throw new ValidationException("Username is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(command.SecretValue))
-        {
-            throw new ValidationException("A password or SSH key is required.");
-        }
-
-        if (!Enum.TryParse<ServerCredentialAuthMethod>(command.AuthMethod, ignoreCase: true, out var authMethod))
-        {
-            throw new ValidationException($"Unknown auth method '{command.AuthMethod}'. Expected Password or SshKey.");
-        }
-
         var server = await servers.GetForUpdateAsync(command.ServerId, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("Server", command.ServerId);
 
-        var credentialId = Guid.CreateVersion7();
-        var logicalPath = $"servers/{server.Id}/credentials/{credentialId}";
-        var secretReference = await secretStore
-            .StoreAsync(logicalPath, command.SecretValue, cancellationToken)
-            .ConfigureAwait(false);
+        var input = new ServerCredentialInput(
+            command.Username,
+            command.AuthMethod,
+            command.SecretValue,
+            command.Kind,
+            command.OwnerUserId,
+            command.ServiceName,
+            command.Label);
 
-        ServerCredential credential;
-        try
-        {
-            credential = server.AddCredential(credentialId, command.Username, authMethod, secretReference, command.Label);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // The secret was already stored above — clean it up rather than leaving it orphaned.
-            await secretStore.DeleteAsync(secretReference, cancellationToken).ConfigureAwait(false);
-            throw new ConflictException(ex.Message);
-        }
+        var (credential, owner) = await credentialFactory
+            .AttachAsync(server, input, cancellationToken)
+            .ConfigureAwait(false);
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return credential.ToResponse();
+        return credential.ToResponse(owner?.DisplayName);
     }
 }

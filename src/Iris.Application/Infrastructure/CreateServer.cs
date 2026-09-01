@@ -6,7 +6,7 @@ using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Infrastructure;
 
-/// <summary>Command for <c>POST /servers</c>.</summary>
+/// <summary>Command for <c>POST /servers</c>, optionally with the server's first OS-login credential.</summary>
 public sealed record CreateServerCommand(
     string Name,
     string? Hostname,
@@ -14,9 +14,13 @@ public sealed record CreateServerCommand(
     string HostingType,
     string? PublicIpAddress,
     string? PrivateIpAddress,
-    string Environment);
+    string Environment,
+    ServerCredentialInput? Credential = null);
 
-public sealed class CreateServerHandler(IServerRepository servers, IUnitOfWork unitOfWork)
+public sealed class CreateServerHandler(
+    IServerRepository servers,
+    ServerCredentialFactory credentialFactory,
+    IUnitOfWork unitOfWork)
 {
     public async Task<ServerResponse> HandleAsync(CreateServerCommand command, CancellationToken cancellationToken = default)
     {
@@ -58,8 +62,21 @@ public sealed class CreateServerHandler(IServerRepository servers, IUnitOfWork u
             environment);
 
         await servers.AddAsync(server, cancellationToken).ConfigureAwait(false);
+
+        var ownerNames = new Dictionary<Guid, string>();
+        if (command.Credential is { } credentialInput)
+        {
+            var (_, owner) = await credentialFactory
+                .AttachAsync(server, credentialInput, cancellationToken)
+                .ConfigureAwait(false);
+            if (owner is not null)
+            {
+                ownerNames[owner.Id] = owner.DisplayName;
+            }
+        }
+
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return server.ToResponse();
+        return server.ToResponse(ownerNames);
     }
 }

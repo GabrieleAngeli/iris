@@ -55,7 +55,7 @@ public partial class UsersViewModel : ObservableObject
 			Users.Clear();
 			foreach (var user in users)
 			{
-				Users.Add(new UserRowViewModel(user, _roles, _customers, _api));
+				Users.Add(new UserRowViewModel(user, _roles, _customers, _api, this));
 			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -83,6 +83,23 @@ public partial class UsersViewModel : ObservableObject
 	[RelayCommand]
 	private void ToggleNewUserPanel() => IsNewUserPanelOpen = !IsNewUserPanelOpen;
 
+	// ----- Assign-role modal (shared across user rows) -----
+
+	[ObservableProperty] private UserRowViewModel? _activeAssignRow;
+
+	public bool IsAssignModalOpen => ActiveAssignRow is not null;
+
+	partial void OnActiveAssignRowChanged(UserRowViewModel? value) => OnPropertyChanged(nameof(IsAssignModalOpen));
+
+	public void OpenAssignPanel(UserRowViewModel row)
+	{
+		row.AssignError = null;
+		ActiveAssignRow = row;
+	}
+
+	[RelayCommand]
+	private void CloseAssignPanel() => ActiveAssignRow = null;
+
 	[RelayCommand]
 	private async Task CreateUserAsync()
 	{
@@ -102,19 +119,16 @@ public partial class UsersViewModel : ObservableObject
 		{
 			var created = await _api.CreateUserAsync(new CreateUserRequest(email, displayName));
 
-			var row = new UserRowViewModel(created, _roles, _customers, _api)
-			{
-				// Creating a user is only useful together with giving them somewhere to
-				// belong — jump straight into the same "assign a role" panel used for
-				// existing users instead of leaving the admin to find the new row and
-				// open it themselves.
-				IsAssignPanelOpen = true,
-			};
+			var row = new UserRowViewModel(created, _roles, _customers, _api, this);
 			Users.Insert(0, row);
 
 			IsNewUserPanelOpen = false;
 			NewUserEmail = string.Empty;
 			NewUserDisplayName = string.Empty;
+
+			// Creating a user is only useful together with giving them somewhere to
+			// belong — go straight to the "assign a role" modal for the new row.
+			OpenAssignPanel(row);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -132,15 +146,18 @@ public sealed partial class UserRowViewModel : ObservableObject
 {
 	private readonly Guid _userId;
 	private readonly IIrisApiClient _api;
+	private readonly UsersViewModel _parent;
 
 	public UserRowViewModel(
 		UserResponse user,
 		IReadOnlyList<RoleResponse> roles,
 		IReadOnlyList<CustomerSummaryResponse> customers,
-		IIrisApiClient api)
+		IIrisApiClient api,
+		UsersViewModel parent)
 	{
 		_userId = user.Id;
 		_api = api;
+		_parent = parent;
 		DisplayName = user.DisplayName;
 		Email = user.Email;
 		IsActive = user.IsActive;
@@ -169,7 +186,6 @@ public sealed partial class UserRowViewModel : ObservableObject
 
 	public IReadOnlyList<string> ScopeTypes { get; } = ["Global", "Customer", "Context"];
 
-	[ObservableProperty] private bool _isAssignPanelOpen;
 	[ObservableProperty] private RoleResponse? _selectedRole;
 	[ObservableProperty] private string _selectedScopeType = "Global";
 	[ObservableProperty] private CustomerSummaryResponse? _selectedCustomer;
@@ -200,7 +216,7 @@ public sealed partial class UserRowViewModel : ObservableObject
 	}
 
 	[RelayCommand]
-	private void ToggleAssignPanel() => IsAssignPanelOpen = !IsAssignPanelOpen;
+	private void OpenAssign() => _parent.OpenAssignPanel(this);
 
 	[RelayCommand]
 	private async Task AssignAsync()
@@ -246,7 +262,7 @@ public sealed partial class UserRowViewModel : ObservableObject
 				result.ContextId);
 			Assignments.Add(new AssignmentRowViewModel(dto, this));
 
-			IsAssignPanelOpen = false;
+			_parent.ActiveAssignRow = null;
 			SelectedRole = null;
 			SelectedScopeType = "Global";
 			SelectedCustomer = null;

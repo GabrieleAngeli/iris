@@ -25,12 +25,13 @@ public static class InfrastructureEndpoints
                 var result = await handler
                     .HandleAsync(new CreateServerCommand(
                         body.Name, body.Hostname, body.Os, body.HostingType,
-                        body.PublicIpAddress, body.PrivateIpAddress, body.Environment), ct)
+                        body.PublicIpAddress, body.PrivateIpAddress, body.Environment,
+                        ToInput(body.Credential)), ct)
                     .ConfigureAwait(false);
                 return Results.Created($"/servers/{result.Id}", result);
             })
             .WithName("CreateServer")
-            .WithSummary("Register a server.")
+            .WithSummary("Register a server, optionally with its first OS-login credential.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
 
         servers.MapPost("/{serverId:guid}/credentials", async (
@@ -40,12 +41,14 @@ public static class InfrastructureEndpoints
                 CancellationToken ct) =>
             {
                 var result = await handler
-                    .HandleAsync(new AddServerCredentialCommand(serverId, body.Username, body.AuthMethod, body.SecretValue, body.Label), ct)
+                    .HandleAsync(new AddServerCredentialCommand(
+                        serverId, body.Username, body.AuthMethod, body.SecretValue,
+                        body.Kind, body.OwnerUserId, body.ServiceName, body.Label), ct)
                     .ConfigureAwait(false);
                 return Results.Created($"/servers/{serverId}/credentials/{result.Id}", result);
             })
             .WithName("AddServerCredential")
-            .WithSummary("Add an OS-login credential to a server.")
+            .WithSummary("Add an OS-login credential to a server (system user or service account).")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
 
         servers.MapDelete("/{serverId:guid}/credentials/{credentialId:guid}", async (
@@ -63,4 +66,11 @@ public static class InfrastructureEndpoints
 
         return app;
     }
+
+    private static ServerCredentialInput? ToInput(ServerCredentialInputRequest? request) =>
+        request is null
+            ? null
+            : new ServerCredentialInput(
+                request.Username, request.AuthMethod, request.SecretValue,
+                request.Kind, request.OwnerUserId, request.ServiceName, request.Label);
 }

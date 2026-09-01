@@ -20,39 +20,41 @@
             </Grid.Background>
 
             <HorizontalStackLayout Spacing="12">
-                <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                        BackgroundColor="#F4F0E6" StrokeShape="RoundRectangle 20">
-                    <Image Source="iris_mark.png" WidthRequest="28" HeightRequest="28"
+                <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                        BackgroundColor="#F4F0E6" StrokeShape="RoundRectangle 24">
+                    <Image Source="iris_mark.png" WidthRequest="36" HeightRequest="36"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
-                <Label Text="Iris" TextColor="White" FontFamily="{StaticResource FontSemibold}"
-                       FontSize="19" VerticalOptions="Center" />
+                <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                    <Label Text="Iris" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="19" />
+                    <Label Text="ICP" TextColor="#DCEBFF" FontSize="12" />
+                </VerticalStackLayout>
             </HorizontalStackLayout>
 
             <VerticalStackLayout Grid.Row="1" Spacing="18" VerticalOptions="Center">
                 <Image Source="iris_mark_light.png" HeightRequest="128" HorizontalOptions="Start"
                        Margin="0,0,0,6" />
-                <Label Text="The Fluent Design starter for .NET MAUI"
+                <Label Text="Infrastructure Control Plane"
                        TextColor="White" FontFamily="{StaticResource FontDisplay}" FontSize="40" LineHeight="1.15" />
-                <Label Text="Login and dashboard screens, a component gallery, light/dark theming and MVVM wiring — ready to build on."
-                       TextColor="#DCEBFF" FontSize="16" MaximumWidthRequest="460" />
+                <Label Text="Iris holds the desired state of your infrastructure, application configuration and deployments across every customer and environment. It defines, validates and orchestrates — Ansible, AWX and OpenBao execute."
+                       TextColor="#DCEBFF" FontSize="16" MaximumWidthRequest="480" />
                 <HorizontalStackLayout Spacing="24" Margin="0,12,0,0">
                     <VerticalStackLayout>
-                        <Label Text="20+" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="22" />
-                        <Label Text="controls" TextColor="#DCEBFF" FontSize="13" />
+                        <Label Text="Multi-customer" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="18" />
+                        <Label Text="isolation" TextColor="#DCEBFF" FontSize="13" />
                     </VerticalStackLayout>
                     <VerticalStackLayout>
-                        <Label Text="2" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="22" />
-                        <Label Text="themes" TextColor="#DCEBFF" FontSize="13" />
+                        <Label Text="Capillary" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="18" />
+                        <Label Text="RBAC + SSO" TextColor="#DCEBFF" FontSize="13" />
                     </VerticalStackLayout>
                     <VerticalStackLayout>
-                        <Label Text="MVVM" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="22" />
-                        <Label Text="architecture" TextColor="#DCEBFF" FontSize="13" />
+                        <Label Text="Validated" TextColor="White" FontFamily="{StaticResource FontSemibold}" FontSize="18" />
+                        <Label Text="deployments" TextColor="#DCEBFF" FontSize="13" />
                     </VerticalStackLayout>
                 </HorizontalStackLayout>
             </VerticalStackLayout>
 
-            <Label Grid.Row="2" Text="© 2026 Iris · Built with .NET MAUI"
+            <Label Grid.Row="2" Text="© 2026 Gabriele Angeli · Iris ICP"
                    TextColor="#BBD7F5" FontSize="12" />
         </Grid>
 

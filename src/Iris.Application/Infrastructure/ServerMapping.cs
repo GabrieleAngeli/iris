@@ -5,7 +5,9 @@ namespace Iris.Application.Infrastructure;
 
 internal static class ServerMapping
 {
-    public static ServerResponse ToResponse(this ServerNode server) => new(
+    public static ServerResponse ToResponse(
+        this ServerNode server,
+        IReadOnlyDictionary<Guid, string>? ownerNames = null) => new(
         server.Id,
         server.Name,
         server.Hostname,
@@ -15,11 +17,25 @@ internal static class ServerMapping
         server.PrivateIpAddress,
         server.Environment.ToString(),
         server.IsActive,
-        server.Credentials.Select(c => c.ToResponse()).ToArray());
+        server.Credentials.Select(c => c.ToResponse(LookupOwner(c, ownerNames))).ToArray());
 
-    public static ServerCredentialResponse ToResponse(this ServerCredential credential) => new(
+    public static ServerCredentialResponse ToResponse(this ServerCredential credential, string? ownerDisplayName = null) => new(
         credential.Id,
         credential.Username,
         credential.AuthMethod.ToString(),
+        credential.Kind.ToString(),
+        credential.OwnerUserId,
+        ownerDisplayName,
+        credential.ServiceName,
         credential.Label);
+
+    private static string? LookupOwner(ServerCredential credential, IReadOnlyDictionary<Guid, string>? ownerNames)
+    {
+        if (credential.OwnerUserId is { } id && ownerNames is not null && ownerNames.TryGetValue(id, out var name))
+        {
+            return name;
+        }
+
+        return null;
+    }
 }
