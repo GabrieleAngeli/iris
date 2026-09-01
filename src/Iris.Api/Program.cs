@@ -9,8 +9,17 @@ using Iris.Contracts.Meta;
 using Iris.Infrastructure;
 using Iris.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog is the provider; ILogger<T> (already native to every project) stays the
+// abstraction. Sinks — where logs go — are entirely configuration-driven (the "Serilog"
+// section in appsettings), so adding a remote sink later needs no code change here.
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
@@ -28,6 +37,7 @@ builder.Services.AddScoped<IClaimsTransformation, AccessProvisioningClaimsTransf
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

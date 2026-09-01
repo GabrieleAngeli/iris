@@ -2,6 +2,8 @@ using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 namespace Iris.App;
 
@@ -12,6 +14,26 @@ public static class MauiProgram
 #if WINDOWS
 		WindowsInputStyling.Apply();
 #endif
+
+		// Serilog is the provider; ILogger<T> stays the abstraction, same as the backend.
+		// A desktop app isn't always online, so the only sink for now is a local rolling
+		// file — structured (compact JSON) so it's ready for a future remote shipper without
+		// changing how anything here logs, only where the file ends up going.
+		var logsPath = Path.Combine(FileSystem.AppDataDirectory, "logs", "iris-app-.log");
+		Log.Logger = new LoggerConfiguration()
+			.MinimumLevel.Information()
+			.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+			.Enrich.FromLogContext()
+			.WriteTo.File(new CompactJsonFormatter(), logsPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14)
+			.CreateLogger();
+
+		AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+			Log.Fatal(e.ExceptionObject as Exception, "Unhandled AppDomain exception");
+		TaskScheduler.UnobservedTaskException += (_, e) =>
+		{
+			Log.Error(e.Exception, "Unobserved task exception");
+			e.SetObserved();
+		};
 
 		var builder = MauiApp.CreateBuilder();
 		builder
@@ -86,6 +108,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<CustomersPage>();
 		builder.Services.AddTransient<ServersPage>();
 
+		builder.Logging.AddSerilog(dispose: true);
 #if DEBUG
 		builder.Logging.AddDebug();
 #endif

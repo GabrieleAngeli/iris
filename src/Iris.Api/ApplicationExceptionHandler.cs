@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Iris.Api;
 
-/// <summary>Maps application-layer exceptions to RFC 7807 problem responses.</summary>
-public sealed class ApplicationExceptionHandler(IProblemDetailsService problemDetails) : IExceptionHandler
+/// <summary>Maps application-layer exceptions to RFC 7807 problem responses, logging every one.</summary>
+public sealed class ApplicationExceptionHandler(
+    IProblemDetailsService problemDetails,
+    ILogger<ApplicationExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -22,8 +24,21 @@ public sealed class ApplicationExceptionHandler(IProblemDetailsService problemDe
 
         if (status == 0)
         {
+            // Nothing recognised it — this is a bug, not an expected client error. Log it with
+            // full context before letting the default problem-details middleware take over, so
+            // it leaves a trace instead of silently vanishing (see the "customer" lock-type gap).
+            logger.LogError(
+                exception,
+                "Unhandled exception on {Method} {Path} (trace {TraceId})",
+                httpContext.Request.Method, httpContext.Request.Path, httpContext.TraceIdentifier);
             return false;
         }
+
+        // Expected client errors (bad input, missing/conflicting resource) — worth a trail, not an alarm.
+        logger.LogWarning(
+            exception,
+            "{Title} on {Method} {Path} (trace {TraceId}): {Message}",
+            title, httpContext.Request.Method, httpContext.Request.Path, httpContext.TraceIdentifier, exception.Message);
 
         httpContext.Response.StatusCode = status;
 
