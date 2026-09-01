@@ -138,6 +138,9 @@ Application errors map to RFC 7807 problem responses: 404 (unknown resource),
 `Project Reference/Demo UI`. It signs in against the API with a dev-header
 identity and its **Access** page shows `/me` + `/customers` live.
 
+Its visual and navigation contract — tokens, styles, dialog-window model, flyout
+structure and MVVM conventions — is [`docs/ui-standards.md`](docs/ui-standards.md).
+
 Requires the MAUI workload (one-time, **elevated shell**):
 
 ```powershell

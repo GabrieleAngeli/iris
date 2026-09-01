@@ -24,4 +24,6 @@ internal sealed class UserRepository(IrisDbContext dbContext) : IUserRepository
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default) =>
         await dbContext.Users.AddAsync(user, cancellationToken).ConfigureAwait(false);
+
+    public void Remove(User user) => dbContext.Users.Remove(user);
 }

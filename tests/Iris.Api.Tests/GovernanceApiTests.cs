@@ -127,9 +127,46 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
         Assert.Equal(HttpStatusCode.Created, assign.StatusCode);
     }
 
+    [Fact]
+    public async Task Admin_can_edit_and_delete_a_user()
+    {
+        var admin = Admin();
+        var email = $"edit-{Guid.NewGuid():N}@customer.example";
+
+        var create = await admin.PostAsJsonAsync("/governance/users", new { email, displayName = "Before" });
+        var user = await create.Content.ReadFromJsonAsync<UserDto>();
+        await admin.PostAsJsonAsync($"/governance/users/{user!.Id}/assignments",
+            new { roleKey = "reader", scopeType = "Global", customerId = (Guid?)null, contextId = (Guid?)null });
+
+        // edit profile + active flag
+        var newEmail = $"after-{Guid.NewGuid():N}@customer.example";
+        var edit = await admin.PutAsJsonAsync($"/governance/users/{user.Id}",
+            new { email = newEmail, displayName = "After", isActive = false });
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var edited = await edit.Content.ReadFromJsonAsync<EditedUserDto>();
+        Assert.Equal(newEmail, edited!.Email);
+        Assert.Equal("After", edited.DisplayName);
+        Assert.False(edited.IsActive);
+        Assert.Single(edited.Assignments);
+
+        // reader can't edit or delete
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Reader().PutAsJsonAsync($"/governance/users/{user.Id}", new { email = newEmail, displayName = "x", isActive = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Reader().DeleteAsync($"/governance/users/{user.Id}")).StatusCode);
+
+        // delete
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/governance/users/{user.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/governance/users/{user.Id}")).StatusCode);
+
+        var users = await admin.GetFromJsonAsync<List<UserDto>>("/governance/users");
+        Assert.DoesNotContain(users!, u => u.Id == user.Id);
+    }
+
     private sealed record CustomerDto(Guid Id, string Key, string Name);
 
     private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<object> Assignments);
+
+    private sealed record EditedUserDto(Guid Id, string Email, string DisplayName, bool IsActive, List<object> Assignments);
 
     private sealed record AssignmentDto(Guid Id, Guid UserId, string RoleKey);
 }

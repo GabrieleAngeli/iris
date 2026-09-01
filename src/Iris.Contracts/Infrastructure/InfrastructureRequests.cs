@@ -25,6 +25,16 @@ public sealed record CreateServerRequest(
     string Environment,
     ServerCredentialInputRequest? Credential = null);
 
+/// <summary>Body of <c>PUT /servers/{id}</c> — the server's identity/network details (credentials unchanged).</summary>
+public sealed record UpdateServerRequest(
+    string Name,
+    string? Hostname,
+    string Os,
+    string HostingType,
+    string? PublicIpAddress,
+    string? PrivateIpAddress,
+    string Environment);
+
 /// <summary>Body of <c>POST /servers/{serverId}/credentials</c>.</summary>
 public sealed record AddServerCredentialRequest(
     string Username,

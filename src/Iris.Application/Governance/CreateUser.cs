@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Application.Access;
 using Iris.Application.Common;
 using Iris.Contracts.Access;
 using Iris.Domain.Access;
@@ -36,13 +37,6 @@ public sealed class CreateUserHandler(IUserRepository users, IUnitOfWork unitOfW
         await users.AddAsync(user, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new UserResponse(
-            user.Id,
-            user.ExternalId,
-            user.Email,
-            user.DisplayName,
-            user.IsActive,
-            user.IsProvisioned,
-            []);
+        return UserMapping.ToResponse(user, [], new Dictionary<Guid, Role>());
     }
 }

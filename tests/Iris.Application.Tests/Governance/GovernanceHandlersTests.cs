@@ -149,4 +149,63 @@ public sealed class GovernanceHandlersTests
         await handler.HandleAsync(new RevokeRoleCommand(user.Id, assignment.Id));
         Assert.Empty(store.Assignments);
     }
+
+    [Fact]
+    public async Task UpdateUser_edits_profile_and_active_flag()
+    {
+        var store = StoreWithReaderRole(out var reader);
+        var user = new User(Guid.NewGuid(), "ext-u", "old@iris.local", "Old Name");
+        store.WithUser(user).WithAssignment(new RoleAssignment(Guid.NewGuid(), user.Id, reader.Id, AccessScope.Global()));
+
+        var handler = new UpdateUserHandler(
+            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, store.UnitOfWork);
+
+        var updated = await handler.HandleAsync(new UpdateUserCommand(user.Id, "new@iris.local", "New Name", false));
+
+        Assert.Equal("new@iris.local", updated.Email);
+        Assert.Equal("New Name", updated.DisplayName);
+        Assert.False(updated.IsActive);
+        Assert.Single(updated.Assignments);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.HandleAsync(new UpdateUserCommand(Guid.NewGuid(), "x@iris.local", "X", true)));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            handler.HandleAsync(new UpdateUserCommand(user.Id, "", "X", true)));
+    }
+
+    [Fact]
+    public async Task UpdateUser_rejects_an_email_another_user_already_has()
+    {
+        var store = new FakeStore();
+        var a = new User(Guid.NewGuid(), "ext-a", "a@iris.local", "A");
+        var b = new User(Guid.NewGuid(), "ext-b", "b@iris.local", "B");
+        store.WithUser(a).WithUser(b);
+
+        var handler = new UpdateUserHandler(
+            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            handler.HandleAsync(new UpdateUserCommand(b.Id, "a@iris.local", "B", true)));
+
+        // keeping its own email is fine
+        var ok = await handler.HandleAsync(new UpdateUserCommand(b.Id, "b@iris.local", "B renamed", true));
+        Assert.Equal("B renamed", ok.DisplayName);
+    }
+
+    [Fact]
+    public async Task DeleteUser_removes_the_user_and_their_assignments()
+    {
+        var store = StoreWithReaderRole(out var reader);
+        var user = new User(Guid.NewGuid(), "ext-d", "d@iris.local", "D");
+        store.WithUser(user).WithAssignment(new RoleAssignment(Guid.NewGuid(), user.Id, reader.Id, AccessScope.Global()));
+
+        var handler = new DeleteUserHandler(store.UserRepository, store.UnitOfWork);
+
+        await handler.HandleAsync(new DeleteUserCommand(user.Id));
+
+        Assert.Empty(store.Users);
+        Assert.Empty(store.Assignments);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => handler.HandleAsync(new DeleteUserCommand(user.Id)));
+    }
 }

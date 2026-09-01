@@ -49,6 +49,15 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IWindowHandleProvider, WindowHandleProvider>();
 #endif
 
+		// ---- Windowing (geometry persistence + real modal dialog windows) ----
+		builder.Services.AddSingleton<WindowGeometryStore>();
+#if WINDOWS
+		builder.Services.AddSingleton<INativeWindowConfigurator, NativeWindowConfigurator>();
+#else
+		builder.Services.AddSingleton<INativeWindowConfigurator, NullNativeWindowConfigurator>();
+#endif
+		builder.Services.AddSingleton<IDialogService, DialogService>();
+
 		// ---- Services ---------------------------------------------
 		builder.Services.AddSingleton<IAuthService, AuthService>();
 		builder.Services.AddSingleton<IDashboardDataService, DashboardDataService>();

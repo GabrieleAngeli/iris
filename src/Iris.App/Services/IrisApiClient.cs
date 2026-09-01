@@ -41,6 +41,12 @@ public interface IIrisApiClient
 	/// <summary>Pre-provisions a user ahead of their first sign-in. Requires <c>governance.assignments.manage</c>.</summary>
 	Task<UserResponse> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
 
+	/// <summary>Edits a user's profile and active flag. Requires <c>governance.assignments.manage</c>.</summary>
+	Task<UserResponse> UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Deletes a user and their role assignments. Requires <c>governance.assignments.manage</c>.</summary>
+	Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
 	/// <summary>Grants <paramref name="userId"/> a role at a scope. Requires <c>governance.assignments.manage</c>.</summary>
 	Task<AssignmentResponse> AssignRoleAsync(Guid userId, AssignRoleRequest request, CancellationToken cancellationToken = default);
 
@@ -52,6 +58,12 @@ public interface IIrisApiClient
 
 	/// <summary>Registers a server. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Updates a server's identity/network details. Requires <c>infrastructure.write</c>.</summary>
+	Task<ServerResponse> UpdateServerAsync(Guid serverId, UpdateServerRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Deletes a server and every credential it holds. Requires <c>infrastructure.delete</c>.</summary>
+	Task DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default);
 
 	/// <summary>Adds an OS-login credential to a server. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerCredentialResponse> AddServerCredentialAsync(Guid serverId, AddServerCredentialRequest request, CancellationToken cancellationToken = default);
@@ -102,6 +114,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<UserResponse> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<UserResponse>("/governance/users", request, cancellationToken);
 
+	public Task<UserResponse> UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<UserResponse>(HttpMethod.Put, $"/governance/users/{userId}", request, cancellationToken);
+
+	public Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		DeleteAsync($"/governance/users/{userId}", cancellationToken);
+
 	public Task<AssignmentResponse> AssignRoleAsync(Guid userId, AssignRoleRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<AssignmentResponse>($"/governance/users/{userId}/assignments", request, cancellationToken);
 
@@ -113,6 +131,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ServerResponse>("/servers", request, cancellationToken);
+
+	public Task<ServerResponse> UpdateServerAsync(Guid serverId, UpdateServerRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<ServerResponse>(HttpMethod.Put, $"/servers/{serverId}", request, cancellationToken);
+
+	public Task DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default) =>
+		DeleteAsync($"/servers/{serverId}", cancellationToken);
 
 	public Task<ServerCredentialResponse> AddServerCredentialAsync(Guid serverId, AddServerCredentialRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ServerCredentialResponse>($"/servers/{serverId}/credentials", request, cancellationToken);
@@ -133,9 +157,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 			.ConfigureAwait(false) ?? [];
 	}
 
-	private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
+	private Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken) =>
+		SendAsync<T>(HttpMethod.Post, path, body, cancellationToken);
+
+	private async Task<T> SendAsync<T>(HttpMethod method, string path, object body, CancellationToken cancellationToken)
 	{
-		using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+		using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
 		Authenticate(request);
 
 		using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);

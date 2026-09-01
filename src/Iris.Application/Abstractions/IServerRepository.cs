@@ -14,4 +14,6 @@ public interface IServerRepository
     Task<ServerNode?> GetForUpdateAsync(Guid serverId, CancellationToken cancellationToken = default);
 
     Task AddAsync(ServerNode server, CancellationToken cancellationToken = default);
+
+    void Remove(ServerNode server);
 }

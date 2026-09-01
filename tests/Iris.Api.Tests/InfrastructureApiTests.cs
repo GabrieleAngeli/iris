@@ -67,6 +67,43 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task Admin_can_edit_and_delete_a_server()
+    {
+        var admin = Admin();
+        var name = "edit-" + Guid.NewGuid().ToString("N")[..8];
+
+        var create = await admin.PostAsJsonAsync("/servers", new
+        {
+            name, os = "Linux", hostingType = "SelfHosted", privateIpAddress = "10.0.1.1", environment = "Test",
+        });
+        var server = await create.Content.ReadFromJsonAsync<ServerDto>();
+
+        // edit
+        var edit = await admin.PutAsJsonAsync($"/servers/{server!.Id}", new
+        {
+            name = name + "-prod", hostname = $"{name}.corp", os = "Windows", hostingType = "Cloud",
+            publicIpAddress = "203.0.113.9", privateIpAddress = (string?)null, environment = "Production",
+        });
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var edited = await edit.Content.ReadFromJsonAsync<ServerFullDto>();
+        Assert.Equal(name + "-prod", edited!.Name);
+        Assert.Equal("Windows", edited.Os);
+        Assert.Equal("Production", edited.Environment);
+
+        // reader can't edit or delete
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Reader().PutAsJsonAsync($"/servers/{server.Id}", new { name = "x", os = "Linux", hostingType = "SelfHosted", publicIpAddress = "1.1.1.1", environment = "Test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Reader().DeleteAsync($"/servers/{server.Id}")).StatusCode);
+
+        // delete
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/servers/{server.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/servers/{server.Id}")).StatusCode);
+
+        var servers = await admin.GetFromJsonAsync<List<ServerDto>>("/servers");
+        Assert.DoesNotContain(servers!, s => s.Id == server.Id);
+    }
+
+    [Fact]
     public async Task Admin_can_register_a_server_and_manage_its_credentials()
     {
         var admin = Admin();
@@ -138,6 +175,8 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
     }
 
     private sealed record ServerDto(Guid Id, string Name, List<CredentialDto> Credentials);
+
+    private sealed record ServerFullDto(Guid Id, string Name, string Os, string HostingType, string Environment);
 
     private sealed record CredentialDto(
         Guid Id, string Username, string AuthMethod, string Kind,

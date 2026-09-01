@@ -96,7 +96,22 @@ public partial class ServersViewModel : ObservableObject
 
 	public IReadOnlyList<string> EnvironmentOptions { get; } = ["Test", "Staging", "Production"];
 
-	[ObservableProperty] private bool _isNewServerPanelOpen;
+	/// <summary>Raised when the operator asks to register a server — the page opens the dialog window.</summary>
+	public event EventHandler? NewServerRequested;
+
+	/// <summary>Raised after a server is registered so its dialog window can close.</summary>
+	public event EventHandler? NewServerCompleted;
+
+	/// <summary>Raised (post-create, or from a row's button) to open the add-credential dialog for a server.</summary>
+	public event EventHandler<ServerRowViewModel>? AddCredentialRequested;
+
+	/// <summary>Raised from a row's edit button to open the edit/delete dialog for a server.</summary>
+	public event EventHandler<ServerRowViewModel>? EditServerRequested;
+
+	public void RaiseEditRequested(ServerRowViewModel row) => EditServerRequested?.Invoke(this, row);
+
+	public void RemoveRow(ServerRowViewModel row) => Servers.Remove(row);
+
 	[ObservableProperty] private string _newServerName = string.Empty;
 	[ObservableProperty] private string _newServerHostname = string.Empty;
 	[ObservableProperty] private string _newServerOs = "Linux";
@@ -115,26 +130,28 @@ public partial class ServersViewModel : ObservableObject
 	partial void OnCreateServerErrorChanged(string? value) => OnPropertyChanged(nameof(HasCreateServerError));
 
 	[RelayCommand]
-	private void ToggleNewServerPanel() => IsNewServerPanelOpen = !IsNewServerPanelOpen;
+	private void RequestNewServer()
+	{
+		NewServerName = string.Empty;
+		NewServerHostname = string.Empty;
+		NewServerPublicIp = string.Empty;
+		NewServerPrivateIp = string.Empty;
+		NewServerOs = "Linux";
+		NewServerHostingType = "SelfHosted";
+		NewServerEnvironment = "Test";
+		IncludeCredential = true;
+		CreateServerError = null;
+		NewServerCredential.Reset();
+		NewServerRequested?.Invoke(this, EventArgs.Empty);
+	}
 
-	// ----- Add-credential modal (shared across server rows) -----
-
-	[ObservableProperty] private ServerRowViewModel? _activeCredentialRow;
-
-	public bool IsCredentialModalOpen => ActiveCredentialRow is not null;
-
-	partial void OnActiveCredentialRowChanged(ServerRowViewModel? value) =>
-		OnPropertyChanged(nameof(IsCredentialModalOpen));
-
+	/// <summary>Opens the add-credential dialog for <paramref name="row"/> (from its button or right after a bare create).</summary>
 	public void OpenCredentialPanel(ServerRowViewModel row)
 	{
 		row.AddCredentialForm.Reset();
 		row.CredentialError = null;
-		ActiveCredentialRow = row;
+		AddCredentialRequested?.Invoke(this, row);
 	}
-
-	[RelayCommand]
-	private void CloseCredentialPanel() => ActiveCredentialRow = null;
 
 	[RelayCommand]
 	private async Task CreateServerAsync()
@@ -184,20 +201,15 @@ public partial class ServersViewModel : ObservableObject
 			var row = new ServerRowViewModel(created, _api, OwnerOptions, this);
 			Servers.Insert(0, row);
 
-			IsNewServerPanelOpen = false;
+			NewServerCompleted?.Invoke(this, EventArgs.Empty);
+
+			// A server without a way in isn't useful — chain into the add-credential dialog, but on
+			// the next UI tick so the new-server window finishes closing before the next one opens.
 			if (created.Credentials.Count == 0)
 			{
-				OpenCredentialPanel(row);
+				var created_row = row;
+				MainThread.BeginInvokeOnMainThread(() => OpenCredentialPanel(created_row));
 			}
-
-			NewServerName = string.Empty;
-			NewServerHostname = string.Empty;
-			NewServerPublicIp = string.Empty;
-			NewServerPrivateIp = string.Empty;
-			NewServerOs = "Linux";
-			NewServerHostingType = "SelfHosted";
-			NewServerEnvironment = "Test";
-			NewServerCredential.Reset();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -338,6 +350,32 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		_serverId = server.Id;
 		_api = api;
 		_parent = parent;
+		AddCredentialForm = new CredentialFormViewModel(ownerOptions);
+		Credentials = new ObservableCollection<CredentialRowViewModel>(
+			server.Credentials.Select(c => new CredentialRowViewModel(c, this)));
+		ApplyFrom(server);
+	}
+
+	[ObservableProperty] private string _name = string.Empty;
+	[ObservableProperty] private string? _hostname;
+	[ObservableProperty] private string _os = "Linux";
+	[ObservableProperty] private string _hostingType = "SelfHosted";
+	[ObservableProperty] private string? _publicIpAddress;
+	[ObservableProperty] private string? _privateIpAddress;
+	[ObservableProperty] private string _environment = "Test";
+
+	public ObservableCollection<CredentialRowViewModel> Credentials { get; }
+
+	public CredentialFormViewModel AddCredentialForm { get; }
+
+	public IReadOnlyList<string> OsOptions => _parent.OsOptions;
+
+	public IReadOnlyList<string> HostingTypeOptions => _parent.HostingTypeOptions;
+
+	public IReadOnlyList<string> EnvironmentOptions => _parent.EnvironmentOptions;
+
+	private void ApplyFrom(ServerResponse server)
+	{
 		Name = server.Name;
 		Hostname = server.Hostname;
 		Os = server.Os;
@@ -345,28 +383,12 @@ public sealed partial class ServerRowViewModel : ObservableObject
 		PublicIpAddress = server.PublicIpAddress;
 		PrivateIpAddress = server.PrivateIpAddress;
 		Environment = server.Environment;
-		AddCredentialForm = new CredentialFormViewModel(ownerOptions);
-		Credentials = new ObservableCollection<CredentialRowViewModel>(
-			server.Credentials.Select(c => new CredentialRowViewModel(c, this)));
 	}
 
-	public string Name { get; }
+	// ----- Add credential -----
 
-	public string? Hostname { get; }
-
-	public string Os { get; }
-
-	public string HostingType { get; }
-
-	public string? PublicIpAddress { get; }
-
-	public string? PrivateIpAddress { get; }
-
-	public string Environment { get; }
-
-	public ObservableCollection<CredentialRowViewModel> Credentials { get; }
-
-	public CredentialFormViewModel AddCredentialForm { get; }
+	/// <summary>Raised after a credential is added so its dialog window can close.</summary>
+	public event EventHandler? AddCredentialCompleted;
 
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _credentialError;
@@ -377,6 +399,119 @@ public sealed partial class ServerRowViewModel : ObservableObject
 
 	[RelayCommand]
 	private void OpenAddCredential() => _parent.OpenCredentialPanel(this);
+
+	// ----- Edit / delete -----
+
+	/// <summary>Raised after the server is saved or deleted so its edit dialog window can close.</summary>
+	public event EventHandler? EditCompleted;
+
+	[ObservableProperty] private string _editName = string.Empty;
+	[ObservableProperty] private string _editHostname = string.Empty;
+	[ObservableProperty] private string _editOs = "Linux";
+	[ObservableProperty] private string _editHostingType = "SelfHosted";
+	[ObservableProperty] private string _editEnvironment = "Test";
+	[ObservableProperty] private string _editPublicIp = string.Empty;
+	[ObservableProperty] private string _editPrivateIp = string.Empty;
+	[ObservableProperty] private string _deleteConfirmName = string.Empty;
+	[ObservableProperty] private bool _isEditBusy;
+	[ObservableProperty] private string? _editError;
+
+	public bool HasEditError => !string.IsNullOrEmpty(EditError);
+
+	/// <summary>Delete is armed only once the operator has typed the server name exactly.</summary>
+	public bool CanDelete => string.Equals(DeleteConfirmName.Trim(), Name, StringComparison.Ordinal);
+
+	partial void OnEditErrorChanged(string? value) => OnPropertyChanged(nameof(HasEditError));
+
+	partial void OnNameChanged(string value) => OnPropertyChanged(nameof(CanDelete));
+
+	partial void OnDeleteConfirmNameChanged(string value)
+	{
+		OnPropertyChanged(nameof(CanDelete));
+		DeleteCommand.NotifyCanExecuteChanged();
+	}
+
+	[RelayCommand]
+	private void OpenEdit()
+	{
+		EditName = Name;
+		EditHostname = Hostname ?? string.Empty;
+		EditOs = Os;
+		EditHostingType = HostingType;
+		EditEnvironment = Environment;
+		EditPublicIp = PublicIpAddress ?? string.Empty;
+		EditPrivateIp = PrivateIpAddress ?? string.Empty;
+		DeleteConfirmName = string.Empty;
+		EditError = null;
+		_parent.RaiseEditRequested(this);
+	}
+
+	[RelayCommand]
+	private async Task SaveEditAsync()
+	{
+		var name = EditName.Trim();
+		if (name.Length == 0)
+		{
+			EditError = "Server name is required.";
+			return;
+		}
+
+		var publicIp = EditPublicIp.Trim();
+		var privateIp = EditPrivateIp.Trim();
+		if (publicIp.Length == 0 && privateIp.Length == 0)
+		{
+			EditError = "Enter at least a public or a private IP address.";
+			return;
+		}
+
+		IsEditBusy = true;
+		EditError = null;
+
+		try
+		{
+			var updated = await _api.UpdateServerAsync(_serverId, new UpdateServerRequest(
+				name,
+				string.IsNullOrWhiteSpace(EditHostname) ? null : EditHostname.Trim(),
+				EditOs,
+				EditHostingType,
+				publicIp.Length == 0 ? null : publicIp,
+				privateIp.Length == 0 ? null : privateIp,
+				EditEnvironment));
+
+			ApplyFrom(updated);
+			EditCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditError = ex.Message;
+		}
+		finally
+		{
+			IsEditBusy = false;
+		}
+	}
+
+	[RelayCommand(CanExecute = nameof(CanDelete))]
+	private async Task DeleteAsync()
+	{
+		IsEditBusy = true;
+		EditError = null;
+
+		try
+		{
+			await _api.DeleteServerAsync(_serverId);
+			_parent.RemoveRow(this);
+			EditCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditError = ex.Message;
+		}
+		finally
+		{
+			IsEditBusy = false;
+		}
+	}
 
 	[RelayCommand]
 	private async Task AddCredentialAsync()
@@ -398,7 +533,7 @@ public sealed partial class ServerRowViewModel : ObservableObject
 			var result = await _api.AddServerCredentialAsync(_serverId, request);
 			Credentials.Add(new CredentialRowViewModel(result, this));
 
-			_parent.ActiveCredentialRow = null;
+			AddCredentialCompleted?.Invoke(this, EventArgs.Empty);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{

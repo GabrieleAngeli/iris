@@ -95,6 +95,27 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         Name = name.Trim();
     }
 
+    /// <summary>Replaces the server's identity and network details (credentials are untouched).</summary>
+    public void UpdateDetails(
+        string name,
+        string? hostname,
+        ServerOs os,
+        ServerHostingType hostingType,
+        string? publicIpAddress,
+        string? privateIpAddress,
+        ContextKind environment)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        Name = name.Trim();
+        Hostname = string.IsNullOrWhiteSpace(hostname) ? null : hostname.Trim();
+        Os = os;
+        HostingType = hostingType;
+        PublicIpAddress = string.IsNullOrWhiteSpace(publicIpAddress) ? null : publicIpAddress.Trim();
+        PrivateIpAddress = string.IsNullOrWhiteSpace(privateIpAddress) ? null : privateIpAddress.Trim();
+        Environment = environment;
+    }
+
     public void Activate() => IsActive = true;
 
     public void Deactivate() => IsActive = false;

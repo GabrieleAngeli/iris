@@ -26,4 +26,6 @@ internal sealed class ServerRepository(IrisDbContext dbContext) : IServerReposit
 
     public async Task AddAsync(ServerNode server, CancellationToken cancellationToken = default) =>
         await dbContext.Servers.AddAsync(server, cancellationToken).ConfigureAwait(false);
+
+    public void Remove(ServerNode server) => dbContext.Servers.Remove(server);
 }

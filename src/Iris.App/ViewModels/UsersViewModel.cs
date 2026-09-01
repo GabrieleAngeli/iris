@@ -70,7 +70,22 @@ public partial class UsersViewModel : ObservableObject
 
 	// ----- New user -----
 
-	[ObservableProperty] private bool _isNewUserPanelOpen;
+	/// <summary>Raised when the operator asks to add a user — the page opens the dialog window.</summary>
+	public event EventHandler? NewUserRequested;
+
+	/// <summary>Raised after a user is created so its dialog window can close.</summary>
+	public event EventHandler? NewUserCompleted;
+
+	/// <summary>Raised (post-create, or from a row's button) to open the assign-role dialog for a user.</summary>
+	public event EventHandler<UserRowViewModel>? AssignRoleRequested;
+
+	/// <summary>Raised from a row's edit button to open the edit/delete dialog for a user.</summary>
+	public event EventHandler<UserRowViewModel>? EditUserRequested;
+
+	public void RaiseEditRequested(UserRowViewModel row) => EditUserRequested?.Invoke(this, row);
+
+	public void RemoveRow(UserRowViewModel row) => Users.Remove(row);
+
 	[ObservableProperty] private string _newUserEmail = string.Empty;
 	[ObservableProperty] private string _newUserDisplayName = string.Empty;
 	[ObservableProperty] private bool _isCreatingUser;
@@ -81,24 +96,20 @@ public partial class UsersViewModel : ObservableObject
 	partial void OnCreateUserErrorChanged(string? value) => OnPropertyChanged(nameof(HasCreateUserError));
 
 	[RelayCommand]
-	private void ToggleNewUserPanel() => IsNewUserPanelOpen = !IsNewUserPanelOpen;
+	private void RequestNewUser()
+	{
+		NewUserEmail = string.Empty;
+		NewUserDisplayName = string.Empty;
+		CreateUserError = null;
+		NewUserRequested?.Invoke(this, EventArgs.Empty);
+	}
 
-	// ----- Assign-role modal (shared across user rows) -----
-
-	[ObservableProperty] private UserRowViewModel? _activeAssignRow;
-
-	public bool IsAssignModalOpen => ActiveAssignRow is not null;
-
-	partial void OnActiveAssignRowChanged(UserRowViewModel? value) => OnPropertyChanged(nameof(IsAssignModalOpen));
-
+	/// <summary>Opens the assign-role dialog for <paramref name="row"/> (from its button or right after creating a user).</summary>
 	public void OpenAssignPanel(UserRowViewModel row)
 	{
 		row.AssignError = null;
-		ActiveAssignRow = row;
+		AssignRoleRequested?.Invoke(this, row);
 	}
-
-	[RelayCommand]
-	private void CloseAssignPanel() => ActiveAssignRow = null;
 
 	[RelayCommand]
 	private async Task CreateUserAsync()
@@ -122,13 +133,12 @@ public partial class UsersViewModel : ObservableObject
 			var row = new UserRowViewModel(created, _roles, _customers, _api, this);
 			Users.Insert(0, row);
 
-			IsNewUserPanelOpen = false;
-			NewUserEmail = string.Empty;
-			NewUserDisplayName = string.Empty;
+			NewUserCompleted?.Invoke(this, EventArgs.Empty);
 
-			// Creating a user is only useful together with giving them somewhere to
-			// belong — go straight to the "assign a role" modal for the new row.
-			OpenAssignPanel(row);
+			// A user without a role can't do anything — chain into the assign-role dialog, but on the
+			// next UI tick so the new-user window finishes closing before the next one opens.
+			var created_row = row;
+			MainThread.BeginInvokeOnMainThread(() => OpenAssignPanel(created_row));
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -158,25 +168,28 @@ public sealed partial class UserRowViewModel : ObservableObject
 		_userId = user.Id;
 		_api = api;
 		_parent = parent;
-		DisplayName = user.DisplayName;
-		Email = user.Email;
-		IsActive = user.IsActive;
 		IsProvisioned = user.IsProvisioned;
 		Roles = roles;
 		Customers = customers;
 		// this is only valid once the object exists, so this can't be a field initializer.
 		Assignments = new ObservableCollection<AssignmentRowViewModel>(
 			user.Assignments.Select(a => new AssignmentRowViewModel(a, this)));
+		ApplyFrom(user);
 	}
 
-	public string DisplayName { get; }
-
-	public string Email { get; }
-
-	public bool IsActive { get; }
+	[ObservableProperty] private string _displayName = string.Empty;
+	[ObservableProperty] private string _email = string.Empty;
+	[ObservableProperty] private bool _isActive;
 
 	/// <summary>False for a user an admin created ahead of their first sign-in.</summary>
 	public bool IsProvisioned { get; }
+
+	private void ApplyFrom(UserResponse user)
+	{
+		DisplayName = user.DisplayName;
+		Email = user.Email;
+		IsActive = user.IsActive;
+	}
 
 	public ObservableCollection<AssignmentRowViewModel> Assignments { get; }
 
@@ -192,6 +205,9 @@ public sealed partial class UserRowViewModel : ObservableObject
 	[ObservableProperty] private ContextSummaryResponse? _selectedContext;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _assignError;
+
+	/// <summary>Raised after a role is assigned so its dialog window can close.</summary>
+	public event EventHandler? AssignCompleted;
 
 	public bool HasAssignError => !string.IsNullOrEmpty(AssignError);
 
@@ -217,6 +233,96 @@ public sealed partial class UserRowViewModel : ObservableObject
 
 	[RelayCommand]
 	private void OpenAssign() => _parent.OpenAssignPanel(this);
+
+	// ----- Edit / delete -----
+
+	/// <summary>Raised after the user is saved or deleted so its edit dialog window can close.</summary>
+	public event EventHandler? EditCompleted;
+
+	[ObservableProperty] private string _editDisplayName = string.Empty;
+	[ObservableProperty] private string _editEmail = string.Empty;
+	[ObservableProperty] private bool _editActive = true;
+	[ObservableProperty] private string _deleteConfirmName = string.Empty;
+	[ObservableProperty] private bool _isEditBusy;
+	[ObservableProperty] private string? _editError;
+
+	public bool HasEditError => !string.IsNullOrEmpty(EditError);
+
+	/// <summary>Delete is armed only once the operator has typed the display name exactly.</summary>
+	public bool CanDelete => string.Equals(DeleteConfirmName.Trim(), DisplayName, StringComparison.Ordinal);
+
+	partial void OnEditErrorChanged(string? value) => OnPropertyChanged(nameof(HasEditError));
+
+	partial void OnDisplayNameChanged(string value) => OnPropertyChanged(nameof(CanDelete));
+
+	partial void OnDeleteConfirmNameChanged(string value)
+	{
+		OnPropertyChanged(nameof(CanDelete));
+		DeleteCommand.NotifyCanExecuteChanged();
+	}
+
+	[RelayCommand]
+	private void OpenEdit()
+	{
+		EditDisplayName = DisplayName;
+		EditEmail = Email;
+		EditActive = IsActive;
+		DeleteConfirmName = string.Empty;
+		EditError = null;
+		_parent.RaiseEditRequested(this);
+	}
+
+	[RelayCommand]
+	private async Task SaveEditAsync()
+	{
+		var displayName = EditDisplayName.Trim();
+		var email = EditEmail.Trim();
+		if (displayName.Length == 0 || email.Length == 0)
+		{
+			EditError = "Enter both an email and a display name.";
+			return;
+		}
+
+		IsEditBusy = true;
+		EditError = null;
+
+		try
+		{
+			var updated = await _api.UpdateUserAsync(_userId, new UpdateUserRequest(email, displayName, EditActive));
+			ApplyFrom(updated);
+			EditCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditError = ex.Message;
+		}
+		finally
+		{
+			IsEditBusy = false;
+		}
+	}
+
+	[RelayCommand(CanExecute = nameof(CanDelete))]
+	private async Task DeleteAsync()
+	{
+		IsEditBusy = true;
+		EditError = null;
+
+		try
+		{
+			await _api.DeleteUserAsync(_userId);
+			_parent.RemoveRow(this);
+			EditCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditError = ex.Message;
+		}
+		finally
+		{
+			IsEditBusy = false;
+		}
+	}
 
 	[RelayCommand]
 	private async Task AssignAsync()
@@ -262,7 +368,7 @@ public sealed partial class UserRowViewModel : ObservableObject
 				result.ContextId);
 			Assignments.Add(new AssignmentRowViewModel(dto, this));
 
-			_parent.ActiveAssignRow = null;
+			AssignCompleted?.Invoke(this, EventArgs.Empty);
 			SelectedRole = null;
 			SelectedScopeType = "Global";
 			SelectedCustomer = null;

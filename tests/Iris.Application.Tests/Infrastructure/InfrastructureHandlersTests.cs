@@ -156,6 +156,53 @@ public sealed class InfrastructureHandlersTests
     }
 
     [Fact]
+    public async Task UpdateServer_changes_details_and_validates()
+    {
+        var store = new FakeStore();
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", "web-01.internal", "Linux", "SelfHosted", "1.2.3.4", null, "Test"));
+
+        var update = new UpdateServerHandler(store.ServerRepository, store.UserRepository, store.UnitOfWork);
+
+        var updated = await update.HandleAsync(new UpdateServerCommand(
+            server.Id, "web-01-renamed", null, "Windows", "Cloud", null, "10.0.0.9", "Production"));
+
+        Assert.Equal("web-01-renamed", updated.Name);
+        Assert.Equal("Windows", updated.Os);
+        Assert.Equal("Cloud", updated.HostingType);
+        Assert.Equal("Production", updated.Environment);
+        Assert.Null(updated.PublicIpAddress);
+        Assert.Equal("10.0.0.9", updated.PrivateIpAddress);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => update.HandleAsync(new UpdateServerCommand(
+            Guid.NewGuid(), "x", null, "Linux", "SelfHosted", "1.1.1.1", null, "Test")));
+        await Assert.ThrowsAsync<ValidationException>(() => update.HandleAsync(new UpdateServerCommand(
+            server.Id, "x", null, "Linux", "SelfHosted", null, null, "Test")));
+    }
+
+    [Fact]
+    public async Task DeleteServer_removes_the_server_and_purges_its_secrets()
+    {
+        var store = new FakeStore();
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production",
+            new ServerCredentialInput("root", "Password", "hunter2", "SystemUser", null, null, null)));
+
+        await AddCredentialHandler(store).HandleAsync(new AddServerCredentialCommand(
+            server.Id, "deploy", "SshKey", "key", "ServiceAccount", null, "ansible", null));
+        Assert.Equal(2, store.SecretsByReference.Count);
+
+        var delete = new DeleteServerHandler(store.ServerRepository, store.SecretStore, store.UnitOfWork);
+
+        await delete.HandleAsync(new DeleteServerCommand(server.Id));
+
+        Assert.Empty(store.Servers);
+        Assert.Empty(store.SecretsByReference);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => delete.HandleAsync(new DeleteServerCommand(server.Id)));
+    }
+
+    [Fact]
     public async Task RemoveServerCredential_removes_it_and_its_secret()
     {
         var store = new FakeStore();

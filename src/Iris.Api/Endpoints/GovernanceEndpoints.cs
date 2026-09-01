@@ -38,6 +38,33 @@ public static class GovernanceEndpoints
             .WithSummary("Pre-provision a user ahead of their first sign-in.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
 
+        governance.MapPut("/users/{userId:guid}", async (
+                Guid userId,
+                UpdateUserRequest body,
+                UpdateUserHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateUserCommand(userId, body.Email, body.DisplayName, body.IsActive), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateUser")
+            .WithSummary("Edit a user's profile and active flag.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
+
+        governance.MapDelete("/users/{userId:guid}", async (
+                Guid userId,
+                DeleteUserHandler handler,
+                CancellationToken ct) =>
+            {
+                await handler.HandleAsync(new DeleteUserCommand(userId), ct).ConfigureAwait(false);
+                return Results.NoContent();
+            })
+            .WithName("DeleteUser")
+            .WithSummary("Delete a user and their role assignments.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageAssignments));
+
         governance.MapPost("/users/{userId:guid}/assignments", async (
                 Guid userId,
                 AssignRoleRequest body,

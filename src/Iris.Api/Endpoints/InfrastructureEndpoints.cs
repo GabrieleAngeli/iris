@@ -34,6 +34,35 @@ public static class InfrastructureEndpoints
             .WithSummary("Register a server, optionally with its first OS-login credential.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
 
+        servers.MapPut("/{serverId:guid}", async (
+                Guid serverId,
+                UpdateServerRequest body,
+                UpdateServerHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateServerCommand(
+                        serverId, body.Name, body.Hostname, body.Os, body.HostingType,
+                        body.PublicIpAddress, body.PrivateIpAddress, body.Environment), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateServer")
+            .WithSummary("Update a server's identity and network details.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
+
+        servers.MapDelete("/{serverId:guid}", async (
+                Guid serverId,
+                DeleteServerHandler handler,
+                CancellationToken ct) =>
+            {
+                await handler.HandleAsync(new DeleteServerCommand(serverId), ct).ConfigureAwait(false);
+                return Results.NoContent();
+            })
+            .WithName("DeleteServer")
+            .WithSummary("Delete a server and every credential it holds.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Delete));
+
         servers.MapPost("/{serverId:guid}/credentials", async (
                 Guid serverId,
                 AddServerCredentialRequest body,

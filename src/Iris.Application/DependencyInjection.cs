@@ -32,12 +32,16 @@ public static class DependencyInjection
         services.TryAddScoped<CreateCustomerHandler>();
         services.TryAddScoped<AddContextHandler>();
         services.TryAddScoped<CreateUserHandler>();
+        services.TryAddScoped<UpdateUserHandler>();
+        services.TryAddScoped<DeleteUserHandler>();
         services.TryAddScoped<AssignRoleHandler>();
         services.TryAddScoped<RevokeRoleHandler>();
 
         // Infrastructure commands
         services.TryAddScoped<ServerCredentialFactory>();
         services.TryAddScoped<CreateServerHandler>();
+        services.TryAddScoped<UpdateServerHandler>();
+        services.TryAddScoped<DeleteServerHandler>();
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();
         services.TryAddScoped<ListServersHandler>();

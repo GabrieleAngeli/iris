@@ -96,6 +96,12 @@ internal sealed class FakeUserRepository(FakeStore store) : IUserRepository
         store.Users.Add(user);
         return Task.CompletedTask;
     }
+
+    public void Remove(User user)
+    {
+        store.Users.Remove(user);
+        store.Assignments.RemoveAll(a => a.UserId == user.Id);
+    }
 }
 
 internal sealed class FakeRoleRepository(FakeStore store) : IRoleRepository
@@ -188,6 +194,8 @@ internal sealed class FakeServerRepository(FakeStore store) : IServerRepository
         store.Servers.Add(server);
         return Task.CompletedTask;
     }
+
+    public void Remove(ServerNode server) => store.Servers.Remove(server);
 }
 
 /// <summary>Fake stand-in for OpenBao: records what was stored so tests can assert the raw secret never reaches the DB.</summary>

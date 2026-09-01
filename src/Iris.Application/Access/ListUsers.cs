@@ -25,23 +25,7 @@ public sealed class ListUsersHandler(
 
         return allUsers
             .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .Select(user => new UserResponse(
-                user.Id,
-                user.ExternalId,
-                user.Email,
-                user.DisplayName,
-                user.IsActive,
-                user.IsProvisioned,
-                allAssignments
-                    .Where(a => a.UserId == user.Id)
-                    .Select(a => new UserAssignmentDto(
-                        a.Id,
-                        rolesById.TryGetValue(a.RoleId, out var role) ? role.Key : "(unknown)",
-                        rolesById.TryGetValue(a.RoleId, out role) ? role.Name : "(unknown)",
-                        a.Scope.Type.ToString(),
-                        a.Scope.CustomerId,
-                        a.Scope.ContextId))
-                    .ToArray()))
+            .Select(user => UserMapping.ToResponse(user, allAssignments, rolesById))
             .ToArray();
     }
 }

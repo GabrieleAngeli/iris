@@ -93,6 +93,9 @@ Views/
 
 ## Theming notes
 
+The full visual & navigation standard (tokens, style keys, dialog-window model,
+flyout structure, MVVM conventions) is [`../../docs/ui-standards.md`](../../docs/ui-standards.md).
+
 * Colours are defined once as `*Light` / `*Dark` pairs in `Colors.xaml` and
   consumed through `AppThemeBinding`, so the app follows the OS light/dark
   setting automatically.

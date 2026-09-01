@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.NewUserDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:UsersViewModel"
+    Title="New user">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="10">
+                <Label Text="Pre-provision someone before their first sign-in — assign their initial role right after." Style="{StaticResource Caption}" />
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Email" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewUserEmail}" Placeholder="name@company.com" Keyboard="Email" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Display name" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewUserDisplayName}" Placeholder="Full name" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding CreateUserError}" IsVisible="{Binding HasCreateUserError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsCreatingUser}" IsVisible="{Binding IsCreatingUser}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Create" Command="{Binding CreateUserCommand}"
+                    IsEnabled="{Binding IsCreatingUser, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>
