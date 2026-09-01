@@ -92,7 +92,8 @@ At runtime `AddIrisInfrastructure` picks the matching migrations assembly from
 `Iris:Auth:Mode` = `Dev` (default in Development) | `EntraId` | `Both`.
 
 - **Dev** — send `X-Dev-User: <email>` matching an entry in `Iris:Auth:DevUsers`
-  (see `appsettings.Development.json`). No tenant required.
+  (see `appsettings.Development.json`). No tenant required. If that user has set a
+  local password, also send `X-Dev-Password: <password>` (see below).
 - **EntraId** — Microsoft Entra ID bearer tokens via `Microsoft.Identity.Web`,
   configured under `AzureAd` (`TenantId`, `ClientId`, `Audience`).
 - **Both** — the dev header wins when present, otherwise a bearer token.
@@ -102,9 +103,15 @@ Users are provisioned just-in-time on first authenticated request.
 **Local password (non-SSO only).** A pre-provisioned user signing in *without*
 single sign-on is offered, once, to set a local password or skip
 (`MeResponse.PasswordSetupPending` drives the prompt). `POST /auth/password`
-sets/changes it (PBKDF2-SHA256, stored as a hash on `User`); `POST /auth/password/skip`
-dismisses the prompt. SSO users never see it. This does not replace the dev
-header — it's the credential the desktop client will validate for non-SSO sign-in.
+sets/changes it (PBKDF2-SHA256, stored as a hash on `User`, min 8 chars, a change
+needs the current one); `POST /auth/password/skip` dismisses the prompt. SSO users
+never see it.
+
+Once a dev user has set a local password it is **enforced**: the `Dev` scheme then
+requires an `X-Dev-Password` header (name from `Iris:Auth:DevPasswordHeaderName`)
+alongside `X-Dev-User`, verified against the stored hash. Users who skipped, or who
+never had one (the seeded `admin@iris.local` etc.), keep signing in with the header
+alone. The desktop client sends the password header automatically after sign-in.
 
 The desktop client (`Iris.App`) supports both: username/email dev sign-in,
 and a **Continue with single sign-on** button that signs in against the
