@@ -80,6 +80,11 @@ public partial class CustomersViewModel : ObservableObject
 	/// <summary>Raised (post-create, or from a row's button) to open the add-context dialog for a customer.</summary>
 	public event EventHandler<CustomerRowViewModel>? AddContextRequested;
 
+	/// <summary>Raised from a row's edit button to open the edit dialog for a customer.</summary>
+	public event EventHandler<CustomerRowViewModel>? EditCustomerRequested;
+
+	public void RaiseEditRequested(CustomerRowViewModel row) => EditCustomerRequested?.Invoke(this, row);
+
 	[ObservableProperty] private string _newCustomerKey = string.Empty;
 	[ObservableProperty] private string _newCustomerName = string.Empty;
 	[ObservableProperty] private bool _isCreatingCustomer;
@@ -227,6 +232,149 @@ public sealed partial class CustomerRowViewModel : ObservableObject
 		finally
 		{
 			IsAddingContext = false;
+		}
+	}
+
+	// ----- Edit -----
+
+	/// <summary>Raised after the customer is saved so its edit dialog window can close.</summary>
+	public event EventHandler? EditCompleted;
+
+	[ObservableProperty] private string _editName = string.Empty;
+	[ObservableProperty] private bool _editActive;
+	[ObservableProperty] private bool _isEditBusy;
+	[ObservableProperty] private string? _editError;
+
+	public bool HasEditError => !string.IsNullOrEmpty(EditError);
+
+	partial void OnEditErrorChanged(string? value) => OnPropertyChanged(nameof(HasEditError));
+
+	// ----- Concurrent-edit lock -----
+
+	private const string LockResource = "customer";
+	private const int HeartbeatSeconds = 45;
+	private CancellationTokenSource? _heartbeatCts;
+
+	[ObservableProperty] private string? _editLockNotice;
+
+	/// <summary>Set when someone else holds the edit lock — the row shows it and the editor stays shut.</summary>
+	public bool HasEditLockNotice => !string.IsNullOrEmpty(EditLockNotice);
+
+	partial void OnEditLockNoticeChanged(string? value) => OnPropertyChanged(nameof(HasEditLockNotice));
+
+	[RelayCommand]
+	private async Task OpenEditAsync()
+	{
+		EditLockNotice = null;
+		EditError = null;
+
+		try
+		{
+			var slot = await _api.AcquireEditLockAsync(LockResource, _customerId);
+			if (!slot.Mine)
+			{
+				EditLockNotice = $"{slot.HolderDisplayName} is editing this customer right now — try again in a moment.";
+				return;
+			}
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditLockNotice = ex.Message;
+			return;
+		}
+
+		StartHeartbeat();
+
+		EditName = Name;
+		EditActive = IsActive;
+		_parent.RaiseEditRequested(this);
+	}
+
+	private void StartHeartbeat()
+	{
+		_heartbeatCts?.Cancel();
+		var cts = new CancellationTokenSource();
+		_heartbeatCts = cts;
+		_ = HeartbeatAsync(cts.Token);
+	}
+
+	private async Task HeartbeatAsync(CancellationToken token)
+	{
+		try
+		{
+			using var timer = new PeriodicTimer(TimeSpan.FromSeconds(HeartbeatSeconds));
+			while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+			{
+				try
+				{
+					await _api.AcquireEditLockAsync(LockResource, _customerId, token).ConfigureAwait(false);
+				}
+				catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+				{
+					// A dropped heartbeat just lets the lock lapse sooner; nothing to surface.
+				}
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// editor closed
+		}
+	}
+
+	/// <summary>Called by the edit dialog as it closes: stop the heartbeat and release the lock.</summary>
+	public void NotifyEditorClosed()
+	{
+		if (_heartbeatCts is null)
+		{
+			return;
+		}
+
+		_heartbeatCts.Cancel();
+		_heartbeatCts.Dispose();
+		_heartbeatCts = null;
+		_ = SafeReleaseLockAsync();
+	}
+
+	private async Task SafeReleaseLockAsync()
+	{
+		try
+		{
+			await _api.ReleaseEditLockAsync(LockResource, _customerId).ConfigureAwait(false);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			// The lock will expire on its own if the release didn't land.
+		}
+	}
+
+	[RelayCommand]
+	private async Task SaveEditAsync()
+	{
+		var name = EditName.Trim();
+		if (name.Length == 0)
+		{
+			EditError = "Customer name is required.";
+			return;
+		}
+
+		IsEditBusy = true;
+		EditError = null;
+
+		try
+		{
+			var updated = await _api.UpdateCustomerAsync(_customerId, new UpdateCustomerRequest(name, EditActive));
+
+			Name = updated.Name;
+			IsActive = updated.IsActive;
+			EditCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			EditError = ex.Message;
+		}
+		finally
+		{
+			IsEditBusy = false;
 		}
 	}
 }

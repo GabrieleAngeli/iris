@@ -46,6 +46,9 @@ public interface IIrisApiClient
 	/// <summary>Adds an environment/context to a customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default);
 
+	/// <summary>Edits a customer's name and active flag. Requires <c>governance.customers.manage</c>.</summary>
+	Task<CustomerSummaryResponse> UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request, CancellationToken cancellationToken = default);
+
 	Task<IReadOnlyList<RoleResponse>> GetRolesAsync(CancellationToken cancellationToken = default);
 
 	Task<IReadOnlyList<string>> GetPermissionsAsync(CancellationToken cancellationToken = default);
@@ -139,6 +142,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ContextSummaryResponse> AddContextAsync(Guid customerId, AddContextRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ContextSummaryResponse>($"/customers/{customerId}/contexts", request, cancellationToken);
+
+	public Task<CustomerSummaryResponse> UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<CustomerSummaryResponse>(HttpMethod.Put, $"/customers/{customerId}", request, cancellationToken);
 
 	public Task<IReadOnlyList<RoleResponse>> GetRolesAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<RoleResponse>("/governance/roles", cancellationToken);

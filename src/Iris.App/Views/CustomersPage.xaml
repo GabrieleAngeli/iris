@@ -56,12 +56,19 @@
                                             <Label Text="{Binding Contexts.Count, StringFormat='{0} environment(s)'}" Style="{StaticResource Caption}" />
                                         </VerticalStackLayout>
                                         <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                            <Button Text="&#xE70F;" Style="{StaticResource IconButton}"
+                                                    Command="{Binding OpenEditCommand}"
+                                                    IsVisible="{Binding CanManageCustomers}"
+                                                    ToolTipProperties.Text="Edit customer" />
                                             <Button Text="&#xE710;" Style="{StaticResource IconButton}"
                                                     Command="{Binding OpenAddContextCommand}"
                                                     IsVisible="{Binding CanManageCustomers}"
                                                     ToolTipProperties.Text="Add an environment / context" />
                                         </HorizontalStackLayout>
                                     </Grid>
+
+                                    <Label Text="{Binding EditLockNotice}" IsVisible="{Binding HasEditLockNotice}"
+                                           Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
 
                                     <!-- ===== Contexts ===== -->
                                     <Label Text="No environments defined yet." Style="{StaticResource Caption}"

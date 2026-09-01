@@ -38,6 +38,32 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     }
 
     [Fact]
+    public async Task Admin_can_edit_a_customer_and_reader_cannot()
+    {
+        var admin = Admin();
+        var key = "ed-" + Guid.NewGuid().ToString("N")[..8];
+
+        var create = await admin.PostAsJsonAsync("/customers", new { key, name = "Original Name" });
+        var customer = await create.Content.ReadFromJsonAsync<CustomerDto>();
+
+        var forbidden = await Reader().PutAsJsonAsync(
+            $"/customers/{customer!.Id}", new { name = "Nope", isActive = true });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var edit = await admin.PutAsJsonAsync(
+            $"/customers/{customer.Id}", new { name = "Renamed Corp", isActive = false });
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var edited = await edit.Content.ReadFromJsonAsync<EditedCustomerDto>();
+        Assert.Equal("Renamed Corp", edited!.Name);
+        Assert.Equal(key, edited.Key); // unchanged — Key is immutable
+        Assert.False(edited.IsActive);
+
+        // unknown customer -> 404
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync(
+            $"/customers/{Guid.NewGuid()}", new { name = "X", isActive = true })).StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_can_run_the_full_governance_lifecycle()
     {
         var admin = Admin();
@@ -229,6 +255,8 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     private sealed record LockDto(string ResourceType, Guid ResourceId, bool Mine, string HolderDisplayName);
 
     private sealed record CustomerDto(Guid Id, string Key, string Name);
+
+    private sealed record EditedCustomerDto(Guid Id, string Key, string Name, bool IsActive);
 
     private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<object> Assignments);
 

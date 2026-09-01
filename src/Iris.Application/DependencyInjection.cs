@@ -33,6 +33,7 @@ public static class DependencyInjection
 
         // Governance commands
         services.TryAddScoped<CreateCustomerHandler>();
+        services.TryAddScoped<UpdateCustomerHandler>();
         services.TryAddScoped<AddContextHandler>();
         services.TryAddScoped<CreateUserHandler>();
         services.TryAddScoped<UpdateUserHandler>();

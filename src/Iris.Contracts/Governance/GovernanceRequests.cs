@@ -6,6 +6,9 @@ public sealed record CreateCustomerRequest(string Key, string Name);
 /// <summary>Body of <c>POST /customers/{customerId}/contexts</c>.</summary>
 public sealed record AddContextRequest(string Name, string Kind);
 
+/// <summary>Body of <c>PUT /customers/{customerId}</c>.</summary>
+public sealed record UpdateCustomerRequest(string Name, bool IsActive);
+
 /// <summary>Body of <c>PUT /governance/users/{userId}</c>.</summary>
 public sealed record UpdateUserRequest(string Email, string DisplayName, bool IsActive);
 

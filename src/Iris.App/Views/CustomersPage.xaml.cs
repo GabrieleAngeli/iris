@@ -20,6 +20,9 @@ public partial class CustomersPage : ContentPage
 
 		_vm.AddContextRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new AddContextDialog(row), "dlg.add-context", 520, 460);
+
+		_vm.EditCustomerRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new EditCustomerDialog(row), "dlg.edit-customer", 520, 420);
 	}
 
 	protected override void OnAppearing()
