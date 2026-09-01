@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.TryAddScoped<ServerCredentialFactory>();
         services.TryAddScoped<CreateServerHandler>();
         services.TryAddScoped<UpdateServerHandler>();
+        services.TryAddScoped<UpdateServerCapacityHandler>();
         services.TryAddScoped<DeleteServerHandler>();
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();

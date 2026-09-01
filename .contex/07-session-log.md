@@ -93,3 +93,50 @@ prerequisito del prossimo incremento (Deployments), vedi `05-next-actions.md`.
 **Prossimo step**: aggiornare `00-current-state.md`/`01-decisions.md` se necessario alla
 prossima iterazione; poi plan mode per l'estensione di `ServerNode`
 (capability/risorse/porte) seguita da Deployments.
+
+---
+
+## 2026-09-01 (terza continuazione) — ServerNode: capability, resource hints, porte note
+
+**Classificazione**: feature (estensione di dominio esistente, prerequisito esplicito del
+Validation Engine).
+
+**Cosa è successo**: prima di iniziare, l'incremento Applications precedente è stato
+committato (branch `feature/applications-catalog`, creato staccandosi da `main` per
+convenzione). Poi piano approvato e implementato per intero: `NodeCapability`
+(`src/Iris.Domain/Infrastructure/NodeCapability.cs`, enum semplice non `[Flags]`) e
+`ResourceProfile` (owned type nullable) nuovi; `ServerNode` esteso con `Capabilities`/
+`Resources`/`UsedPorts` e il metodo `UpdateCapacity` (replace wholesale, separato da
+`UpdateDetails`); nuovo endpoint `PUT /servers/{serverId}/capacity` (riusa
+`infrastructure.write`, nessun permesso nuovo); migrazione `AddServerCapacity` su
+entrambi i provider.
+
+**Decisione di modello presa in plan mode**: `UsedPorts` come semplice `IReadOnlyList<int>`
+(simmetrico a `RuntimeMetadata.RequiredPorts`), non `{Port, Purpose}` come nello schizzo
+Iris_v2 — motivata nel piano come scelta più adatta al confronto insiemistico che farà il
+Validation Engine; segnalata esplicitamente come la decisione più discutibile, non
+contestata in revisione.
+
+**Dettaglio tecnico non scontato**: per ottenere `Capabilities` (un `List<NodeCapability>`)
+salvato come array di stringhe leggibili (coerente con `Os`/`HostingType` mappati
+`.HasConversion<string>()`) invece che come array di interi, serve
+`builder.PrimitiveCollection(s => s.Capabilities).ElementType(e =>
+e.HasConversion<string>())` — un semplice `.Property(...).HasConversion<string>()` non
+compila su una collezione (quel metodo non esiste su `PropertyBuilder<IReadOnlyList<T>>`,
+solo su `PrimitiveCollectionBuilder`, che si ottiene con `.PrimitiveCollection(...)` non
+`.Property(...)`). Scoperto per errore di compilazione, corretto e verificato ispezionando
+la migrazione generata (SQLite: colonna TEXT con array di stringhe JSON; Postgres:
+`text[]` nativo).
+
+**Verificato**: `dotnet build Iris.sln` (0 errori/0 warning) e `dotnet test Iris.sln`
+verdi — 108/108 test (104 precedenti + 4 nuovi... nota: sono in realtà 6 nuovi ma 2 si
+sommano dentro lo stesso test API multi-asserzione — vedi conteggio per progetto:
+Domain.Tests 26, Application.Tests 56 (+3), Api.Tests 26 (+1)).
+
+**Rischi residui / cosa resta aperto**: nessuna pagina client (voluto, backend-first);
+Validation Engine non ancora scritto — ora ha tutto ciò che gli serve
+(`ApplicationVersion.RuntimeMetadata` vs `ServerNode.Capabilities`/`Resources`/
+`UsedPorts`) ma il confronto stesso è ancora da fare, insieme a Deployments.
+
+**Prossimo step**: commit di questo incremento; poi plan mode per Deployments
+(associazione Application+Version+Customer+Context+ServerNode) e/o Validation Engine.

@@ -1,6 +1,7 @@
 using Iris.Application.Common;
 using Iris.Application.Infrastructure;
 using Iris.Application.Tests.Fakes;
+using Iris.Contracts.Infrastructure;
 using Iris.Domain.Access;
 
 namespace Iris.Application.Tests.Infrastructure;
@@ -200,6 +201,62 @@ public sealed class InfrastructureHandlersTests
         Assert.Empty(store.SecretsByReference);
 
         await Assert.ThrowsAsync<NotFoundException>(() => delete.HandleAsync(new DeleteServerCommand(server.Id)));
+    }
+
+    [Fact]
+    public async Task UpdateServerCapacity_sets_capabilities_resources_and_ports()
+    {
+        var store = new FakeStore();
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+
+        var update = new UpdateServerCapacityHandler(store.ServerRepository, store.UserRepository, store.UnitOfWork);
+
+        var updated = await update.HandleAsync(new UpdateServerCapacityCommand(
+            server.Id,
+            ["Database", "ServiceHost"],
+            new ResourceProfileRequest(4, 8192, 100),
+            [5432, 22, 22]));
+
+        Assert.Equal(["Database", "ServiceHost"], updated.Capabilities);
+        Assert.Equal(4, updated.Resources!.CpuCores);
+        Assert.Equal(8192, updated.Resources.MemoryMb);
+        Assert.Equal(100, updated.Resources.DiskGb);
+        Assert.Equal([22, 5432], updated.UsedPorts); // deduplicated and ordered
+    }
+
+    [Fact]
+    public async Task UpdateServerCapacity_rejects_unknown_capability_and_missing_server()
+    {
+        var store = new FakeStore();
+        var update = new UpdateServerCapacityHandler(store.ServerRepository, store.UserRepository, store.UnitOfWork);
+
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+
+        await Assert.ThrowsAsync<ValidationException>(() => update.HandleAsync(new UpdateServerCapacityCommand(
+            server.Id, ["FlyingCar"], null, [])));
+
+        await Assert.ThrowsAsync<NotFoundException>(() => update.HandleAsync(new UpdateServerCapacityCommand(
+            Guid.NewGuid(), [], null, [])));
+    }
+
+    [Fact]
+    public async Task UpdateServerCapacity_replaces_rather_than_accumulates()
+    {
+        var store = new FakeStore();
+        var update = new UpdateServerCapacityHandler(store.ServerRepository, store.UserRepository, store.UnitOfWork);
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+
+        await update.HandleAsync(new UpdateServerCapacityCommand(
+            server.Id, ["Database"], new ResourceProfileRequest(2, 4096, 50), [5432]));
+
+        var cleared = await update.HandleAsync(new UpdateServerCapacityCommand(server.Id, [], null, []));
+
+        Assert.Empty(cleared.Capabilities);
+        Assert.Null(cleared.Resources);
+        Assert.Empty(cleared.UsedPorts);
     }
 
     [Fact]

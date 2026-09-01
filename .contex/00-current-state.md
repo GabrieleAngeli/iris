@@ -1,7 +1,7 @@
 # Stato corrente
 
 Aggiornato: 2026-09-01. Verificato con `dotnet build Iris.sln` (0 errori, 0 warning),
-`dotnet test Iris.sln` (104/104 verdi), `dotnet build src/Iris.App/Iris.App.csproj` (0 errori, 0 warning).
+`dotnet test Iris.sln` (108/108 verdi), `dotnet build src/Iris.App/Iris.App.csproj` (0 errori, 0 warning).
 
 ## Architettura
 
@@ -37,8 +37,11 @@ self-hosted/cloud, IP pubblico+privato, `Environment` come `ContextKind`) con
 vs `ServiceAccount`. **I segreti reali non sono mai in DB**: `ISecretStore` port +
 `InMemorySecretStore` mock (stand-in per OpenBao, sostituzione dichiarata nel commento).
 `infrastructure.secrets.manage` permesso separato per ruotare un segreto già salvato.
-**`ServerNode` NON ha ancora capability/CPU/RAM/disco/porte** — deliberatamente fuori
-scope quando costruito, servono al Validation Engine (vedi `05-next-actions.md`).
+`ServerNode` porta anche `Capabilities` (lista di `NodeCapability`:
+LoadBalancer/Database/ServiceHost/Presentation), `Resources` (`ResourceProfile?` owned,
+CPU/RAM/disco tutti opzionali) e `UsedPorts` (lista di interi) — impostati tramite
+`PUT /servers/{id}/capacity` (replace wholesale, come `ApplicationVersion.ApplyImport`),
+il prerequisito che serviva al Validation Engine (vedi `05-next-actions.md`).
 
 **Client MAUI** — flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate` fatto a mano, vedi
@@ -64,12 +67,12 @@ dominio ancora (backend-first, per scelta).
 placeholder binding, Validation Engine), **Actions** (preparazione Ansible/AWX/OpenBao,
 monitoraggio azioni) — nessuno dei due esiste, né lato dominio né API né client. Il
 permesso catalog li anticipa già (`Permissions.Deployments`, `Permissions.Actions`), ma
-non c'è nessuna entità/endpoint/pagina. Il Validation Engine in particolare non è ancora
-possibile: richiede prima l'estensione di `ServerNode` con capability/risorse/porte (vedi
-sopra), da confrontare con `ApplicationVersion.RuntimeMetadata` (già pronto per quel
-confronto). Vedi `F:\Work\Iris_v2` per uno schizzo di dominio + regole di validazione già
-pensate per questi moduli (non in git, mai buildato con successo, ma concettualmente
-utile — dettagli in `02-operational-plan.md`).
+non c'è nessuna entità/endpoint/pagina. Il Validation Engine ora ha entrambi i lati pronti
+da confrontare (`ApplicationVersion.RuntimeMetadata` vs `ServerNode.Capabilities`/
+`Resources`/`UsedPorts`, vedi sopra), ma il confronto stesso — le regole vere e proprie —
+non è ancora scritto. Vedi `F:\Work\Iris_v2` per uno schizzo di dominio + regole di
+validazione già pensate per questi moduli (non in git, mai buildato con successo, ma
+concettualmente utile — dettagli in `02-operational-plan.md`).
 
 OpenBao/AWX/Ansible/Grafana restano tutti mockati per design (vedi brief originale).
 
@@ -77,6 +80,6 @@ OpenBao/AWX/Ansible/Grafana restano tutti mockati per design (vedi brief origina
 
 `InitialAccessModel` → `AddUserIsProvisioned` → `AddServers` →
 `AddServerCredentialOwnership` → `AddUserInvitations` → `AddEditLocks` →
-`AddUserLocalPassword` → `AddApplications`. Ogni migrazione esiste in entrambi i provider
-(`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
+`AddUserLocalPassword` → `AddApplications` → `AddServerCapacity`. Ogni migrazione esiste
+in entrambi i provider (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

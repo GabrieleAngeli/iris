@@ -2,9 +2,10 @@
 
 Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione significativa.
 
-1. **Estendere `ServerNode`** con capability (enum `[Flags]`), profilo risorse
-   (CPU/RAM/disco) e porte usate — prerequisito del Validation Engine, oggi assente per
-   scelta (`01-decisions.md`). Migrazione EF su entrambi i provider.
+1. ~~**Estendere `ServerNode`**~~ **fatto** (vedi sessione 2026-09-01, terza voce sotto).
+   Capability come lista semplice (non `[Flags]`), profilo risorse nullable, porte come
+   lista di interi — prerequisito del Validation Engine ora soddisfatto. Resta da fare:
+   nessuna pagina client ancora (backend-first).
 2. ~~**Applications — catalogo**~~ **fatto** (vedi sessione 2026-09-01 sotto). Resta da
    fare in un incremento successivo: la pagina client (nuova sezione flyout + lista +
    dettaglio versione/import, stesso pattern di `UsersPage`/`ServersPage`).
@@ -57,3 +58,28 @@ knowledge` (vedi `07-session-log.md` per il dettaglio). In sintesi:
 - **Non incluso in questo incremento** (come da piano): pagina client MAUI Applications,
   estensione `ServerNode`, Deployments, Validation Engine, Actions — vedi punti 1, 3, 4, 5
   sopra.
+
+## Ultima sessione (2026-09-01, terza continuazione) — ServerNode: capability/risorse/porte
+
+Implementato il piano `ServerNode: capability, resource hints, porte note` (commit su
+`feature/applications-catalog` dopo il commit di Applications). In sintesi:
+
+- `NodeCapability` (enum semplice: LoadBalancer/Database/ServiceHost/Presentation, non
+  `[Flags]`) e `ResourceProfile` (owned type nullable: CpuCores/MemoryMb/DiskGb, tutti
+  nullable) nuovi in `src/Iris.Domain/Infrastructure/`. `ServerNode` esteso con
+  `Capabilities`/`Resources`/`UsedPorts` e il metodo `UpdateCapacity` (replace wholesale,
+  come `ApplicationVersion.ApplyImport`), tenuto separato da `UpdateDetails`.
+- Nuovo endpoint `PUT /servers/{serverId}/capacity` (permesso `infrastructure.write`
+  riusato, nessun permesso nuovo), handler `UpdateServerCapacityHandler`.
+- Persistenza: `Capabilities` come collezione primitiva EF Core 9 con conversione
+  per-elemento a stringa (`PrimitiveCollection(...).ElementType(e =>
+  e.HasConversion<string>())` — non basta `.Property()` semplice per un `List<enum>` se
+  si vuole la stringa invece dell'intero, a differenza di `List<int>`/`List<string>` dove
+  `.Property()` normale basta), `UsedPorts` come collezione primitiva di interi,
+  `Resources` come owned type opzionale (`Navigation(...).IsRequired(false)`). Migrazione
+  `AddServerCapacity` su entrambi i provider — ispezionata: SQLite JSON text per le
+  collezioni, Postgres `text[]`/`integer[]` nativi.
+- 6 nuovi test (3 applicativi + 1 API end-to-end che ne copre più casi, incluso il 403 per
+  Reader e il replace-non-accumula). Suite completa: 108/108 verdi.
+- **Non incluso** (come da piano): Validation Engine (userà questi campi, ma il confronto
+  vero e proprio è il prossimo passo), Deployments, pagina client.

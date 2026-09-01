@@ -511,6 +511,10 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.PrimitiveCollection<string[]>("Capabilities")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -551,6 +555,10 @@ namespace Iris.Migrations.Postgres.Migrations
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<int[]>("UsedPorts")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
 
                     b.HasKey("Id");
 
@@ -731,6 +739,36 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasForeignKey("ServerNodeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>
+                {
+                    b.OwnsOne("Iris.Domain.Infrastructure.ResourceProfile", "Resources", b1 =>
+                        {
+                            b1.Property<Guid>("ServerNodeId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int?>("CpuCores")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceCpuCores");
+
+                            b1.Property<int?>("DiskGb")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceDiskGb");
+
+                            b1.Property<int?>("MemoryMb")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceMemoryMb");
+
+                            b1.HasKey("ServerNodeId");
+
+                            b1.ToTable("Servers");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ServerNodeId");
+                        });
+
+                    b.Navigation("Resources");
                 });
 
             modelBuilder.Entity("Iris.Domain.Tenancy.CustomerContext", b =>

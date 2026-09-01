@@ -11,6 +11,9 @@ public sealed record ServerCredentialResponse(
     string? ServiceName,
     string? Label);
 
+/// <summary>Resource hints for a server, as far as the operator knows them. Any field may be unset.</summary>
+public sealed record ResourceProfileResponse(int? CpuCores, int? MemoryMb, int? DiskGb);
+
 public sealed record ServerResponse(
     Guid Id,
     string Name,
@@ -21,4 +24,7 @@ public sealed record ServerResponse(
     string? PrivateIpAddress,
     string Environment,
     bool IsActive,
-    IReadOnlyList<ServerCredentialResponse> Credentials);
+    IReadOnlyList<ServerCredentialResponse> Credentials,
+    IReadOnlyList<string> Capabilities,
+    ResourceProfileResponse? Resources,
+    IReadOnlyList<int> UsedPorts);

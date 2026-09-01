@@ -23,6 +23,19 @@ internal sealed class ServerNodeConfiguration : IEntityTypeConfiguration<ServerN
         builder.Property(s => s.PrivateIpAddress).HasMaxLength(45);
         builder.Property(s => s.IsActive);
 
+        // Plain scalar collections, not navigations — EF Core maps them as native primitive
+        // collections, same treatment as ApplicationVersion.RequiredPorts/ImportWarnings.
+        builder.PrimitiveCollection(s => s.Capabilities).ElementType(e => e.HasConversion<string>());
+        builder.Property(s => s.UsedPorts);
+
+        builder.OwnsOne(s => s.Resources, resources =>
+        {
+            resources.Property(r => r.CpuCores).HasColumnName("ResourceCpuCores");
+            resources.Property(r => r.MemoryMb).HasColumnName("ResourceMemoryMb");
+            resources.Property(r => r.DiskGb).HasColumnName("ResourceDiskGb");
+        });
+        builder.Navigation(s => s.Resources).IsRequired(false);
+
         builder.Property(s => s.CreatedAtUtc);
         builder.Property(s => s.UpdatedAtUtc);
 

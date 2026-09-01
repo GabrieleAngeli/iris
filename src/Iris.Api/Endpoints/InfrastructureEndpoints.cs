@@ -63,6 +63,22 @@ public static class InfrastructureEndpoints
             .WithSummary("Delete a server and every credential it holds.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Delete));
 
+        servers.MapPut("/{serverId:guid}/capacity", async (
+                Guid serverId,
+                UpdateServerCapacityRequest body,
+                UpdateServerCapacityHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateServerCapacityCommand(
+                        serverId, body.Capabilities, body.Resources, body.UsedPorts), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateServerCapacity")
+            .WithSummary("Replace a server's capability tags, resource hints and known used ports.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
+
         servers.MapPost("/{serverId:guid}/credentials", async (
                 Guid serverId,
                 AddServerCredentialRequest body,

@@ -17,7 +17,15 @@ internal static class ServerMapping
         server.PrivateIpAddress,
         server.Environment.ToString(),
         server.IsActive,
-        server.Credentials.Select(c => c.ToResponse(LookupOwner(c, ownerNames))).ToArray());
+        server.Credentials.Select(c => c.ToResponse(LookupOwner(c, ownerNames))).ToArray(),
+        server.Capabilities.Select(c => c.ToString()).ToArray(),
+        server.Resources?.ToResponse(),
+        server.UsedPorts);
+
+    public static ResourceProfileResponse ToResponse(this ResourceProfile resources) => new(
+        resources.CpuCores,
+        resources.MemoryMb,
+        resources.DiskGb);
 
     public static ServerCredentialResponse ToResponse(this ServerCredential credential, string? ownerDisplayName = null) => new(
         credential.Id,
