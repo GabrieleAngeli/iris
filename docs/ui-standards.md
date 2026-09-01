@@ -343,7 +343,10 @@ FlyoutContent  (sections; a "Section" header is Semibold 12, TextSecondary, Padd
 FlyoutFooter
   └── Sign out  (confirms, then GoToAsync("//login"))
 
-Outside the flyout:  Login  (FlyoutBehavior disabled, no nav bar)
+Outside the flyout:  Login, and First-login "set a password / skip"
+                     (route `first-login`; FlyoutBehavior disabled, no nav bar) —
+                     reached from Login only when a non-SSO sign-in returns
+                     `MeResponse.PasswordSetupPending`; both buttons go to `//dashboard`.
 ```
 
 ### Section visibility

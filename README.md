@@ -99,11 +99,22 @@ At runtime `AddIrisInfrastructure` picks the matching migrations assembly from
 
 Users are provisioned just-in-time on first authenticated request.
 
+**Local password (non-SSO only).** A pre-provisioned user signing in *without*
+single sign-on is offered, once, to set a local password or skip
+(`MeResponse.PasswordSetupPending` drives the prompt). `POST /auth/password`
+sets/changes it (PBKDF2-SHA256, stored as a hash on `User`); `POST /auth/password/skip`
+dismisses the prompt. SSO users never see it. This does not replace the dev
+header — it's the credential the desktop client will validate for non-SSO sign-in.
+
 The desktop client (`Iris.App`) supports both: username/email dev sign-in,
 and a **Continue with single sign-on** button that signs in against the
 vendor's Microsoft 365 tenant via MSAL.NET (Windows WAM broker). See
 [`docs/entra-id-setup.md`](docs/entra-id-setup.md) for creating the Entra ID
 App Registrations this requires and wiring up the resulting values.
+
+The built-in **`platform-admin`** role carries every permission (plus the
+`platform.admin` super-flag) and is reconciled on every startup, so
+`admin@iris.local` (platform-admin / Global) is a full super-user.
 
 Seeded dev identities: `admin@iris.local` (platform-admin / Global),
 `lucia@contoso.example` (customer-admin / Contoso), `marco@contoso.example`

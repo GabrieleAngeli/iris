@@ -15,6 +15,7 @@ public static class AuthenticationSetup
 
         var mode = ResolveMode(configuration["Iris:Auth:Mode"], builder.Environment.IsDevelopment());
         var devHeader = configuration["Iris:Auth:DevHeaderName"] ?? "X-Dev-User";
+        var devPasswordHeader = configuration["Iris:Auth:DevPasswordHeaderName"] ?? "X-Dev-Password";
         var devUsers = configuration.GetSection("Iris:Auth:DevUsers").Get<List<DevUser>>() ?? [];
         var allowAnyEmail = configuration.GetValue("Iris:Auth:AllowAnyEmail", false);
 
@@ -34,6 +35,7 @@ public static class AuthenticationSetup
                 options =>
                 {
                     options.HeaderName = devHeader;
+                    options.PasswordHeaderName = devPasswordHeader;
                     options.Users = devUsers;
                     options.AllowAnyEmail = allowAnyEmail;
                 });

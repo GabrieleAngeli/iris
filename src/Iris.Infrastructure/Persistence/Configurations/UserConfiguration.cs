@@ -20,6 +20,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsActive);
         builder.Property(u => u.IsProvisioned).HasDefaultValue(true);
 
+        builder.Property(u => u.PasswordHash).HasMaxLength(200);
+        builder.Property(u => u.PasswordUpdatedAtUtc);
+        builder.Property(u => u.PasswordSetupPending).HasDefaultValue(false);
+
         builder.Property(u => u.CreatedAtUtc);
         builder.Property(u => u.UpdatedAtUtc);
     }

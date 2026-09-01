@@ -288,6 +288,14 @@ internal sealed class FakeSecretStore(FakeStore store) : ISecretStore
     }
 }
 
+/// <summary>Reversible non-crypto stand-in for the PBKDF2 hasher.</summary>
+internal sealed class FakePasswordHasher : IPasswordHasher
+{
+    public string Hash(string password) => $"hash:{password}";
+
+    public bool Verify(string password, string hash) => hash == $"hash:{password}";
+}
+
 internal sealed class StubCurrentUser(string externalId, string email, string displayName) : ICurrentUser
 {
     public bool IsAuthenticated => true;

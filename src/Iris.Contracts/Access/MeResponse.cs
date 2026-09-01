@@ -20,4 +20,5 @@ public sealed record MeResponse(
     string DisplayName,
     string EvaluatedScope,
     IReadOnlyList<string> EffectivePermissions,
-    IReadOnlyList<RoleAssignmentDto> Assignments);
+    IReadOnlyList<RoleAssignmentDto> Assignments,
+    bool PasswordSetupPending = false);

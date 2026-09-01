@@ -47,8 +47,11 @@ public partial class LoginViewModel : ObservableObject
 				return;
 			}
 
-			await Shell.Current.GoToAsync("//dashboard");
 			Password = string.Empty;
+
+			// A pre-provisioned user signing in without SSO is asked to set a local password (or skip).
+			var next = _auth.Me?.PasswordSetupPending == true ? "//first-login" : "//dashboard";
+			await Shell.Current.GoToAsync(next);
 		}
 		finally
 		{

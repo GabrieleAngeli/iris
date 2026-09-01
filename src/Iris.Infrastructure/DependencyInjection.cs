@@ -5,6 +5,7 @@ using Iris.Infrastructure.Persistence.Interceptors;
 using Iris.Infrastructure.Persistence.Repositories;
 using Iris.Infrastructure.Persistence.Seeding;
 using Iris.Infrastructure.Secrets;
+using Iris.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
+        services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();
         services.TryAddScoped<IInvitationNotifier, LoggingInvitationNotifier>();
         services.AddScoped<IrisDbSeeder>();

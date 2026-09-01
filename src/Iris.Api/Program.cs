@@ -51,6 +51,7 @@ app.MapGet("/", (IHostEnvironment env) => new ServiceInfoResponse(
 app.MapHealthChecks("/health").WithName("GetHealth").AllowAnonymous();
 
 app.MapAccessEndpoints();
+app.MapAuthEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
 

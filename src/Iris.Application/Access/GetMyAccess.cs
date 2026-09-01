@@ -41,6 +41,7 @@ public sealed class GetMyAccessHandler(
             snapshot.DisplayName,
             target.ToString(),
             effective,
-            assignments);
+            assignments,
+            user.PasswordSetupPending);
     }
 }

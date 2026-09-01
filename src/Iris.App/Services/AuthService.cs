@@ -12,9 +12,13 @@ public interface IAuthService
 
 	/// <summary>
 	/// Dev-mode sign-in: the user name is an email that must match a configured
-	/// <c>Iris:Auth:DevUsers</c> entry on the API. The password is ignored in dev mode.
+	/// <c>Iris:Auth:DevUsers</c> entry on the API. The password is required only for users who
+	/// have set a local one (see the first-login prompt); otherwise it is ignored.
 	/// </summary>
 	Task<AuthResult> SignInAsync(string username, string password, CancellationToken ct = default);
+
+	/// <summary>Carries a freshly set local password on subsequent dev-mode calls (used by the first-login step).</summary>
+	void UseLocalPassword(string password);
 
 	/// <summary>Signs in with Microsoft 365 / Entra ID single sign-on.</summary>
 	Task<AuthResult> SignInWithSsoAsync(CancellationToken ct = default);
@@ -43,6 +47,7 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		}
 
 		api.DevUserEmail = username.Trim();
+		api.DevUserPassword = string.IsNullOrEmpty(password) ? null : password;
 
 		try
 		{
@@ -50,8 +55,9 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 			if (me is null)
 			{
 				api.DevUserEmail = null;
+				api.DevUserPassword = null;
 				return new AuthResult(false,
-					"The Iris API rejected this user. Use a configured dev user, e.g. admin@iris.local.");
+					"The Iris API rejected this sign-in. Check the email and password (dev users, e.g. admin@iris.local).");
 			}
 
 			return ApplySignedInUser(me);
@@ -59,14 +65,19 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		catch (HttpRequestException ex)
 		{
 			api.DevUserEmail = null;
+			api.DevUserPassword = null;
 			return new AuthResult(false, $"Cannot reach the Iris API. Is it running? ({ex.Message})");
 		}
 		catch (TaskCanceledException)
 		{
 			api.DevUserEmail = null;
+			api.DevUserPassword = null;
 			return new AuthResult(false, "The Iris API did not respond in time.");
 		}
 	}
+
+	public void UseLocalPassword(string password) =>
+		api.DevUserPassword = string.IsNullOrEmpty(password) ? null : password;
 
 	public async Task<AuthResult> SignInWithSsoAsync(CancellationToken ct = default)
 	{
@@ -77,6 +88,7 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		}
 
 		api.BearerToken = signIn.AccessToken;
+		api.DevUserPassword = null;
 
 		try
 		{
@@ -107,6 +119,7 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		CurrentUser = null;
 		Me = null;
 		api.DevUserEmail = null;
+		api.DevUserPassword = null;
 		api.BearerToken = null;
 		_ = entraId.SignOutAsync();
 		StateChanged?.Invoke(this, EventArgs.Empty);

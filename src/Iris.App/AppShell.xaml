@@ -146,6 +146,14 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:LoginPage}" />
 
+    <!-- First-login "set a password / skip" step, also outside the flyout -->
+    <ShellContent
+        Route="first-login"
+        FlyoutItemIsVisible="False"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:FirstLoginPasswordPage}" />
+
     <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
     <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
         <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />

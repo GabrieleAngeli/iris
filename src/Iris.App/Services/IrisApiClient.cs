@@ -24,10 +24,19 @@ public interface IIrisApiClient
 	/// <summary>Dev-mode identity sent as <c>X-Dev-User</c> on every request after sign-in.</summary>
 	string? DevUserEmail { get; set; }
 
+	/// <summary>Dev-mode local password sent as <c>X-Dev-Password</c>; only needed for users who set one.</summary>
+	string? DevUserPassword { get; set; }
+
 	/// <summary>Entra ID access token sent as <c>Authorization: Bearer</c> after single sign-on. Takes precedence over <see cref="DevUserEmail"/> when set.</summary>
 	string? BearerToken { get; set; }
 
 	Task<MeResponse?> GetMeAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Sets or changes the caller's local (non-SSO) password. <c>currentPassword</c> is required only for a change.</summary>
+	Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Tells Iris the caller declined to set a local password; stops the first-login prompt.</summary>
+	Task SkipPasswordSetupAsync(CancellationToken cancellationToken = default);
 
 	Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default);
 
@@ -95,6 +104,8 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 {
 	public string? DevUserEmail { get; set; }
 
+	public string? DevUserPassword { get; set; }
+
 	public string? BearerToken { get; set; }
 
 	public async Task<MeResponse?> GetMeAsync(CancellationToken cancellationToken = default)
@@ -113,6 +124,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 			.ReadFromJsonAsync<MeResponse>(cancellationToken)
 			.ConfigureAwait(false);
 	}
+
+	public Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default) =>
+		SendNoResultAsync(HttpMethod.Post, "/auth/password", request, cancellationToken);
+
+	public Task SkipPasswordSetupAsync(CancellationToken cancellationToken = default) =>
+		SendNoResultAsync(HttpMethod.Post, "/auth/password/skip", body: null, cancellationToken);
 
 	public Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<CustomerSummaryResponse>("/customers", cancellationToken);
@@ -212,6 +229,20 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 		return (await response.Content.ReadFromJsonAsync<T>(cancellationToken).ConfigureAwait(false))!;
 	}
 
+	private async Task SendNoResultAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
+	{
+		using var request = new HttpRequestMessage(method, path);
+		if (body is not null)
+		{
+			request.Content = JsonContent.Create(body);
+		}
+
+		Authenticate(request);
+
+		using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+		await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+	}
+
 	private async Task DeleteAsync(string path, CancellationToken cancellationToken)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Delete, path);
@@ -231,6 +262,10 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 		else if (!string.IsNullOrWhiteSpace(DevUserEmail))
 		{
 			request.Headers.Add("X-Dev-User", DevUserEmail);
+			if (!string.IsNullOrEmpty(DevUserPassword))
+			{
+				request.Headers.Add("X-Dev-Password", DevUserPassword);
+			}
 		}
 	}
 

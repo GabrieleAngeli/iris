@@ -23,6 +23,8 @@ public static class DependencyInjection
 
         // Queries
         services.TryAddScoped<GetMyAccessHandler>();
+        services.TryAddScoped<SetMyPasswordHandler>();
+        services.TryAddScoped<SkipMyPasswordSetupHandler>();
         services.TryAddScoped<GetPermissionCatalogHandler>();
         services.TryAddScoped<ListRolesHandler>();
         services.TryAddScoped<ListUsersHandler>();

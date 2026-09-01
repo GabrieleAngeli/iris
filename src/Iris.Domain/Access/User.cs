@@ -37,6 +37,21 @@ public sealed class User : Entity<Guid>, IAggregateRoot, IAuditableEntity
     public bool IsActive { get; private set; }
 
     /// <summary>
+    /// PBKDF2 hash of the user's local password, or <c>null</c> when they have none (they sign in
+    /// with SSO, or chose to skip). Iris never stores or transmits the plaintext.
+    /// </summary>
+    public string? PasswordHash { get; private set; }
+
+    public DateTimeOffset? PasswordUpdatedAtUtc { get; private set; }
+
+    /// <summary>
+    /// True when Iris should still prompt this user, on their next non-SSO sign-in, to set a
+    /// local password (or explicitly skip). Set for pre-provisioned users; cleared once they
+    /// set a password or skip.
+    /// </summary>
+    public bool PasswordSetupPending { get; private set; }
+
+    /// <summary>
     /// False for a user an admin created ahead of their first sign-in (see
     /// <see cref="Invite"/>) — <see cref="ExternalId"/> is a synthetic placeholder until
     /// <see cref="ClaimIdentity"/> links the account to their real identity provider subject.
@@ -57,9 +72,23 @@ public sealed class User : Entity<Guid>, IAggregateRoot, IAuditableEntity
         var user = new User(id, $"pending:{Guid.NewGuid():N}", email, displayName)
         {
             IsProvisioned = false,
+            PasswordSetupPending = true,
         };
         return user;
     }
+
+    public bool HasPassword => PasswordHash is not null;
+
+    /// <summary>Stores a new local password hash and clears the "set a password" prompt.</summary>
+    public void SetPassword(string passwordHash, DateTimeOffset nowUtc)
+    {
+        PasswordHash = Guard(passwordHash, nameof(passwordHash));
+        PasswordUpdatedAtUtc = nowUtc;
+        PasswordSetupPending = false;
+    }
+
+    /// <summary>The user chose not to set a local password — stop prompting, keep <see cref="PasswordHash"/> null.</summary>
+    public void SkipPasswordSetup() => PasswordSetupPending = false;
 
     /// <summary>Refresh the mutable profile fields from the identity provider on sign-in.</summary>
     public void SyncProfile(string email, string displayName)
