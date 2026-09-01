@@ -3,6 +3,7 @@ using Iris.Application.Access;
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
+using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Tests.Fakes;
@@ -27,6 +28,8 @@ internal sealed class FakeStore
     public List<UserSession> Sessions { get; } = [];
 
     public List<EditLock> EditLocks { get; } = [];
+
+    public List<MailProviderSettings> MailSettings { get; } = [];
 
     public Dictionary<string, string> SecretsByReference { get; } = [];
 
@@ -90,6 +93,8 @@ internal sealed class FakeStore
 
     public FakeEditLockRepository EditLockRepository => new(this);
 
+    public FakeMailProviderSettingsRepository MailProviderSettingsRepository => new(this);
+
     /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
     public UserAccessService AccessService => new(UserRepository, RoleAssignmentRepository, RoleRepository);
 }
@@ -133,6 +138,19 @@ internal sealed class FakeUserSessionRepository(FakeStore store) : IUserSessionR
         Task.FromResult(store.Sessions.SingleOrDefault(s => s.TokenHash == tokenHash));
 
     public void Remove(UserSession session) => store.Sessions.Remove(session);
+}
+
+internal sealed class FakeMailProviderSettingsRepository(FakeStore store) : IMailProviderSettingsRepository
+{
+    public Task<MailProviderSettings?> GetAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.MailSettings.SingleOrDefault());
+
+    public Task UpsertAsync(MailProviderSettings settings, CancellationToken cancellationToken = default)
+    {
+        store.MailSettings.Clear();
+        store.MailSettings.Add(settings);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeEditLockRepository(FakeStore store) : IEditLockRepository
@@ -250,6 +268,9 @@ internal sealed class FakeRoleAssignmentRepository(FakeStore store) : IRoleAssig
         Task.FromResult(store.Assignments.Any(a =>
             a.UserId == userId && a.RoleId == roleId && a.Scope.Equals(scope)));
 
+    public Task<bool> ExistsForRoleAsync(Guid roleId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Assignments.Any(a => a.RoleId == roleId));
+
     public Task AddAsync(RoleAssignment assignment, CancellationToken cancellationToken = default)
     {
         store.Assignments.Add(assignment);
@@ -330,6 +351,9 @@ internal sealed class FakeSecretStore(FakeStore store) : ISecretStore
         store.SecretsByReference[reference] = secretValue;
         return Task.FromResult(reference);
     }
+
+    public Task<string?> RetrieveAsync(string reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.SecretsByReference.GetValueOrDefault(reference));
 
     public Task DeleteAsync(string reference, CancellationToken cancellationToken = default)
     {

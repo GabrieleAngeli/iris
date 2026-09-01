@@ -19,6 +19,9 @@ public sealed class InMemorySecretStore : ISecretStore
         return Task.FromResult(reference);
     }
 
+    public Task<string?> RetrieveAsync(string reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_values.GetValueOrDefault(reference));
+
     public Task DeleteAsync(string reference, CancellationToken cancellationToken = default)
     {
         _values.TryRemove(reference, out _);

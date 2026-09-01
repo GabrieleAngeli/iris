@@ -5,6 +5,7 @@ using System.Text.Json;
 using Iris.Contracts.Access;
 using Iris.Contracts.Governance;
 using Iris.Contracts.Infrastructure;
+using Iris.Contracts.Setup;
 using Iris.Contracts.Tenancy;
 
 namespace Iris.App.Services;
@@ -31,6 +32,12 @@ public interface IIrisApiClient
 	string? BearerToken { get; set; }
 
 	Task<MeResponse?> GetMeAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Whether the first-run setup wizard (mail provider + super-admin) still needs to run. Anonymous.</summary>
+	Task<SetupStatusResponse> GetSetupStatusAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Configures the mail relay and creates the first super-admin. Anonymous, usable only once.</summary>
+	Task<CompleteSetupResponse> CompleteSetupAsync(CompleteSetupRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>Signs in with a local email and password; returns a bearer session token. Anonymous — no prior auth needed.</summary>
 	Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
@@ -133,6 +140,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 			.ReadFromJsonAsync<MeResponse>(cancellationToken)
 			.ConfigureAwait(false);
 	}
+
+	public Task<SetupStatusResponse> GetSetupStatusAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<SetupStatusResponse>(HttpMethod.Get, "/setup/status", cancellationToken);
+
+	public Task<CompleteSetupResponse> CompleteSetupAsync(CompleteSetupRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<CompleteSetupResponse>("/setup/complete", request, cancellationToken);
 
 	public Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<LoginResponse>("/auth/login", request, cancellationToken);

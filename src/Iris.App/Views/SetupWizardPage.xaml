@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.SetupWizardPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:SetupWizardViewModel"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    Title="Set up Iris"
+    BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+    <ScrollView>
+        <Grid Padding="24">
+            <Border Style="{StaticResource Card}" MaximumWidthRequest="480" WidthRequest="480"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Padding="8" Spacing="14">
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Welcome to Iris" Style="{StaticResource TitleLarge}" />
+                        <Label Style="{StaticResource Caption}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Step " />
+                                    <Span Text="{Binding CurrentStep}" />
+                                    <Span Text=" of 2 — " />
+                                    <Span Text="mail relay" />
+                                    <Span Text=" then " />
+                                    <Span Text="your administrator account" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </VerticalStackLayout>
+
+                    <!-- ===== Step 1: mail provider ===== -->
+                    <VerticalStackLayout Spacing="12" IsVisible="{Binding IsMailStep}">
+                        <Label Style="{StaticResource Body}"
+                               Text="Where should Iris send invitation emails from? Any SMTP relay works — Office 365, Gmail, SendGrid…" />
+
+                        <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="SMTP host" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding SmtpHost}" Placeholder="smtp.office365.com" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Port" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding SmtpPort}" Keyboard="Numeric" Placeholder="587" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Username (optional)" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding SmtpUsername}" Placeholder="no-reply@company.com" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding SmtpPassword}" IsPassword="True" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="From address" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding FromAddress}" Placeholder="no-reply@company.com" Keyboard="Email" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="From name (optional)" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding FromDisplayName}" Placeholder="Iris" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <HorizontalStackLayout Spacing="10">
+                            <Switch IsToggled="{Binding EnableSsl}" VerticalOptions="Center" />
+                            <Label Text="Use TLS/SSL" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        </HorizontalStackLayout>
+
+                        <Label Text="{Binding MailError}" IsVisible="{Binding HasMailError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Button Text="Next" Command="{Binding GoToAdminStepCommand}" HorizontalOptions="Fill" Margin="0,4,0,0" />
+                    </VerticalStackLayout>
+
+                    <!-- ===== Step 2: super-admin ===== -->
+                    <VerticalStackLayout Spacing="12" IsVisible="{Binding IsAdminStep}">
+                        <Label Style="{StaticResource Body}"
+                               Text="Now create your administrator account — full access to every customer and setting." />
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Email" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding AdminEmail}" Placeholder="you@company.com" Keyboard="Email" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Display name" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding AdminDisplayName}" Placeholder="Full name" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding AdminPassword}" IsPassword="True" Placeholder="At least 8 characters" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Confirm password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding ConfirmPassword}" IsPassword="True" Placeholder="Repeat the password" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="{Binding AdminError}" IsVisible="{Binding HasAdminError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,4,0,0">
+                            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Back" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding BackToMailStepCommand}" HorizontalOptions="End" />
+                            <Button Grid.Column="2" Text="Finish setup" Command="{Binding CompleteCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </ScrollView>
+</ContentPage>

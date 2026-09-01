@@ -10,7 +10,10 @@ public sealed class LoginHandlerTests
     private static readonly DateTimeOffset Now = new(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
 
     private static LoginHandler Handler(FakeStore store) => new(
-        store.UserRepository, store.UserSessionRepository, new FakePasswordHasher(), new FakeClock(Now), store.UnitOfWork);
+        store.UserRepository,
+        new SessionIssuer(store.UserSessionRepository, new FakeClock(Now)),
+        new FakePasswordHasher(),
+        store.UnitOfWork);
 
     private static User WithPassword(FakeStore store, string email = "pat@contoso.example", bool active = true)
     {

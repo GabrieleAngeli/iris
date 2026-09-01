@@ -22,6 +22,13 @@ public interface IAuthService
 	/// <summary>Signs in with Microsoft 365 / Entra ID single sign-on.</summary>
 	Task<AuthResult> SignInWithSsoAsync(CancellationToken ct = default);
 
+	/// <summary>
+	/// Applies an already-issued bearer session token (from a local login or the setup wizard,
+	/// which signs the new super-admin straight in) — fetches <see cref="Me"/> and updates
+	/// authenticated state, same as every other sign-in path.
+	/// </summary>
+	Task<AuthResult> ApplySessionAsync(string token, CancellationToken ct = default);
+
 	void SignOut();
 
 	/// <summary>Raised after a successful sign-in or sign-out — UI bound to <see cref="Me"/>/<see cref="CurrentUser"/> should refresh.</summary>
@@ -50,10 +57,11 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 			return new AuthResult(false, "Enter your password.");
 		}
 
+		string token;
 		try
 		{
 			var login = await api.LoginAsync(new LoginRequest(username.Trim(), password), ct);
-			api.BearerToken = login.Token;
+			token = login.Token;
 		}
 		catch (IrisApiException ex)
 		{
@@ -67,6 +75,13 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		{
 			return new AuthResult(false, "The Iris API did not respond in time.");
 		}
+
+		return await ApplySessionAsync(token, ct);
+	}
+
+	public async Task<AuthResult> ApplySessionAsync(string token, CancellationToken ct = default)
+	{
+		api.BearerToken = token;
 
 		try
 		{

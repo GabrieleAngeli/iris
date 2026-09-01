@@ -1,10 +1,6 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
 using Iris.Application.Abstractions;
 using Iris.Application.Common;
-using Iris.Application.Governance;
 using Iris.Contracts.Access;
-using Iris.Domain.Access;
 
 namespace Iris.Application.Access;
 
@@ -17,13 +13,12 @@ public sealed record LoginCommand(string Email, string Password);
 
 public sealed class LoginHandler(
     IUserRepository users,
-    IUserSessionRepository sessions,
+    SessionIssuer sessionIssuer,
     IPasswordHasher passwordHasher,
-    IClock clock,
     IUnitOfWork unitOfWork)
 {
     /// <summary>How long a freshly issued session stays valid before sign-in is required again.</summary>
-    public static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(12);
+    public static readonly TimeSpan SessionLifetime = SessionIssuer.SessionLifetime;
 
     private const string InvalidCredentials = "Invalid email or password.";
 
@@ -59,15 +54,9 @@ public sealed class LoginHandler(
             throw new ValidationException(InvalidCredentials);
         }
 
-        var rawToken = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
-        var tokenHash = IssueUserInvitationHandler.HashToken(rawToken);
-
-        var now = clock.UtcNow;
-        var session = UserSession.Issue(Guid.CreateVersion7(), user.Id, tokenHash, now, SessionLifetime);
-
-        await sessions.AddAsync(session, cancellationToken).ConfigureAwait(false);
+        var (rawToken, expiresAtUtc) = await sessionIssuer.IssueAsync(user.Id, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new LoginResponse(rawToken, session.ExpiresAtUtc);
+        return new LoginResponse(rawToken, expiresAtUtc);
     }
 }

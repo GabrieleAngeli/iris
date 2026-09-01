@@ -1,6 +1,7 @@
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
+using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
     public DbSet<DependencyDefinition> ApplicationDependencies => Set<DependencyDefinition>();
 
     public DbSet<PlaceholderDefinition> ApplicationPlaceholders => Set<PlaceholderDefinition>();
+
+    public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

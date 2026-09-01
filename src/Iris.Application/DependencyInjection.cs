@@ -2,6 +2,7 @@ using Iris.Application.Access;
 using Iris.Application.Applications;
 using Iris.Application.Governance;
 using Iris.Application.Infrastructure;
+using Iris.Application.Setup;
 using Iris.Application.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,11 +22,14 @@ public static class DependencyInjection
         services.TryAddScoped<IUserAccessService, UserAccessService>();
         services.TryAddScoped<IPermissionAuthorizer, PermissionAuthorizer>();
         services.TryAddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.TryAddScoped<SessionIssuer>();
 
         // Queries
         services.TryAddScoped<GetMyAccessHandler>();
         services.TryAddScoped<SetMyPasswordHandler>();
         services.TryAddScoped<LoginHandler>();
+        services.TryAddScoped<GetSetupStatusHandler>();
+        services.TryAddScoped<CompleteSetupHandler>();
         services.TryAddScoped<SkipMyPasswordSetupHandler>();
         services.TryAddScoped<GetPermissionCatalogHandler>();
         services.TryAddScoped<ListRolesHandler>();

@@ -65,10 +65,16 @@ app.MapAuthEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
 app.MapApplicationsEndpoints();
+app.MapSetupEndpoints();
 
 if (builder.Configuration.GetValue("Iris:Database:MigrateOnStartup", true))
 {
-    await IrisDbInitializer.MigrateAndSeedAsync(app.Services);
+    // Off by default: a real deployment starts genuinely empty and the first-run setup wizard
+    // (GET /setup/status, POST /setup/complete) is what creates its first super-admin. On for
+    // local development (appsettings.Development.json) so the existing reference tenancy —
+    // Contoso/Globex, admin@iris.local already a platform-admin — keeps showing up as before.
+    var seedDemoData = builder.Configuration.GetValue("Iris:Database:SeedDemoData", false);
+    await IrisDbInitializer.MigrateAndSeedAsync(app.Services, seedDemoData);
 }
 
 app.Run();

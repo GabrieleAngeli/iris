@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Iris.Application.Abstractions;
+using Iris.Domain.Access;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -36,12 +37,12 @@ public sealed class DevAuthenticationHandler(
         string displayName;
         if (user is not null)
         {
-            objectId = string.IsNullOrWhiteSpace(user.ObjectId) ? LocalIdentity.DeriveObjectId(email) : user.ObjectId;
+            objectId = string.IsNullOrWhiteSpace(user.ObjectId) ? SyntheticIdentity.DeriveObjectId(email) : user.ObjectId;
             displayName = string.IsNullOrWhiteSpace(user.Name) ? email : user.Name;
         }
         else if (Options.AllowAnyEmail)
         {
-            objectId = LocalIdentity.DeriveObjectId(email);
+            objectId = SyntheticIdentity.DeriveObjectId(email);
             displayName = email;
         }
         else

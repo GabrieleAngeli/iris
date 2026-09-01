@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Iris.Application.Abstractions;
 using Iris.Application.Governance;
+using Iris.Domain.Access;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -53,7 +54,7 @@ public sealed class IrisSessionAuthenticationHandler(
             return AuthenticateResult.NoResult();
         }
 
-        var objectId = LocalIdentity.DeriveObjectId(user.Email);
+        var objectId = SyntheticIdentity.DeriveObjectId(user.Email);
 
         Claim[] claims =
         [

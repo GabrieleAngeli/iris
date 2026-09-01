@@ -162,6 +162,14 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:AcceptInvitationPage}" />
 
+    <!-- First-run wizard (mail provider + super-admin): LoginPage redirects here while needed -->
+    <ShellContent
+        Route="setup"
+        FlyoutItemIsVisible="False"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:SetupWizardPage}" />
+
     <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
     <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
         <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />

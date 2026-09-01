@@ -92,6 +92,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<FirstLoginPasswordViewModel>();
 		builder.Services.AddTransient<AcceptInvitationViewModel>();
+		builder.Services.AddTransient<SetupWizardViewModel>();
 		builder.Services.AddTransient<DashboardViewModel>();
 		builder.Services.AddTransient<ComponentsViewModel>();
 		builder.Services.AddTransient<AccessViewModel>();
@@ -103,6 +104,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<LoginPage>();
 		builder.Services.AddTransient<FirstLoginPasswordPage>();
 		builder.Services.AddTransient<AcceptInvitationPage>();
+		builder.Services.AddTransient<SetupWizardPage>();
 		builder.Services.AddTransient<DashboardPage>();
 		builder.Services.AddTransient<ComponentsPage>();
 		builder.Services.AddTransient<AccessPage>();

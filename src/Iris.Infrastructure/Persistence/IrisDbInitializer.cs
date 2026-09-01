@@ -10,6 +10,7 @@ public static class IrisDbInitializer
 {
     public static async Task MigrateAndSeedAsync(
         IServiceProvider services,
+        bool seedDemoData,
         CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
@@ -22,7 +23,7 @@ public static class IrisDbInitializer
         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
         var seeder = provider.GetRequiredService<IrisDbSeeder>();
-        await seeder.SeedAsync(cancellationToken).ConfigureAwait(false);
+        await seeder.SeedAsync(seedDemoData, cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation("Database is ready.");
     }
