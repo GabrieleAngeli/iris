@@ -21,6 +21,8 @@ internal sealed class FakeStore
 
     public List<ServerNode> Servers { get; } = [];
 
+    public List<DataServiceInstance> DataServices { get; } = [];
+
     public List<ApplicationDefinition> Applications { get; } = [];
 
     public List<UserInvitation> Invitations { get; } = [];
@@ -84,6 +86,8 @@ internal sealed class FakeStore
     public FakeCustomerRepository CustomerRepository => new(this);
 
     public FakeServerRepository ServerRepository => new(this);
+
+    public FakeDataServiceRepository DataServiceRepository => new(this);
 
     public FakeApplicationRepository ApplicationRepository => new(this);
 
@@ -355,6 +359,21 @@ internal sealed class FakeServerRepository(FakeStore store) : IServerRepository
     }
 
     public void Remove(ServerNode server) => store.Servers.Remove(server);
+}
+
+internal sealed class FakeDataServiceRepository(FakeStore store) : IDataServiceRepository
+{
+    public Task<IReadOnlyList<DataServiceInstance>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DataServiceInstance>>(store.DataServices.ToList());
+
+    public Task<DataServiceInstance?> GetForUpdateAsync(Guid dataServiceId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.DataServices.SingleOrDefault(s => s.Id == dataServiceId));
+
+    public Task AddAsync(DataServiceInstance instance, CancellationToken cancellationToken = default)
+    {
+        store.DataServices.Add(instance);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeApplicationRepository(FakeStore store) : IApplicationRepository

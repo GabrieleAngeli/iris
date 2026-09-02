@@ -18,6 +18,8 @@ internal sealed class DependencyDefinitionConfiguration : IEntityTypeConfigurati
         builder.Property(d => d.Required);
         builder.Property(d => d.Description).HasMaxLength(1000);
         builder.Property(d => d.PlaceholderKey).HasMaxLength(300);
+        builder.Property(d => d.ProviderApplicationSlug).HasMaxLength(100);
+        builder.Property(d => d.ProviderPlaceholderKey).HasMaxLength(300);
 
         builder.HasIndex(d => d.ApplicationVersionId);
     }

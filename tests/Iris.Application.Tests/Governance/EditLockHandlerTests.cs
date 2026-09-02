@@ -139,6 +139,7 @@ public sealed class EditLockHandlerTests
     [InlineData("user")]
     [InlineData("server")]
     [InlineData("customer")]
+    [InlineData("application")]
     public async Task Every_lockable_resource_type_is_accepted(string resourceType)
     {
         var f = new Fixture();

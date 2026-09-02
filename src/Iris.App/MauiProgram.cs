@@ -92,6 +92,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<AppShellViewModel>();
 
 		// ---- View models ----------------------------------------
+		builder.Services.AddTransient<StartupViewModel>();
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<FirstLoginPasswordViewModel>();
 		builder.Services.AddTransient<AcceptInvitationViewModel>();
@@ -104,8 +105,10 @@ public static class MauiProgram
 		builder.Services.AddTransient<UsersViewModel>();
 		builder.Services.AddTransient<CustomersViewModel>();
 		builder.Services.AddTransient<ServersViewModel>();
+		builder.Services.AddTransient<ApplicationsViewModel>();
 
 		// ---- Pages ----------------------------------------------
+		builder.Services.AddTransient<StartupPage>();
 		builder.Services.AddTransient<LoginPage>();
 		builder.Services.AddTransient<FirstLoginPasswordPage>();
 		builder.Services.AddTransient<AcceptInvitationPage>();
@@ -118,6 +121,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<UsersPage>();
 		builder.Services.AddTransient<CustomersPage>();
 		builder.Services.AddTransient<ServersPage>();
+		builder.Services.AddTransient<ApplicationsPage>();
 
 		builder.Logging.AddSerilog(dispose: true);
 #if DEBUG

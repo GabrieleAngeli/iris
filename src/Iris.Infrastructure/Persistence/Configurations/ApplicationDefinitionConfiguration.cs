@@ -21,6 +21,11 @@ internal sealed class ApplicationDefinitionConfiguration : IEntityTypeConfigurat
         builder.Property(a => a.RepositoryUrl).IsRequired().HasMaxLength(500);
         builder.Property(a => a.DefaultBranch).IsRequired().HasMaxLength(200);
         builder.Property(a => a.Description).HasMaxLength(1000);
+        builder.Property(a => a.ArtifactProvider).HasMaxLength(80);
+        builder.Property(a => a.ArtifactFeed).HasMaxLength(300);
+        builder.Property(a => a.ArtifactName).HasMaxLength(300);
+        builder.Property(a => a.ArtifactPath).HasMaxLength(1000);
+        builder.Property(a => a.BuildPipelineUrl).HasMaxLength(1000);
         builder.Property(a => a.IsActive);
 
         builder.Property(a => a.CreatedAtUtc);

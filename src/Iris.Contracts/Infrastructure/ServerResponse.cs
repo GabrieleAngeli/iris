@@ -12,13 +12,20 @@ public sealed record ServerCredentialResponse(
     string? Label);
 
 /// <summary>Resource hints for a server, as far as the operator knows them. Any field may be unset.</summary>
-public sealed record ResourceProfileResponse(int? CpuCores, int? MemoryMb, int? DiskGb);
+public sealed record ResourceProfileResponse(
+    int? CpuCores,
+    int? MemoryMb,
+    int? DiskGb,
+    int? ApplicationDiskGb,
+    int? BackupDiskGb);
 
 public sealed record ServerResponse(
     Guid Id,
     string Name,
     string? Hostname,
     string Os,
+    string? OsVersion,
+    string? MachineSize,
     string HostingType,
     string? PublicIpAddress,
     string? PrivateIpAddress,
@@ -28,3 +35,16 @@ public sealed record ServerResponse(
     IReadOnlyList<string> Capabilities,
     ResourceProfileResponse? Resources,
     IReadOnlyList<int> UsedPorts);
+
+public sealed record DataServiceResponse(
+    Guid Id,
+    string Name,
+    string Kind,
+    string Endpoint,
+    int? Port,
+    string? Username,
+    string? Version,
+    string? Size,
+    int? StorageGb,
+    string Environment,
+    bool IsActive);

@@ -14,6 +14,8 @@ internal sealed class ServerNodeConfiguration : IEntityTypeConfiguration<ServerN
 
         builder.Property(s => s.Name).IsRequired().HasMaxLength(200);
         builder.Property(s => s.Hostname).HasMaxLength(260);
+        builder.Property(s => s.OsVersion).HasMaxLength(120);
+        builder.Property(s => s.MachineSize).HasMaxLength(120);
 
         builder.Property(s => s.Os).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(s => s.HostingType).HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -33,6 +35,8 @@ internal sealed class ServerNodeConfiguration : IEntityTypeConfiguration<ServerN
             resources.Property(r => r.CpuCores).HasColumnName("ResourceCpuCores");
             resources.Property(r => r.MemoryMb).HasColumnName("ResourceMemoryMb");
             resources.Property(r => r.DiskGb).HasColumnName("ResourceDiskGb");
+            resources.Property(r => r.ApplicationDiskGb).HasColumnName("ResourceApplicationDiskGb");
+            resources.Property(r => r.BackupDiskGb).HasColumnName("ResourceBackupDiskGb");
         });
         builder.Navigation(s => s.Resources).IsRequired(false);
 

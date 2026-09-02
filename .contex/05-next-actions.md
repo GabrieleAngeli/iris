@@ -9,21 +9,27 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 3. ~~**Auth produzione + first-run setup + SMTP + SSO admin claim**~~ Fatto.
 4. ~~**Profile / System settings / password recovery / remember me**~~ Fatto.
 5. ~~**Audit trail / activity per area**~~ Fatto.
-6. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
+6. ~~**Applications inventory client**~~ Fatto: pagina MAUI `Applications`, create/edit
+   inventory, slug immutabile, lock advisory `application`.
+7. ~~**Infrastructure discovery / RDS / artifact assimilation prep**~~ Fatto: discovery
+   server via port `IServerInventoryProbe`, inventory `/data-services` per MSSQL,
+   PostgreSQL e Redis, artifact metadata su Applications, guida
+   `docs/application-assimilation.md`.
+8. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
    Version + Customer + Context + ServerNode target + binding placeholder + stato. Usare FK
    reali verso `Customer`/`CustomerContext`/`ServerNode`/`ApplicationVersion`; non duplicare
-   quei concetti.
-7. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
+   quei concetti. Includere target data service gestiti e binding provider/consumer dei
+   placeholder.
+9. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
    come handler `ValidateDeployment`, producendo una lista tipata di check con severità.
    Regole iniziali: placeholder non risolto, dipendenza non legata, OS incompatibile,
    capability mancante, collisione porte, capacità insufficiente.
-8. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
+10. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
    OpenBao plan: tutti mock), stato (Draft/Prepared/Pending/Running/Completed/Failed),
    endpoint preview/prepare, storico azioni.
-9. **Pagina client Applications**: nuova sezione flyout + lista + dettaglio versione/import,
-   stesso pattern di `UsersPage`/`ServersPage`, dopo aver deciso quanto del workflow
-   backend-first deve essere esposto subito.
-10. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
+11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
+   configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
+12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
@@ -86,3 +92,52 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 - Login: recupero password anonimo/non-enumerante e `Remember me` per sessione locale.
 - Suite corrente verificata in questa sessione: `dotnet test Iris.sln`, 145/145 test
   verdi; `dotnet build Iris.App.sln` verde.
+
+### 2026-09-02 - audit trail / activity per area
+
+- Aggiunto `TransactionLogEntry` scritto automaticamente da EF durante `SaveChanges`.
+- `GET /activity?area=...&take=...` e pannello Activity in `SystemSettingsPage` per
+  superadmin.
+- Suite corrente verificata in questa sessione: `dotnet test Iris.sln`, 146/146 test
+  verdi; `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
+
+### 2026-09-02 - Applications inventory client
+
+- Aggiunto `PUT /applications/{id}` per aggiornare nome, runtime, repository, branch,
+  descrizione e stato attivo mantenendo lo slug immutabile.
+- Esteso il lock advisory con resource type `application`.
+- Aggiunta `ApplicationsPage` nel client MAUI sotto Workspace, con lista catalogo,
+  riepilogo versioni/knowledge, dialog `NewApplication` e `EditApplication`.
+- Client API esteso con `GetApplicationsAsync`, `CreateApplicationAsync` e
+  `UpdateApplicationAsync`.
+- Suite corrente verificata in questa sessione: `dotnet test Iris.sln`, 151/151 test
+  verdi; `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
+
+### 2026-09-02 - startup splash e restore sessione
+
+- Aggiunta `StartupPage` come prima ShellContent, prima della login.
+- `StartupViewModel` esegue setup check con retry e poi restore del token `Remember me`.
+- Se la sessione salvata e' valida naviga direttamente a dashboard/first-login; la login
+  viene mostrata solo se non c'e' sessione valida o se l'API resta irraggiungibile.
+- Verificato `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
+
+### 2026-09-02 - riordino flyout MAUI
+
+- Dashboard resa la prima voce operativa del flyout.
+- Flyout reso piu' leggibile con righe iconate, indentazione e sezioni nette:
+  Workspace, Governance, Infrastructure, Applications, Development.
+- Applications spostata nella sezione Applications come voce `Inventory`.
+- Components spostata in Development e visibile solo nelle build DEBUG.
+- Verificato `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
+
+### 2026-09-02 - dischi server per applicazioni e backup
+
+- `ResourceProfile` esteso con `ApplicationDiskGb` e `BackupDiskGb`, oltre al disco
+  totale gia' presente.
+- `PUT /servers/{id}/capacity` accetta/restituisce le due quote e valida che non siano
+  negative; se e' noto il disco totale, app+backup non puo' superarlo.
+- Migrazioni `AddServerDiskReservations` generate per SQLite e Postgres.
+- `ServersPage` mostra il riepilogo risorse; `EditServerDialog` consente di modificare
+  CPU/RAM, disco totale, disco applicazioni, disco backup e porte note.
+- Verificato `dotnet test Iris.sln` verde - 151/151; `dotnet build Iris.App.sln
+  --no-restore -p:UseAppHost=false` verde.

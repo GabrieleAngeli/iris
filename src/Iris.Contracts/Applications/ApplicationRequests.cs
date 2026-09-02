@@ -7,7 +7,26 @@ public sealed record CreateApplicationRequest(
     string RuntimeType,
     string RepositoryUrl,
     string DefaultBranch,
-    string? Description);
+    string? Description,
+    string? ArtifactProvider = null,
+    string? ArtifactFeed = null,
+    string? ArtifactName = null,
+    string? ArtifactPath = null,
+    string? BuildPipelineUrl = null);
+
+/// <summary>Body of <c>PUT /applications/{applicationId}</c>. The catalog slug is immutable.</summary>
+public sealed record UpdateApplicationRequest(
+    string Name,
+    string RuntimeType,
+    string RepositoryUrl,
+    string DefaultBranch,
+    string? Description,
+    bool IsActive,
+    string? ArtifactProvider = null,
+    string? ArtifactFeed = null,
+    string? ArtifactName = null,
+    string? ArtifactPath = null,
+    string? BuildPipelineUrl = null);
 
 public sealed record RuntimeMetadataRequest(
     string RuntimeName,
@@ -37,7 +56,9 @@ public sealed record DependencyInput(
     string Category,
     bool Required,
     string? Description,
-    string? PlaceholderKey);
+    string? PlaceholderKey,
+    string? ProviderApplicationSlug = null,
+    string? ProviderPlaceholderKey = null);
 
 public sealed record PlaceholderInput(
     string Key,

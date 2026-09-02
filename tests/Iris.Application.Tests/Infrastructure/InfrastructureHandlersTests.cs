@@ -1,8 +1,10 @@
 using Iris.Application.Common;
+using Iris.Application.Abstractions;
 using Iris.Application.Infrastructure;
 using Iris.Application.Tests.Fakes;
 using Iris.Contracts.Infrastructure;
 using Iris.Domain.Access;
+using Iris.Domain.Infrastructure;
 
 namespace Iris.Application.Tests.Infrastructure;
 
@@ -16,6 +18,12 @@ public sealed class InfrastructureHandlersTests
 
     private static AddServerCredentialHandler AddCredentialHandler(FakeStore store) =>
         new(store.ServerRepository, Factory(store), store.UnitOfWork);
+
+    private static CreateDataServiceHandler CreateDataServiceHandler(FakeStore store) =>
+        new(store.DataServiceRepository, store.SecretStore, new StubDataServiceInventoryProbe(), store.UnitOfWork);
+
+    private static UpdateDataServiceHandler UpdateDataServiceHandler(FakeStore store) =>
+        new(store.DataServiceRepository, store.SecretStore, new StubDataServiceInventoryProbe(), store.UnitOfWork);
 
     private static ServerCredentialInput ServiceCred(string username = "deploy", string secret = "sshkey-material") =>
         new(username, "SshKey", secret, "ServiceAccount", null, "ansible", "CI deploy account");
@@ -215,13 +223,15 @@ public sealed class InfrastructureHandlersTests
         var updated = await update.HandleAsync(new UpdateServerCapacityCommand(
             server.Id,
             ["Database", "ServiceHost"],
-            new ResourceProfileRequest(4, 8192, 100),
+            new ResourceProfileRequest(4, 8192, 250, 150, 80),
             [5432, 22, 22]));
 
         Assert.Equal(["Database", "ServiceHost"], updated.Capabilities);
         Assert.Equal(4, updated.Resources!.CpuCores);
         Assert.Equal(8192, updated.Resources.MemoryMb);
-        Assert.Equal(100, updated.Resources.DiskGb);
+        Assert.Equal(250, updated.Resources.DiskGb);
+        Assert.Equal(150, updated.Resources.ApplicationDiskGb);
+        Assert.Equal(80, updated.Resources.BackupDiskGb);
         Assert.Equal([22, 5432], updated.UsedPorts); // deduplicated and ordered
     }
 
@@ -237,6 +247,9 @@ public sealed class InfrastructureHandlersTests
         await Assert.ThrowsAsync<ValidationException>(() => update.HandleAsync(new UpdateServerCapacityCommand(
             server.Id, ["FlyingCar"], null, [])));
 
+        await Assert.ThrowsAsync<ValidationException>(() => update.HandleAsync(new UpdateServerCapacityCommand(
+            server.Id, [], new ResourceProfileRequest(null, null, 100, 80, 40), [])));
+
         await Assert.ThrowsAsync<NotFoundException>(() => update.HandleAsync(new UpdateServerCapacityCommand(
             Guid.NewGuid(), [], null, [])));
     }
@@ -250,13 +263,111 @@ public sealed class InfrastructureHandlersTests
             "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
 
         await update.HandleAsync(new UpdateServerCapacityCommand(
-            server.Id, ["Database"], new ResourceProfileRequest(2, 4096, 50), [5432]));
+            server.Id, ["Database"], new ResourceProfileRequest(2, 4096, 50, 30, 10), [5432]));
 
         var cleared = await update.HandleAsync(new UpdateServerCapacityCommand(server.Id, [], null, []));
 
         Assert.Empty(cleared.Capabilities);
         Assert.Null(cleared.Resources);
         Assert.Empty(cleared.UsedPorts);
+    }
+
+    [Fact]
+    public async Task DiscoverServerInventory_requires_credentials_and_updates_server()
+    {
+        var store = new FakeStore();
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+        var discover = new DiscoverServerInventoryHandler(
+            store.ServerRepository,
+            store.UserRepository,
+            new StubServerInventoryProbe(),
+            store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            discover.HandleAsync(new DiscoverServerInventoryCommand(server.Id)));
+
+        await AddCredentialHandler(store).HandleAsync(new AddServerCredentialCommand(
+            server.Id, "deploy", "SshKey", "key", "ServiceAccount", null, "ansible", null));
+
+        var discovered = await discover.HandleAsync(new DiscoverServerInventoryCommand(server.Id));
+
+        Assert.Equal("Ubuntu 24.04 LTS", discovered.OsVersion);
+        Assert.Equal("D4 test shape", discovered.MachineSize);
+        Assert.Equal(8, discovered.Resources!.CpuCores);
+        Assert.Equal(300, discovered.Resources.DiskGb);
+        Assert.Equal(210, discovered.Resources.ApplicationDiskGb);
+        Assert.Equal(70, discovered.Resources.BackupDiskGb);
+        Assert.Equal([22, 443], discovered.UsedPorts);
+    }
+
+    [Fact]
+    public async Task DataServices_can_be_created_listed_and_updated()
+    {
+        var store = new FakeStore();
+
+        var created = await CreateDataServiceHandler(store).HandleAsync(new CreateDataServiceCommand(
+            "orders-postgres",
+            "PostgreSql",
+            "orders.cluster.local",
+            5432,
+            "16",
+            "db.t3.medium",
+            100,
+            "Production",
+            "dbadmin",
+            "top-secret"));
+
+        Assert.Equal("PostgreSql", created.Kind);
+        Assert.Equal("dbadmin", created.Username);
+        Assert.Equal(5432, created.Port);
+        Assert.Equal("PostgreSQL 16 test", created.Version);
+        Assert.Equal(128, created.StorageGb);
+        Assert.Single(store.SecretsByReference);
+
+        var updated = await UpdateDataServiceHandler(store).HandleAsync(new UpdateDataServiceCommand(
+            created.Id,
+            "orders-cache",
+            "Redis",
+            "redis.cluster.local",
+            6379,
+            "7",
+            "cache.t3.small",
+            20,
+            "Staging",
+            false,
+            "cache-admin",
+            "new-secret"));
+
+        Assert.Equal("Redis", updated.Kind);
+        Assert.Equal("redis.cluster.local", updated.Endpoint);
+        Assert.Equal("cache-admin", updated.Username);
+        Assert.Equal("Redis 7 test", updated.Version);
+        Assert.False(updated.IsActive);
+
+        var listed = await new ListDataServicesHandler(store.DataServiceRepository)
+            .HandleAsync(new ListDataServicesQuery());
+        Assert.Single(listed);
+    }
+
+    [Fact]
+    public async Task DataServices_validate_kind_port_storage_and_environment()
+    {
+        var store = new FakeStore();
+        var create = CreateDataServiceHandler(store);
+
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Oracle", "db.local", 1521, null, null, null, "Test")));
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Mssql", "db.local", 70000, null, null, null, "Test")));
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Mssql", "db.local", 1433, null, null, -1, "Test")));
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Mssql", "db.local", 1433, null, null, null, "Prod")));
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Mssql", "db.local", 1433, null, null, null, "Test", null, "secret")));
+        await Assert.ThrowsAsync<ValidationException>(() => create.HandleAsync(new CreateDataServiceCommand(
+            "db", "Mssql", "db.local", 1433, null, null, null, "Test", "sa", null)));
     }
 
     [Fact]
@@ -297,5 +408,34 @@ public sealed class InfrastructureHandlersTests
 
         Assert.Equal(["alpha", "zeta"], result.Select(s => s.Name));
         Assert.Single(result.Single(s => s.Name == "alpha").Credentials);
+    }
+
+    private sealed class StubServerInventoryProbe : IServerInventoryProbe
+    {
+        public Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ServerInventorySnapshot(
+                ServerOs.Linux,
+                "Ubuntu 24.04 LTS",
+                "D4 test shape",
+                [NodeCapability.ServiceHost],
+                new ResourceProfile(8, 16384, 300, 210, 70),
+                [443, 22, 22]));
+    }
+
+    private sealed class StubDataServiceInventoryProbe : IDataServiceInventoryProbe
+    {
+        public Task<DataServiceInventorySnapshot> DiscoverAsync(
+            DataServiceInstance dataService,
+            CancellationToken cancellationToken = default)
+        {
+            var snapshot = dataService.Kind switch
+            {
+                DataServiceKind.Redis => new DataServiceInventorySnapshot(DataServiceKind.Redis, "Redis 7 test", "cache.test", 32),
+                DataServiceKind.PostgreSql => new DataServiceInventorySnapshot(DataServiceKind.PostgreSql, "PostgreSQL 16 test", "db.test", 128),
+                _ => new DataServiceInventorySnapshot(DataServiceKind.Mssql, "SQL Server 2022 test", "sql.test", 256),
+            };
+
+            return Task.FromResult(snapshot);
+        }
     }
 }

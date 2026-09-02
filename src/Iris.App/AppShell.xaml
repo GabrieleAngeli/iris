@@ -80,6 +80,24 @@
             <Setter Property="HorizontalOptions" Value="Fill" />
             <Setter Property="VerticalOptions" Value="Fill" />
         </Style>
+        <Style x:Key="FlyoutSectionHeaderStyle" TargetType="Label">
+            <Setter Property="Padding" Value="20,20,20,8" />
+            <Setter Property="FontFamily" Value="{StaticResource FontSemibold}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+        </Style>
+        <Style x:Key="FlyoutRowIconStyle" TargetType="Label">
+            <Setter Property="FontFamily" Value="{StaticResource FontIcons}" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="WidthRequest" Value="22" />
+            <Setter Property="HorizontalTextAlignment" Value="Center" />
+            <Setter Property="VerticalTextAlignment" Value="Center" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+        </Style>
+        <Style x:Key="FlyoutRowTextStyle" TargetType="Label" BasedOn="{StaticResource Body}">
+            <Setter Property="VerticalOptions" Value="Center" />
+            <Setter Property="LineBreakMode" Value="TailTruncation" />
+        </Style>
     </Shell.Resources>
 
     <Shell.FlyoutContentTemplate>
@@ -87,48 +105,74 @@
             <ScrollView>
                 <VerticalStackLayout Spacing="0" Padding="0,8">
 
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,12,20,12">
+                        <BoxView Grid.Column="0" WidthRequest="4"
+                                 Color="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                        <Label Grid.Column="1" Text="&#xE80F;" Style="{StaticResource FlyoutRowIconStyle}" />
+                        <Label Grid.Column="2" Text="Dashboard" Style="{StaticResource FlyoutRowTextStyle}" />
+                        <Button Grid.ColumnSpan="3" Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
+                                Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
+                    </Grid>
+
+                    <Label Text="Workspace" Style="{StaticResource FlyoutSectionHeaderStyle}" />
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                        <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                        <Label Grid.Column="1" Text="&#xE72E;" Style="{StaticResource FlyoutRowIconStyle}" />
+                        <Label Grid.Column="2" Text="Access" Style="{StaticResource FlyoutRowTextStyle}" />
+                        <Button Grid.ColumnSpan="3" Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
+                                Command="{Binding NavigateCommand}" CommandParameter="//access" />
+                    </Grid>
+
                     <VerticalStackLayout IsVisible="{Binding CanManageUsers}">
-                        <Label Text="Governance" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                        <Grid>
-                            <Label Text="Users" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                            <Button Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
+                        <Label Text="Governance" Style="{StaticResource FlyoutSectionHeaderStyle}" />
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Users" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//users" />
                         </Grid>
-                        <Grid>
-                            <Label Text="Customers" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                            <Button Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xE77B;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Customers" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//customers" />
                         </Grid>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding CanManageInfrastructure}">
-                        <Label Text="Infrastructure" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                        <Grid>
-                            <Label Text="Servers" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                            <Button Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
+                        <Label Text="Infrastructure" Style="{StaticResource FlyoutSectionHeaderStyle}" />
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Servers" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//servers" />
                         </Grid>
                     </VerticalStackLayout>
 
-                    <Label Text="Workspace" Padding="20,18,20,6" FontFamily="{StaticResource FontSemibold}" FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                    <Grid>
-                        <Label Text="Dashboard" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                        <Button Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
-                                Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
-                    </Grid>
-                    <Grid>
-                        <Label Text="Access" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                        <Button Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
-                                Command="{Binding NavigateCommand}" CommandParameter="//access" />
-                    </Grid>
-                    <Grid>
-                        <Label Text="Components" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-                        <Button Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
-                                Command="{Binding NavigateCommand}" CommandParameter="//components" />
-                    </Grid>
+                    <VerticalStackLayout IsVisible="{Binding CanSeeApplications}">
+                        <Label Text="Applications" Style="{StaticResource FlyoutSectionHeaderStyle}" />
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Inventory" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//applications" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout IsVisible="{Binding IsDevelopment}">
+                        <Label Text="Development" Style="{StaticResource FlyoutSectionHeaderStyle}" />
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Components" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//components" />
+                        </Grid>
+                    </VerticalStackLayout>
 
                 </VerticalStackLayout>
             </ScrollView>
@@ -136,12 +180,23 @@
     </Shell.FlyoutContentTemplate>
 
     <Shell.FlyoutFooter>
-        <Grid>
-            <Label Text="System settings" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-            <Button Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
+        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,12,20,12">
+            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+            <Label Grid.Column="1" Text="&#xE713;" Style="{StaticResource FlyoutRowIconStyle}" />
+            <Label Grid.Column="2" Text="System settings" Style="{StaticResource FlyoutRowTextStyle}" />
+            <Button Grid.ColumnSpan="3" Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
                     Command="{Binding NavigateCommand}" CommandParameter="//system-settings" />
         </Grid>
     </Shell.FlyoutFooter>
+
+    <!-- Launch bootstrap lives outside the flyout navigation and keeps login hidden while restoring a remembered session. -->
+    <ShellContent
+        x:Name="StartupContent"
+        Route="startup"
+        FlyoutItemIsVisible="False"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:StartupPage}" />
 
     <!-- Login lives outside the flyout navigation -->
     <ShellContent
@@ -200,6 +255,9 @@
     </FlyoutItem>
     <FlyoutItem Title="Components" Route="components" FlyoutItemIsVisible="False">
         <ShellContent Title="Components" ContentTemplate="{DataTemplate views:ComponentsPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Applications" Route="applications" FlyoutItemIsVisible="False">
+        <ShellContent Title="Applications" ContentTemplate="{DataTemplate views:ApplicationsPage}" />
     </FlyoutItem>
 
 </Shell>

@@ -118,7 +118,7 @@ public sealed class TransactionLogInterceptor(
             return "Governance";
         }
 
-        if (type == typeof(ServerNode) || type == typeof(ServerCredential))
+        if (type == typeof(ServerNode) || type == typeof(ServerCredential) || type == typeof(DataServiceInstance))
         {
             return "Infrastructure";
         }

@@ -24,7 +24,9 @@ public sealed class DependencyDefinition : Entity<Guid>
         string category,
         bool required,
         string? description,
-        string? placeholderKey)
+        string? placeholderKey,
+        string? providerApplicationSlug = null,
+        string? providerPlaceholderKey = null)
         : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -36,6 +38,8 @@ public sealed class DependencyDefinition : Entity<Guid>
         Required = required;
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         PlaceholderKey = string.IsNullOrWhiteSpace(placeholderKey) ? null : placeholderKey.Trim();
+        ProviderApplicationSlug = string.IsNullOrWhiteSpace(providerApplicationSlug) ? null : providerApplicationSlug.Trim().ToLowerInvariant();
+        ProviderPlaceholderKey = string.IsNullOrWhiteSpace(providerPlaceholderKey) ? null : providerPlaceholderKey.Trim();
     }
 
     public Guid ApplicationVersionId { get; private set; }
@@ -50,4 +54,8 @@ public sealed class DependencyDefinition : Entity<Guid>
     public string? Description { get; private set; }
 
     public string? PlaceholderKey { get; private set; }
+
+    public string? ProviderApplicationSlug { get; private set; }
+
+    public string? ProviderPlaceholderKey { get; private set; }
 }

@@ -15,11 +15,11 @@
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Servers" Style="{StaticResource TitleLarge}" />
-                        <Label Text="Registered infrastructure and the OS-login credentials each server holds." Style="{StaticResource Caption}" />
+                        <Label Text="Infrastructure targets: server nodes and managed data services." Style="{StaticResource Caption}" />
                     </VerticalStackLayout>
                     <Button Grid.Column="1" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
                             Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
-                    <Button Grid.Column="2" Text="New server" Command="{Binding RequestNewServerCommand}" VerticalOptions="Start" />
+                    <Button Grid.Column="2" Text="New resource" Command="{Binding RequestNewServerCommand}" VerticalOptions="Start" />
                 </Grid>
 
                 <Border IsVisible="{Binding HasError}"
@@ -30,48 +30,109 @@
                            TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
                 </Border>
 
-                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Servers}">
+                <Border Style="{StaticResource SubtleCard}">
+                    <Grid ColumnDefinitions="1.1*,.9*,1.1*,1.1*,.9*,Auto" ColumnSpacing="10" RowSpacing="8">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Type" Style="{StaticResource Caption}" />
+                            <Picker ItemsSource="{Binding ResourceTypeFilterOptions}" SelectedItem="{Binding ResourceTypeFilter}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Text="OS" Style="{StaticResource Caption}" />
+                            <Picker ItemsSource="{Binding ResourceOsFilterOptions}" SelectedItem="{Binding ResourceOsFilter}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" Spacing="4">
+                            <Label Text="Version" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding ResourceVersionFilter}" Placeholder="16 / 22.04 / SQL" />
+                            </Border>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="3" Spacing="4">
+                            <Label Text="Tag" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding ResourceTagFilter}" Placeholder="production / redis / port:443" />
+                            </Border>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="4" Spacing="4">
+                            <Label Text="Sort" Style="{StaticResource Caption}" />
+                            <Picker ItemsSource="{Binding ResourceSortOptions}" SelectedItem="{Binding ResourceSortBy}" />
+                        </VerticalStackLayout>
+                        <HorizontalStackLayout Grid.Column="5" Spacing="6" VerticalOptions="End" Padding="0,0,0,8">
+                            <CheckBox IsChecked="{Binding ResourceSortDescending}" VerticalOptions="Center" />
+                            <Label Text="Desc" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Resources}">
                     <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ServerRowViewModel">
+                        <DataTemplate x:DataType="vm:InfrastructureResourceRowViewModel">
                             <Border Style="{StaticResource Card}">
                                 <VerticalStackLayout Spacing="14">
-
-                                    <!-- ===== Server header ===== -->
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                         <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0" StrokeShape="RoundRectangle 19"
                                                 BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}">
-                                            <Label Text="&#xE7F4;" FontFamily="{StaticResource FontIcons}" FontSize="16"
+                                            <Label Text="{Binding IconGlyph}" FontFamily="{StaticResource FontIcons}" FontSize="16"
                                                    HorizontalOptions="Center" VerticalOptions="Center"
                                                    TextColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
                                         </Border>
-                                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+
+                                        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                             <HorizontalStackLayout Spacing="8">
-                                                <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
-                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Os}" Style="{StaticResource Caption}" /></Border>
-                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding HostingType}" Style="{StaticResource Caption}" /></Border>
+                                                <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="15"
+                                                       LineBreakMode="TailTruncation" />
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Type}" Style="{StaticResource Caption}" /></Border>
+                                                <Border Style="{StaticResource Badge}"><Label Text="{Binding Tech}" Style="{StaticResource Caption}" /></Border>
                                                 <Border Style="{StaticResource Badge}"><Label Text="{Binding Environment}" Style="{StaticResource Caption}" /></Border>
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding HasVersion}">
+                                                    <Label Text="{Binding Version}" Style="{StaticResource Caption}" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                    <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                </Border>
                                             </HorizontalStackLayout>
-                                            <Label Text="{Binding Hostname, TargetNullValue='(no hostname)'}" Style="{StaticResource Caption}" />
-                                            <HorizontalStackLayout Spacing="14">
-                                                <Label Text="{Binding PublicIpAddress, StringFormat='Public: {0}', TargetNullValue='Public: —'}" Style="{StaticResource Caption}" />
-                                                <Label Text="{Binding PrivateIpAddress, StringFormat='Private: {0}', TargetNullValue='Private: —'}" Style="{StaticResource Caption}" />
-                                            </HorizontalStackLayout>
+
+                                            <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding ResourceSummary}" Style="{StaticResource Caption}" />
+                                            <Label Text="{Binding NetworkSummary}" Style="{StaticResource Caption}" />
+                                            <Label Text="{Binding TagText, StringFormat='Tags: {0}'}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
                                         </VerticalStackLayout>
+
                                         <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
                                             <Button Text="&#xE70F;" Style="{StaticResource IconButton}"
-                                                    Command="{Binding OpenEditCommand}"
-                                                    ToolTipProperties.Text="Edit / delete server" />
+                                                    Command="{Binding EditCommand}"
+                                                    ToolTipProperties.Text="Edit resource" />
                                             <Button Text="&#xE710;" Style="{StaticResource IconButton}"
-                                                    Command="{Binding OpenAddCredentialCommand}"
+                                                    Command="{Binding AddCredentialCommand}"
+                                                    IsVisible="{Binding CanAddCredential}"
                                                     ToolTipProperties.Text="Add credential" />
+                                            <Button Text="&#xE895;" Style="{StaticResource IconButton}"
+                                                    Command="{Binding DiscoverCommand}"
+                                                    ToolTipProperties.Text="Discover inventory" />
                                         </HorizontalStackLayout>
                                     </Grid>
 
-                                    <Label Text="{Binding EditLockNotice}" IsVisible="{Binding HasEditLockNotice}"
+                                    <Label Text="{Binding Server.EditLockNotice}" IsVisible="{Binding Server.HasEditLockNotice}"
                                            Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
 
-                                    <!-- ===== Current credentials ===== -->
-                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Credentials}">
+                                    <Grid ColumnDefinitions="1.1*,Auto,1.3*,.6*,.8*,.8*,.7*,Auto,Auto,Auto"
+                                          ColumnSpacing="8" IsVisible="{Binding DataService.IsEditMode}">
+                                        <Border Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditName}" /></Border>
+                                        <Picker Grid.Column="1" ItemsSource="{Binding DataService.KindOptions}" SelectedItem="{Binding DataService.EditKind}" WidthRequest="120" />
+                                        <Border Grid.Column="2" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditEndpoint}" /></Border>
+                                        <Border Grid.Column="3" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditPort}" Keyboard="Numeric" /></Border>
+                                        <Border Grid.Column="4" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditUsername}" Placeholder="username" /></Border>
+                                        <Border Grid.Column="5" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditPassword}" IsPassword="True" Placeholder="new password" /></Border>
+                                        <Border Grid.Column="6" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditStorageGb}" Keyboard="Numeric" /></Border>
+                                        <Picker Grid.Column="7" ItemsSource="{Binding DataService.EnvironmentOptions}" SelectedItem="{Binding DataService.EditEnvironment}" WidthRequest="130" />
+                                        <Button Grid.Column="8" Text="Cancel" Style="{StaticResource SecondaryButton}" Command="{Binding DataService.CancelEditCommand}" />
+                                        <Button Grid.Column="9" Text="Save" Command="{Binding DataService.SaveCommand}"
+                                                IsEnabled="{Binding DataService.IsBusy, Converter={StaticResource InvertBoolConverter}}" />
+                                    </Grid>
+
+                                    <Label Text="{Binding DataService.Error}" IsVisible="{Binding DataService.HasError}" FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Credentials}" IsVisible="{Binding HasCredentials}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="vm:CredentialRowViewModel">
                                                 <Grid ColumnDefinitions="*,Auto" Padding="0,6" ColumnSpacing="8">
@@ -93,7 +154,6 @@
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
-
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
@@ -103,7 +163,6 @@
             </VerticalStackLayout>
         </ScrollView>
 
-        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading servers…" />
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading infrastructure..." />
     </Grid>
-
 </ContentPage>

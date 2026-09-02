@@ -64,13 +64,19 @@ public static class DependencyInjection
         services.TryAddScoped<CreateServerHandler>();
         services.TryAddScoped<UpdateServerHandler>();
         services.TryAddScoped<UpdateServerCapacityHandler>();
+        services.TryAddScoped<DiscoverServerInventoryHandler>();
         services.TryAddScoped<DeleteServerHandler>();
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();
         services.TryAddScoped<ListServersHandler>();
+        services.TryAddScoped<ListDataServicesHandler>();
+        services.TryAddScoped<CreateDataServiceHandler>();
+        services.TryAddScoped<UpdateDataServiceHandler>();
+        services.TryAddScoped<DiscoverDataServiceInventoryHandler>();
 
         // Applications commands
         services.TryAddScoped<CreateApplicationHandler>();
+        services.TryAddScoped<UpdateApplicationHandler>();
         services.TryAddScoped<AddApplicationVersionHandler>();
         services.TryAddScoped<ImportConfigurationPackageHandler>();
         services.TryAddScoped<ListApplicationsHandler>();

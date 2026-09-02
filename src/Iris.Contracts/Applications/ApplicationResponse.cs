@@ -25,5 +25,10 @@ public sealed record ApplicationResponse(
     string RepositoryUrl,
     string DefaultBranch,
     string? Description,
+    string? ArtifactProvider,
+    string? ArtifactFeed,
+    string? ArtifactName,
+    string? ArtifactPath,
+    string? BuildPipelineUrl,
     bool IsActive,
     IReadOnlyList<ApplicationVersionSummaryResponse> Versions);

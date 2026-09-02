@@ -12,6 +12,8 @@ internal static class ServerMapping
         server.Name,
         server.Hostname,
         server.Os.ToString(),
+        server.OsVersion,
+        server.MachineSize,
         server.HostingType.ToString(),
         server.PublicIpAddress,
         server.PrivateIpAddress,
@@ -25,7 +27,9 @@ internal static class ServerMapping
     public static ResourceProfileResponse ToResponse(this ResourceProfile resources) => new(
         resources.CpuCores,
         resources.MemoryMb,
-        resources.DiskGb);
+        resources.DiskGb,
+        resources.ApplicationDiskGb,
+        resources.BackupDiskGb);
 
     public static ServerCredentialResponse ToResponse(this ServerCredential credential, string? ownerDisplayName = null) => new(
         credential.Id,

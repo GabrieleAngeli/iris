@@ -12,6 +12,7 @@ public partial class NewServerDialog : ContentPage
 		InitializeComponent();
 		BindingContext = _vm = vm;
 		_vm.NewServerCompleted += OnCompleted;
+		_vm.NewDataServiceCompleted += OnCompleted;
 		Unloaded += (_, _) => Detach();
 	}
 
@@ -19,7 +20,11 @@ public partial class NewServerDialog : ContentPage
 
 	private void OnCancel(object? sender, EventArgs e) => Close();
 
-	private void Detach() => _vm.NewServerCompleted -= OnCompleted;
+	private void Detach()
+	{
+		_vm.NewServerCompleted -= OnCompleted;
+		_vm.NewDataServiceCompleted -= OnCompleted;
+	}
 
 	private void Close()
 	{

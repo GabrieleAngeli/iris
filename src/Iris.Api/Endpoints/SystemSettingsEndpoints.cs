@@ -22,7 +22,9 @@ public static class SystemSettingsEndpoints
                     .HandleAsync(new GetSystemSettingsQuery(
                         canManageSystem,
                         configuration["Iris:Integrations:OpenBao:Endpoint"],
-                        configuration["Iris:Integrations:Ansible:Endpoint"]),
+                        configuration["Iris:Integrations:Ansible:Endpoint"],
+                        configuration["Iris:Integrations:AzureDevOps:Endpoint"],
+                        configuration["Iris:Integrations:Nexus:Endpoint"]),
                         ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);

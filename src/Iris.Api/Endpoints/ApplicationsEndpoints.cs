@@ -24,12 +24,49 @@ public static class ApplicationsEndpoints
             {
                 var result = await handler
                     .HandleAsync(new CreateApplicationCommand(
-                        body.Name, body.Slug, body.RuntimeType, body.RepositoryUrl, body.DefaultBranch, body.Description), ct)
+                        body.Name,
+                        body.Slug,
+                        body.RuntimeType,
+                        body.RepositoryUrl,
+                        body.DefaultBranch,
+                        body.Description,
+                        body.ArtifactProvider,
+                        body.ArtifactFeed,
+                        body.ArtifactName,
+                        body.ArtifactPath,
+                        body.BuildPipelineUrl), ct)
                     .ConfigureAwait(false);
                 return Results.Created($"/applications/{result.Id}", result);
             })
             .WithName("CreateApplication")
             .WithSummary("Register an application in the catalog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Write));
+
+        applications.MapPut("/{applicationId:guid}", async (
+                Guid applicationId,
+                UpdateApplicationRequest body,
+                UpdateApplicationHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateApplicationCommand(
+                        applicationId,
+                        body.Name,
+                        body.RuntimeType,
+                        body.RepositoryUrl,
+                        body.DefaultBranch,
+                        body.Description,
+                        body.IsActive,
+                        body.ArtifactProvider,
+                        body.ArtifactFeed,
+                        body.ArtifactName,
+                        body.ArtifactPath,
+                        body.BuildPipelineUrl), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateApplication")
+            .WithSummary("Update application inventory metadata. The slug remains stable.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Write));
 
         applications.MapPost("/{applicationId:guid}/versions", async (

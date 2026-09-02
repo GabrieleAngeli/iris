@@ -59,6 +59,54 @@
                 </Grid>
                 <Label Text="At least one of the two IPs is required." Style="{StaticResource Caption}" />
 
+                <BoxView HeightRequest="1" Margin="0,6"
+                         Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+
+                <Label Text="Capacity" Style="{StaticResource Subtitle}" FontSize="15" />
+
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="CPU cores" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditCpuCores}" Keyboard="Numeric" Placeholder="4" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Memory MB" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditMemoryMb}" Keyboard="Numeric" Placeholder="8192" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" Spacing="4">
+                        <Label Text="Total disk GB" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditDiskGb}" Keyboard="Numeric" Placeholder="250" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Application disk GB" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditApplicationDiskGb}" Keyboard="Numeric" Placeholder="150" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Backup disk GB" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditBackupDiskGb}" Keyboard="Numeric" Placeholder="80" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Known used ports" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding EditUsedPorts}" Placeholder="22, 80, 443" />
+                    </Border>
+                </VerticalStackLayout>
+
                 <Label Text="{Binding EditError}" IsVisible="{Binding HasEditError}" FontSize="12"
                        TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
 

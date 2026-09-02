@@ -41,7 +41,15 @@ public sealed class ImportConfigurationPackageHandler(IApplicationRepository app
             .ToArray();
 
         var dependencies = command.Dependencies
-            .Select(d => new NewDependencyDefinition(Guid.CreateVersion7(), d.Name, d.Category, d.Required, d.Description, d.PlaceholderKey))
+            .Select(d => new NewDependencyDefinition(
+                Guid.CreateVersion7(),
+                d.Name,
+                d.Category,
+                d.Required,
+                d.Description,
+                d.PlaceholderKey,
+                d.ProviderApplicationSlug,
+                d.ProviderPlaceholderKey))
             .ToArray();
 
         var placeholders = command.Placeholders

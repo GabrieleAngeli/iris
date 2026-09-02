@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Iris.Contracts.Access;
+using Iris.Contracts.Applications;
 using Iris.Contracts.Audit;
 using Iris.Contracts.Governance;
 using Iris.Contracts.Infrastructure;
@@ -58,6 +59,15 @@ public interface IIrisApiClient
 
 	Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>The application inventory and version knowledge summaries. Requires <c>applications.read</c>.</summary>
+	Task<IReadOnlyList<ApplicationResponse>> GetApplicationsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Registers a new application in the catalog. Requires <c>applications.write</c>.</summary>
+	Task<ApplicationResponse> CreateApplicationAsync(CreateApplicationRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Updates application inventory metadata. Requires <c>applications.write</c>.</summary>
+	Task<ApplicationResponse> UpdateApplicationAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -104,6 +114,8 @@ public interface IIrisApiClient
 	/// <summary>Every registered server and the credentials it holds. Requires <c>infrastructure.read</c> at Global scope.</summary>
 	Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default);
 
+	Task<IReadOnlyList<DataServiceResponse>> GetDataServicesAsync(CancellationToken cancellationToken = default);
+
 	Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default);
 
 	Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
@@ -114,8 +126,20 @@ public interface IIrisApiClient
 	/// <summary>Registers a server. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default);
 
+	Task<DataServiceResponse> CreateDataServiceAsync(UpsertDataServiceRequest request, CancellationToken cancellationToken = default);
+
+	Task<DataServiceResponse> UpdateDataServiceAsync(Guid dataServiceId, UpsertDataServiceRequest request, CancellationToken cancellationToken = default);
+
+	Task<DataServiceResponse> DiscoverDataServiceInventoryAsync(Guid dataServiceId, CancellationToken cancellationToken = default);
+
 	/// <summary>Updates a server's identity/network details. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerResponse> UpdateServerAsync(Guid serverId, UpdateServerRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Updates a server's capacity hints. Requires <c>infrastructure.write</c>.</summary>
+	Task<ServerResponse> UpdateServerCapacityAsync(Guid serverId, UpdateServerCapacityRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Discovers server inventory through the configured automation adapter. Requires <c>infrastructure.write</c>.</summary>
+	Task<ServerResponse> DiscoverServerInventoryAsync(Guid serverId, CancellationToken cancellationToken = default);
 
 	/// <summary>Deletes a server and every credential it holds. Requires <c>infrastructure.delete</c>.</summary>
 	Task DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default);
@@ -183,6 +207,15 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<IReadOnlyList<CustomerSummaryResponse>> GetCustomersAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<CustomerSummaryResponse>("/customers", cancellationToken);
 
+	public Task<IReadOnlyList<ApplicationResponse>> GetApplicationsAsync(CancellationToken cancellationToken = default) =>
+		GetListAsync<ApplicationResponse>("/applications", cancellationToken);
+
+	public Task<ApplicationResponse> CreateApplicationAsync(CreateApplicationRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ApplicationResponse>("/applications", request, cancellationToken);
+
+	public Task<ApplicationResponse> UpdateApplicationAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<ApplicationResponse>(HttpMethod.Put, $"/applications/{applicationId}", request, cancellationToken);
+
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);
 
@@ -231,6 +264,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<ServerResponse>("/servers", cancellationToken);
 
+	public Task<IReadOnlyList<DataServiceResponse>> GetDataServicesAsync(CancellationToken cancellationToken = default) =>
+		GetListAsync<DataServiceResponse>("/data-services", cancellationToken);
+
 	public Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<SystemSettingsResponse>(HttpMethod.Get, "/system/settings", cancellationToken);
 
@@ -248,8 +284,23 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ServerResponse>("/servers", request, cancellationToken);
 
+	public Task<DataServiceResponse> CreateDataServiceAsync(UpsertDataServiceRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<DataServiceResponse>("/data-services", request, cancellationToken);
+
+	public Task<DataServiceResponse> UpdateDataServiceAsync(Guid dataServiceId, UpsertDataServiceRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<DataServiceResponse>(HttpMethod.Put, $"/data-services/{dataServiceId}", request, cancellationToken);
+
+	public Task<DataServiceResponse> DiscoverDataServiceInventoryAsync(Guid dataServiceId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<DataServiceResponse>(HttpMethod.Post, $"/data-services/{dataServiceId}/discover", cancellationToken);
+
 	public Task<ServerResponse> UpdateServerAsync(Guid serverId, UpdateServerRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<ServerResponse>(HttpMethod.Put, $"/servers/{serverId}", request, cancellationToken);
+
+	public Task<ServerResponse> UpdateServerCapacityAsync(Guid serverId, UpdateServerCapacityRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<ServerResponse>(HttpMethod.Put, $"/servers/{serverId}/capacity", request, cancellationToken);
+
+	public Task<ServerResponse> DiscoverServerInventoryAsync(Guid serverId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ServerResponse>(HttpMethod.Post, $"/servers/{serverId}/discover", cancellationToken);
 
 	public Task DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default) =>
 		DeleteAsync($"/servers/{serverId}", cancellationToken);

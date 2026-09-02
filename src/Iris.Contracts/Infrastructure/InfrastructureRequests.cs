@@ -46,7 +46,12 @@ public sealed record AddServerCredentialRequest(
     string? Label);
 
 /// <summary>Resource hints supplied by the operator. Any field may be omitted.</summary>
-public sealed record ResourceProfileRequest(int? CpuCores, int? MemoryMb, int? DiskGb);
+public sealed record ResourceProfileRequest(
+    int? CpuCores,
+    int? MemoryMb,
+    int? DiskGb,
+    int? ApplicationDiskGb = null,
+    int? BackupDiskGb = null);
 
 /// <summary>
 /// Body of <c>PUT /servers/{serverId}/capacity</c> — replaces the server's capability tags,
@@ -56,3 +61,16 @@ public sealed record UpdateServerCapacityRequest(
     IReadOnlyList<string> Capabilities,
     ResourceProfileRequest? Resources,
     IReadOnlyList<int> UsedPorts);
+
+public sealed record UpsertDataServiceRequest(
+    string Name,
+    string Kind,
+    string Endpoint,
+    int? Port,
+    string? Version,
+    string? Size,
+    int? StorageGb,
+    string Environment,
+    bool IsActive = true,
+    string? Username = null,
+    string? PasswordValue = null);

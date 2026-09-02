@@ -12,7 +12,7 @@ public static class EditLockPolicy
     /// <summary>How long a lock lives without a refresh. The client heartbeats well inside this.</summary>
     public static readonly TimeSpan Ttl = TimeSpan.FromMinutes(2);
 
-    private static readonly HashSet<string> Resources = new(StringComparer.Ordinal) { "user", "server", "customer" };
+    private static readonly HashSet<string> Resources = new(StringComparer.Ordinal) { "user", "server", "customer", "application" };
 
     public static string NormalizeResourceType(string? resourceType)
     {

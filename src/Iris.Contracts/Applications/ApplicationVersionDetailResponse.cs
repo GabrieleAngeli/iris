@@ -17,7 +17,9 @@ public sealed record DependencyResponse(
     string Category,
     bool Required,
     string? Description,
-    string? PlaceholderKey);
+    string? PlaceholderKey,
+    string? ProviderApplicationSlug,
+    string? ProviderPlaceholderKey);
 
 public sealed record PlaceholderResponse(
     Guid Id,

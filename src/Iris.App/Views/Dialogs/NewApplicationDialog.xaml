@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.NewApplicationDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ApplicationsViewModel"
+    Title="New application">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="10">
+                <Label Text="Register an application before importing versions and configuration knowledge." Style="{StaticResource Caption}" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Name" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationName}" Placeholder="Iris API" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Slug (optional)" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationSlug}" Placeholder="iris-api" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Runtime" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding NewApplicationRuntimeType}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Default branch" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationDefaultBranch}" Placeholder="main" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Repository URL" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewApplicationRepositoryUrl}" Placeholder="https://git.example/iris-api" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Artifact provider" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationArtifactProvider}" Placeholder="AzureDevOps / Nexus" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Artifact feed" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationArtifactFeed}" Placeholder="Iris/releases" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Artifact name" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationArtifactName}" Placeholder="iris-api.zip" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Artifact path" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationArtifactPath}" Placeholder="drop/iris-api.zip" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Build pipeline URL" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewApplicationBuildPipelineUrl}" Placeholder="https://dev.azure.com/org/project/_build" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Description" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="96">
+                        <Editor Text="{Binding NewApplicationDescription}" AutoSize="TextChanges" HeightRequest="88" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding CreateApplicationError}" IsVisible="{Binding HasCreateApplicationError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsCreatingApplication}" IsVisible="{Binding IsCreatingApplication}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Create" Command="{Binding CreateApplicationCommand}"
+                    IsEnabled="{Binding IsCreatingApplication, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>

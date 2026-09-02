@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.EditApplicationDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ApplicationRowViewModel"
+    Title="Edit application">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="10">
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Slug" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Slug}" IsReadOnly="True" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Name" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditName}" Placeholder="Iris API" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Runtime" Style="{StaticResource Caption}" />
+                        <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding EditRuntimeType}" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Repository URL" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditRepositoryUrl}" Placeholder="https://git.example/iris-api" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Default branch" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditDefaultBranch}" Placeholder="main" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Artifact provider" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditArtifactProvider}" Placeholder="AzureDevOps / Nexus" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Artifact feed" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditArtifactFeed}" Placeholder="Iris/releases" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Artifact name" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditArtifactName}" Placeholder="iris-api.zip" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Artifact path" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditArtifactPath}" Placeholder="drop/iris-api.zip" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Build pipeline URL" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding EditBuildPipelineUrl}" Placeholder="https://dev.azure.com/org/project/_build" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Description" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="96">
+                        <Editor Text="{Binding EditDescription}" AutoSize="TextChanges" HeightRequest="88" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <HorizontalStackLayout Spacing="10">
+                    <Switch IsToggled="{Binding EditActive}" VerticalOptions="Center" />
+                    <Label Text="Active" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                </HorizontalStackLayout>
+
+                <Label Text="{Binding EditError}" IsVisible="{Binding HasEditError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsEditBusy}" IsVisible="{Binding IsEditBusy}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Save" Command="{Binding SaveEditCommand}"
+                    IsEnabled="{Binding IsEditBusy, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>

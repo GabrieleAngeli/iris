@@ -32,8 +32,18 @@ public sealed class UpdateServerCapacityHandler(IServerRepository servers, IUser
             capabilities.Add(capability);
         }
 
+        if (command.Resources is { } requested)
+        {
+            ValidateResources(requested);
+        }
+
         var resources = command.Resources is { } input
-            ? new ResourceProfile(input.CpuCores, input.MemoryMb, input.DiskGb)
+            ? new ResourceProfile(
+                input.CpuCores,
+                input.MemoryMb,
+                input.DiskGb,
+                input.ApplicationDiskGb,
+                input.BackupDiskGb)
             : null;
 
         var server = await servers.GetForUpdateAsync(command.ServerId, cancellationToken).ConfigureAwait(false)
@@ -47,5 +57,31 @@ public sealed class UpdateServerCapacityHandler(IServerRepository servers, IUser
             .ToDictionary(u => u.Id, u => u.DisplayName);
 
         return server.ToResponse(ownerNames);
+    }
+
+    private static void ValidateResources(ResourceProfileRequest resources)
+    {
+        foreach (var (label, value) in new[]
+        {
+            ("CPU cores", resources.CpuCores),
+            ("Memory MB", resources.MemoryMb),
+            ("Disk GB", resources.DiskGb),
+            ("Application disk GB", resources.ApplicationDiskGb),
+            ("Backup disk GB", resources.BackupDiskGb),
+        })
+        {
+            if (value < 0)
+            {
+                throw new ValidationException($"{label} cannot be negative.");
+            }
+        }
+
+        if (resources.DiskGb is { } total &&
+            resources.ApplicationDiskGb is { } application &&
+            resources.BackupDiskGb is { } backup &&
+            application + backup > total)
+        {
+            throw new ValidationException("Application disk and backup disk cannot exceed total disk.");
+        }
     }
 }

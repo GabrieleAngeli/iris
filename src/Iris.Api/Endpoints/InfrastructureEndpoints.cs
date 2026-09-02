@@ -79,6 +79,20 @@ public static class InfrastructureEndpoints
             .WithSummary("Replace a server's capability tags, resource hints and known used ports.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
 
+        servers.MapPost("/{serverId:guid}/discover", async (
+                Guid serverId,
+                DiscoverServerInventoryHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new DiscoverServerInventoryCommand(serverId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("DiscoverServerInventory")
+            .WithSummary("Discover OS/version/machine resources using the server credentials.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
+
         servers.MapPost("/{serverId:guid}/credentials", async (
                 Guid serverId,
                 AddServerCredentialRequest body,
@@ -108,6 +122,63 @@ public static class InfrastructureEndpoints
             .WithName("RemoveServerCredential")
             .WithSummary("Remove a credential from a server.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Delete));
+
+        var dataServices = app.MapGroup("/data-services").WithTags("Infrastructure");
+
+        dataServices.MapGet("", async (ListDataServicesHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.HandleAsync(new ListDataServicesQuery(), ct).ConfigureAwait(false)))
+            .WithName("ListDataServices")
+            .WithSummary("Managed database/cache endpoints such as MSSQL, PostgreSQL and Redis.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Read));
+
+        dataServices.MapPost("", async (
+                UpsertDataServiceRequest body,
+                CreateDataServiceHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new CreateDataServiceCommand(
+                        body.Name, body.Kind, body.Endpoint, body.Port,
+                        body.Version, body.Size, body.StorageGb, body.Environment,
+                        body.Username, body.PasswordValue), ct)
+                    .ConfigureAwait(false);
+                return Results.Created($"/data-services/{result.Id}", result);
+            })
+            .WithName("CreateDataService")
+            .WithSummary("Register a managed MSSQL, PostgreSQL or Redis service.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
+
+        dataServices.MapPut("/{dataServiceId:guid}", async (
+                Guid dataServiceId,
+                UpsertDataServiceRequest body,
+                UpdateDataServiceHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateDataServiceCommand(
+                        dataServiceId, body.Name, body.Kind, body.Endpoint, body.Port,
+                        body.Version, body.Size, body.StorageGb, body.Environment, body.IsActive,
+                        body.Username, body.PasswordValue), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateDataService")
+            .WithSummary("Update a managed data service.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
+
+        dataServices.MapPost("/{dataServiceId:guid}/discover", async (
+                Guid dataServiceId,
+                DiscoverDataServiceInventoryHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new DiscoverDataServiceInventoryCommand(dataServiceId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("DiscoverDataServiceInventory")
+            .WithSummary("Discover managed database/cache type and version using username/password credentials.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Infrastructure.Write));
 
         return app;
     }

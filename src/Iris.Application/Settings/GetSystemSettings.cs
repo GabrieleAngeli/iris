@@ -3,7 +3,12 @@ using Iris.Contracts.Settings;
 
 namespace Iris.Application.Settings;
 
-public sealed record GetSystemSettingsQuery(bool CanManageSystem, string? OpenBaoEndpoint, string? AnsibleEndpoint);
+public sealed record GetSystemSettingsQuery(
+    bool CanManageSystem,
+    string? OpenBaoEndpoint,
+    string? AnsibleEndpoint,
+    string? AzureDevOpsEndpoint,
+    string? NexusEndpoint);
 
 public sealed class GetSystemSettingsHandler(
     IMailProviderSettingsRepository mailSettings)
@@ -18,6 +23,8 @@ public sealed class GetSystemSettingsHandler(
         {
             Link("openbao", "OpenBao", query.OpenBaoEndpoint),
             Link("ansible", "Ansible / AWX", query.AnsibleEndpoint),
+            Link("azure-devops", "Azure DevOps", query.AzureDevOpsEndpoint),
+            Link("nexus", "Nexus Repository", query.NexusEndpoint),
         };
 
         if (!query.CanManageSystem)

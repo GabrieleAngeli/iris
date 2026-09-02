@@ -15,6 +15,9 @@ public sealed class ApplicationsHandlersTests
     private static AddApplicationVersionHandler AddVersionHandler(FakeStore store) =>
         new(store.ApplicationRepository, store.UnitOfWork);
 
+    private static UpdateApplicationHandler UpdateHandler(FakeStore store) =>
+        new(store.ApplicationRepository, store.UnitOfWork);
+
     private static ImportConfigurationPackageHandler ImportHandler(FakeStore store) =>
         new(store.ApplicationRepository, new FakeClock(Now), store.UnitOfWork);
 
@@ -27,9 +30,24 @@ public sealed class ApplicationsHandlersTests
         var store = new FakeStore();
 
         var created = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
-            "Iris Notification Service", null, "CSharp", "https://git.example/iris-notify", "main", null));
+            "Iris Notification Service",
+            null,
+            "CSharp",
+            "https://git.example/iris-notify",
+            "main",
+            null,
+            "Nexus",
+            "iris/releases",
+            "iris-notify.zip",
+            "releases/iris-notify.zip",
+            "https://dev.azure.com/org/iris/_build?definitionId=42"));
 
         Assert.Equal("iris-notification-service", created.Slug);
+        Assert.Equal("Nexus", created.ArtifactProvider);
+        Assert.Equal("iris/releases", created.ArtifactFeed);
+        Assert.Equal("iris-notify.zip", created.ArtifactName);
+        Assert.Equal("releases/iris-notify.zip", created.ArtifactPath);
+        Assert.Equal("https://dev.azure.com/org/iris/_build?definitionId=42", created.BuildPipelineUrl);
         Assert.Single(store.Applications);
     }
 
@@ -51,6 +69,56 @@ public sealed class ApplicationsHandlersTests
 
         await Assert.ThrowsAsync<ValidationException>(() => CreateHandler(store).HandleAsync(new CreateApplicationCommand(
             "Notify", null, "Cobol", "https://git.example/notify", "main", null)));
+    }
+
+    [Fact]
+    public async Task UpdateApplication_updates_inventory_fields_but_keeps_slug()
+    {
+        var store = new FakeStore();
+        var created = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "Notify", null, "CSharp", "https://git.example/notify", "main", null));
+
+        var updated = await UpdateHandler(store).HandleAsync(new UpdateApplicationCommand(
+            created.Id,
+            "Notification Gateway",
+            "Docker",
+            "https://git.example/notification-gateway",
+            "release/main",
+            "Inbound notification edge service",
+            false,
+            "AzureDevOps",
+            "drop",
+            "notification-gateway.zip",
+            "drop/notification-gateway.zip",
+            "https://dev.azure.com/org/project/_build?definitionId=7"));
+
+        Assert.Equal("Notification Gateway", updated.Name);
+        Assert.Equal("notify", updated.Slug);
+        Assert.Equal("Docker", updated.RuntimeType);
+        Assert.Equal("https://git.example/notification-gateway", updated.RepositoryUrl);
+        Assert.Equal("release/main", updated.DefaultBranch);
+        Assert.Equal("Inbound notification edge service", updated.Description);
+        Assert.Equal("AzureDevOps", updated.ArtifactProvider);
+        Assert.Equal("drop", updated.ArtifactFeed);
+        Assert.Equal("notification-gateway.zip", updated.ArtifactName);
+        Assert.Equal("drop/notification-gateway.zip", updated.ArtifactPath);
+        Assert.Equal("https://dev.azure.com/org/project/_build?definitionId=7", updated.BuildPipelineUrl);
+        Assert.False(updated.IsActive);
+    }
+
+    [Fact]
+    public async Task UpdateApplication_rejects_unknown_application_or_runtime()
+    {
+        var store = new FakeStore();
+
+        await Assert.ThrowsAsync<NotFoundException>(() => UpdateHandler(store).HandleAsync(new UpdateApplicationCommand(
+            Guid.NewGuid(), "Notify", "CSharp", "https://git.example/notify", "main", null, true)));
+
+        var created = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "Notify", null, "CSharp", "https://git.example/notify", "main", null));
+
+        await Assert.ThrowsAsync<ValidationException>(() => UpdateHandler(store).HandleAsync(new UpdateApplicationCommand(
+            created.Id, "Notify", "Cobol", "https://git.example/notify", "main", null, true)));
     }
 
     [Fact]
@@ -94,12 +162,14 @@ public sealed class ApplicationsHandlersTests
         var firstImport = await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
             app.Id, version.Id, "1.0",
             [new ConfigurationKeyInput("ConnectionStrings:Main", "appsettings.json", true, true, null, null, null, "domain.db.main.connectionString")],
-            [new DependencyInput("postgres", "database", true, null, "domain.db.main")],
+            [new DependencyInput("postgres", "database", true, null, "domain.db.main", "orders-api", "domain.db.main.connectionString")],
             [new PlaceholderInput("domain.db.main.connectionString", "database", null, true)],
             ["Unresolved placeholder: domain.cache.redis"]));
 
         Assert.Single(firstImport.ConfigurationKeys);
-        Assert.Single(firstImport.Dependencies);
+        var dependency = Assert.Single(firstImport.Dependencies);
+        Assert.Equal("orders-api", dependency.ProviderApplicationSlug);
+        Assert.Equal("domain.db.main.connectionString", dependency.ProviderPlaceholderKey);
         Assert.Single(firstImport.Placeholders);
         Assert.Single(firstImport.ImportWarnings);
         Assert.Equal(Now, firstImport.LastImportedAtUtc);

@@ -27,15 +27,45 @@ public partial class ServersViewModel : ObservableObject
 
 	public ObservableCollection<ServerRowViewModel> Servers { get; } = [];
 
+	public ObservableCollection<DataServiceRowViewModel> DataServices { get; } = [];
+
+	public ObservableCollection<InfrastructureResourceRowViewModel> Resources { get; } = [];
+
 	/// <summary>Iris users offered as the "owner" of a system-user credential. Shared with every credential form.</summary>
 	public ObservableCollection<UserOption> OwnerOptions { get; } = [UserOption.None];
 
 	[ObservableProperty] private bool _isLoading;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string _resourceTypeFilter = "All";
+	[ObservableProperty] private string _resourceOsFilter = "All";
+	[ObservableProperty] private string _resourceVersionFilter = string.Empty;
+	[ObservableProperty] private string _resourceTagFilter = string.Empty;
+	[ObservableProperty] private string _resourceSortBy = "Name";
+	[ObservableProperty] private bool _resourceSortDescending;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
 
+	public IReadOnlyList<string> ResourceTypeFilterOptions { get; } = ["All", "Server node", "Managed data service"];
+
+	public IReadOnlyList<string> ResourceOsFilterOptions { get; } = ["All", "Linux", "Windows", "N/A"];
+
+	public IReadOnlyList<string> ResourceSortOptions { get; } = ["Name", "Type", "OS", "Version", "Tag"];
+
+	public bool HasResources => Resources.Count > 0;
+
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	partial void OnResourceTypeFilterChanged(string value) => RebuildResources();
+
+	partial void OnResourceOsFilterChanged(string value) => RebuildResources();
+
+	partial void OnResourceVersionFilterChanged(string value) => RebuildResources();
+
+	partial void OnResourceTagFilterChanged(string value) => RebuildResources();
+
+	partial void OnResourceSortByChanged(string value) => RebuildResources();
+
+	partial void OnResourceSortDescendingChanged(bool value) => RebuildResources();
 
 	private bool _loaded;
 
@@ -62,11 +92,20 @@ public partial class ServersViewModel : ObservableObject
 			await LoadOwnerOptionsAsync();
 
 			var servers = await _api.GetServersAsync();
+			var dataServices = await _api.GetDataServicesAsync();
 			Servers.Clear();
 			foreach (var server in servers)
 			{
 				Servers.Add(new ServerRowViewModel(server, _api, OwnerOptions, this));
 			}
+
+			DataServices.Clear();
+			foreach (var dataService in dataServices)
+			{
+				DataServices.Add(new DataServiceRowViewModel(dataService, _api, this));
+			}
+
+			RebuildResources();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -107,11 +146,17 @@ public partial class ServersViewModel : ObservableObject
 
 	public IReadOnlyList<string> EnvironmentOptions { get; } = ["Test", "Staging", "Production"];
 
+	public IReadOnlyList<string> DataServiceKindOptions { get; } = ["Mssql", "PostgreSql", "Redis"];
+
+	public IReadOnlyList<string> NewResourceKindOptions { get; } = ["Server node", "Managed data service"];
+
 	/// <summary>Raised when the operator asks to register a server — the page opens the dialog window.</summary>
 	public event EventHandler? NewServerRequested;
 
 	/// <summary>Raised after a server is registered so its dialog window can close.</summary>
 	public event EventHandler? NewServerCompleted;
+
+	public event EventHandler? NewDataServiceCompleted;
 
 	/// <summary>Raised (post-create, or from a row's button) to open the add-credential dialog for a server.</summary>
 	public event EventHandler<ServerRowViewModel>? AddCredentialRequested;
@@ -131,9 +176,66 @@ public partial class ServersViewModel : ObservableObject
 	public void RaiseDeleteRequested(ServerRowViewModel row) =>
 		MainThread.BeginInvokeOnMainThread(() => DeleteServerRequested?.Invoke(this, row));
 
-	public void RemoveRow(ServerRowViewModel row) => Servers.Remove(row);
+	public void RemoveRow(ServerRowViewModel row)
+	{
+		Servers.Remove(row);
+		RebuildResources();
+	}
+
+	internal void RebuildResources()
+	{
+		var rows = Servers
+			.Select(server => new InfrastructureResourceRowViewModel(server))
+			.Concat(DataServices.Select(dataService => new InfrastructureResourceRowViewModel(dataService)));
+
+		if (ResourceTypeFilter != "All")
+		{
+			rows = rows.Where(row => row.Type == ResourceTypeFilter);
+		}
+
+		if (ResourceOsFilter != "All")
+		{
+			rows = ResourceOsFilter == "N/A"
+				? rows.Where(row => string.IsNullOrWhiteSpace(row.Os))
+				: rows.Where(row => string.Equals(row.Os, ResourceOsFilter, StringComparison.OrdinalIgnoreCase));
+		}
+
+		if (!string.IsNullOrWhiteSpace(ResourceVersionFilter))
+		{
+			rows = rows.Where(row => row.Version.Contains(ResourceVersionFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+		}
+
+		if (!string.IsNullOrWhiteSpace(ResourceTagFilter))
+		{
+			rows = rows.Where(row => row.TagText.Contains(ResourceTagFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+		}
+
+		rows = ResourceSortBy switch
+		{
+			"Type" => rows.OrderBy(row => row.Type, StringComparer.OrdinalIgnoreCase).ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase),
+			"OS" => rows.OrderBy(row => row.Os, StringComparer.OrdinalIgnoreCase).ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase),
+			"Version" => rows.OrderBy(row => row.Version, StringComparer.OrdinalIgnoreCase).ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase),
+			"Tag" => rows.OrderBy(row => row.TagText, StringComparer.OrdinalIgnoreCase).ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase),
+			_ => rows.OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase),
+		};
+
+		var ordered = rows.ToList();
+		if (ResourceSortDescending)
+		{
+			ordered.Reverse();
+		}
+
+		Resources.Clear();
+		foreach (var row in ordered)
+		{
+			Resources.Add(row);
+		}
+
+		OnPropertyChanged(nameof(HasResources));
+	}
 
 	[ObservableProperty] private string _newServerName = string.Empty;
+	[ObservableProperty] private string _newResourceKind = "Server node";
 	[ObservableProperty] private string _newServerHostname = string.Empty;
 	[ObservableProperty] private string _newServerOs = "Linux";
 	[ObservableProperty] private string _newServerHostingType = "SelfHosted";
@@ -143,17 +245,83 @@ public partial class ServersViewModel : ObservableObject
 	[ObservableProperty] private bool _includeCredential = true;
 	[ObservableProperty] private bool _isCreatingServer;
 	[ObservableProperty] private string? _createServerError;
+	[ObservableProperty] private string _newDataServiceName = string.Empty;
+	[ObservableProperty] private string _newDataServiceKind = "Mssql";
+	[ObservableProperty] private string _newDataServiceEndpoint = string.Empty;
+	[ObservableProperty] private string _newDataServicePort = string.Empty;
+	[ObservableProperty] private string _newDataServiceVersion = string.Empty;
+	[ObservableProperty] private string _newDataServiceSize = string.Empty;
+	[ObservableProperty] private string _newDataServiceStorageGb = string.Empty;
+	[ObservableProperty] private string _newDataServiceEnvironment = "Test";
+	[ObservableProperty] private string _newDataServiceUsername = string.Empty;
+	[ObservableProperty] private string _newDataServicePassword = string.Empty;
+	[ObservableProperty] private bool _isCreatingDataService;
+	[ObservableProperty] private string? _createDataServiceError;
 
 	public CredentialFormViewModel NewServerCredential { get; }
 
 	public bool HasCreateServerError => !string.IsNullOrEmpty(CreateServerError);
 
-	partial void OnCreateServerErrorChanged(string? value) => OnPropertyChanged(nameof(HasCreateServerError));
+	public bool HasCreateDataServiceError => !string.IsNullOrEmpty(CreateDataServiceError);
+
+	public bool IsNewServerResource => NewResourceKind == "Server node";
+
+	public bool IsNewDataServiceResource => NewResourceKind == "Managed data service";
+
+	public bool ShowNewServerCredentialSection => IsNewServerResource && IncludeCredential;
+
+	public bool IsCreatingResource => IsCreatingServer || IsCreatingDataService;
+
+	public string CreateResourceError => IsNewDataServiceResource
+		? CreateDataServiceError ?? string.Empty
+		: CreateServerError ?? string.Empty;
+
+	public bool HasCreateResourceError => !string.IsNullOrEmpty(CreateResourceError);
+
+	partial void OnCreateServerErrorChanged(string? value)
+	{
+		OnPropertyChanged(nameof(HasCreateServerError));
+		OnPropertyChanged(nameof(CreateResourceError));
+		OnPropertyChanged(nameof(HasCreateResourceError));
+	}
+
+	partial void OnCreateDataServiceErrorChanged(string? value)
+	{
+		OnPropertyChanged(nameof(HasCreateDataServiceError));
+		OnPropertyChanged(nameof(CreateResourceError));
+		OnPropertyChanged(nameof(HasCreateResourceError));
+	}
+
+	partial void OnNewResourceKindChanged(string value)
+	{
+		CreateServerError = null;
+		CreateDataServiceError = null;
+		OnPropertyChanged(nameof(IsNewServerResource));
+		OnPropertyChanged(nameof(IsNewDataServiceResource));
+		OnPropertyChanged(nameof(ShowNewServerCredentialSection));
+		OnPropertyChanged(nameof(CreateResourceError));
+		OnPropertyChanged(nameof(HasCreateResourceError));
+	}
+
+	partial void OnIncludeCredentialChanged(bool value) => OnPropertyChanged(nameof(ShowNewServerCredentialSection));
+
+	partial void OnIsCreatingServerChanged(bool value) => OnPropertyChanged(nameof(IsCreatingResource));
+
+	partial void OnIsCreatingDataServiceChanged(bool value) => OnPropertyChanged(nameof(IsCreatingResource));
+
+	partial void OnNewDataServiceKindChanged(string value)
+	{
+		if (string.IsNullOrWhiteSpace(NewDataServicePort) || IsKnownDataServicePort(NewDataServicePort))
+		{
+			NewDataServicePort = DefaultDataServicePort(value);
+		}
+	}
 
 	[RelayCommand]
 	private void RequestNewServer()
 	{
 		NewServerName = string.Empty;
+		NewResourceKind = "Server node";
 		NewServerHostname = string.Empty;
 		NewServerPublicIp = string.Empty;
 		NewServerPrivateIp = string.Empty;
@@ -162,8 +330,45 @@ public partial class ServersViewModel : ObservableObject
 		NewServerEnvironment = "Test";
 		IncludeCredential = true;
 		CreateServerError = null;
+		ResetNewDataService();
 		NewServerCredential.Reset();
 		NewServerRequested?.Invoke(this, EventArgs.Empty);
+	}
+
+	private void ResetNewDataService()
+	{
+		NewDataServiceName = string.Empty;
+		NewDataServiceKind = "Mssql";
+		NewDataServiceEndpoint = string.Empty;
+		NewDataServicePort = DefaultDataServicePort(NewDataServiceKind);
+		NewDataServiceVersion = string.Empty;
+		NewDataServiceSize = string.Empty;
+		NewDataServiceStorageGb = string.Empty;
+		NewDataServiceEnvironment = "Test";
+		NewDataServiceUsername = string.Empty;
+		NewDataServicePassword = string.Empty;
+		CreateDataServiceError = null;
+	}
+
+	internal static string DefaultDataServicePort(string kind) => kind switch
+	{
+		"PostgreSql" => "5432",
+		"Redis" => "6379",
+		_ => "1433",
+	};
+
+	private static bool IsKnownDataServicePort(string port) => port is "1433" or "5432" or "6379";
+
+	[RelayCommand]
+	private async Task CreateSelectedResourceAsync()
+	{
+		if (IsNewDataServiceResource)
+		{
+			await CreateDataServiceAsync();
+			return;
+		}
+
+		await CreateServerAsync();
 	}
 
 	/// <summary>Opens the add-credential dialog for <paramref name="row"/> (from its button or right after a bare create).</summary>
@@ -221,6 +426,7 @@ public partial class ServersViewModel : ObservableObject
 
 			var row = new ServerRowViewModel(created, _api, OwnerOptions, this);
 			Servers.Insert(0, row);
+			RebuildResources();
 
 			NewServerCompleted?.Invoke(this, EventArgs.Empty);
 
@@ -231,6 +437,10 @@ public partial class ServersViewModel : ObservableObject
 				var created_row = row;
 				MainThread.BeginInvokeOnMainThread(() => OpenCredentialPanel(created_row));
 			}
+			else
+			{
+				await row.DiscoverInventoryAsync();
+			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -239,6 +449,399 @@ public partial class ServersViewModel : ObservableObject
 		finally
 		{
 			IsCreatingServer = false;
+		}
+	}
+
+	[RelayCommand]
+	private async Task CreateDataServiceAsync()
+	{
+		var name = NewDataServiceName.Trim();
+		var endpoint = NewDataServiceEndpoint.Trim();
+		var username = NewDataServiceUsername.Trim();
+		if (name.Length == 0 || endpoint.Length == 0 || username.Length == 0 || string.IsNullOrEmpty(NewDataServicePassword))
+		{
+			CreateDataServiceError = "Name, endpoint, username and password are required.";
+			OnPropertyChanged(nameof(CreateResourceError));
+			OnPropertyChanged(nameof(HasCreateResourceError));
+			return;
+		}
+
+		if (!TryParseOptionalInt(NewDataServicePort, "Port", allowZero: false, max: 65535, out var port, out var parseError) ||
+			!TryParseOptionalInt(NewDataServiceStorageGb, "Storage GB", allowZero: true, max: null, out var storageGb, out parseError))
+		{
+			CreateDataServiceError = parseError;
+			OnPropertyChanged(nameof(CreateResourceError));
+			OnPropertyChanged(nameof(HasCreateResourceError));
+			return;
+		}
+
+		IsCreatingDataService = true;
+		CreateDataServiceError = null;
+
+		try
+		{
+			var created = await _api.CreateDataServiceAsync(new UpsertDataServiceRequest(
+				name,
+				NewDataServiceKind,
+				endpoint,
+				port,
+				string.IsNullOrWhiteSpace(NewDataServiceVersion) ? null : NewDataServiceVersion.Trim(),
+				string.IsNullOrWhiteSpace(NewDataServiceSize) ? null : NewDataServiceSize.Trim(),
+				storageGb,
+				NewDataServiceEnvironment,
+				true,
+				username,
+				NewDataServicePassword));
+
+			DataServices.Insert(0, new DataServiceRowViewModel(created, _api, this));
+			RebuildResources();
+			ResetNewDataService();
+			NewDataServiceCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			CreateDataServiceError = ex.Message;
+			OnPropertyChanged(nameof(CreateResourceError));
+			OnPropertyChanged(nameof(HasCreateResourceError));
+		}
+		finally
+		{
+			IsCreatingDataService = false;
+		}
+	}
+
+	internal static bool TryParseOptionalInt(
+		string value,
+		string label,
+		bool allowZero,
+		int? max,
+		out int? result,
+		out string? error)
+	{
+		result = null;
+		error = null;
+
+		var trimmed = value.Trim();
+		if (trimmed.Length == 0)
+		{
+			return true;
+		}
+
+		if (!int.TryParse(trimmed, out var parsed))
+		{
+			error = $"{label} must be a whole number.";
+			return false;
+		}
+
+		if (parsed < 0 || (!allowZero && parsed == 0))
+		{
+			error = allowZero ? $"{label} cannot be negative." : $"{label} must be greater than zero.";
+			return false;
+		}
+
+		if (max is { } limit && parsed > limit)
+		{
+			error = $"{label} cannot be greater than {limit}.";
+			return false;
+		}
+
+		result = parsed;
+		return true;
+	}
+}
+
+public sealed class InfrastructureResourceRowViewModel
+{
+	private readonly ServerRowViewModel? _server;
+	private readonly DataServiceRowViewModel? _dataService;
+
+	public InfrastructureResourceRowViewModel(ServerRowViewModel server)
+	{
+		_server = server;
+	}
+
+	public InfrastructureResourceRowViewModel(DataServiceRowViewModel dataService)
+	{
+		_dataService = dataService;
+	}
+
+	public ServerRowViewModel? Server => _server;
+
+	public DataServiceRowViewModel? DataService => _dataService;
+
+	public bool IsServer => _server is not null;
+
+	public bool IsDataService => _dataService is not null;
+
+	public string IconGlyph => IsServer ? "\uE7F4" : "\uEFC7";
+
+	public string Type => IsServer ? "Server node" : "Managed data service";
+
+	public string Name => _server?.Name ?? _dataService?.Name ?? string.Empty;
+
+	public string Tech => _server?.Os ?? _dataService?.Kind ?? string.Empty;
+
+	public string Os => _server?.Os ?? string.Empty;
+
+	public string Version => _server?.OsVersion ?? _dataService?.Version ?? string.Empty;
+
+	public bool HasVersion => !string.IsNullOrWhiteSpace(Version);
+
+	public string Environment => _server?.Environment ?? _dataService?.Environment ?? string.Empty;
+
+	public bool IsActive => _server?.IsActive ?? _dataService?.IsActive ?? true;
+
+	public string Endpoint => _server is not null
+		? _server.Hostname ?? _server.PrivateIpAddress ?? _server.PublicIpAddress ?? "(no endpoint)"
+		: _dataService?.EndpointSummary ?? string.Empty;
+
+	public string ResourceSummary => _server is not null
+		? (_server.HasResourceSummary ? _server.ResourceSummary : "No known resources")
+		: _dataService?.DetailsSummary ?? string.Empty;
+
+	public string NetworkSummary => _server is not null
+		? $"Public: {_server.PublicIpAddress ?? "-"}   Private: {_server.PrivateIpAddress ?? "-"}"
+		: _dataService?.CredentialSummary ?? string.Empty;
+
+	public string TagText
+	{
+		get
+		{
+			if (_server is not null)
+			{
+				var tags = new List<string> { Type, _server.Os, _server.HostingType, _server.Environment };
+				tags.AddRange(_server.Capabilities);
+				tags.AddRange(_server.UsedPorts.Select(port => $"port:{port}"));
+				return string.Join(" ", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)));
+			}
+
+			if (_dataService is not null)
+			{
+				return string.Join(" ", new[]
+				{
+					Type,
+					_dataService.Kind,
+					_dataService.Environment,
+					_dataService.Version,
+					_dataService.Size,
+					_dataService.StorageGb is { } storage ? $"{storage}GB" : null,
+				}.Where(tag => !string.IsNullOrWhiteSpace(tag)));
+			}
+
+			return string.Empty;
+		}
+	}
+
+	public bool CanAddCredential => _server is not null;
+
+	public bool HasCredentials => _server?.HasCredentials == true;
+
+	public IEnumerable<CredentialRowViewModel> Credentials => _server?.Credentials ?? [];
+
+	public IRelayCommand EditCommand => _server?.OpenEditCommand ?? _dataService!.EditCommand;
+
+	public IAsyncRelayCommand DiscoverCommand => _server?.DiscoverInventoryCommand ?? _dataService!.DiscoverCommand;
+
+	public IRelayCommand? AddCredentialCommand => _server?.OpenAddCredentialCommand;
+}
+
+public sealed partial class DataServiceRowViewModel : ObservableObject
+{
+	private readonly Guid _dataServiceId;
+	private readonly IIrisApiClient _api;
+	private readonly ServersViewModel _parent;
+
+	public DataServiceRowViewModel(DataServiceResponse dataService, IIrisApiClient api, ServersViewModel parent)
+	{
+		_dataServiceId = dataService.Id;
+		_api = api;
+		_parent = parent;
+		ApplyFrom(dataService);
+	}
+
+	public IReadOnlyList<string> KindOptions => _parent.DataServiceKindOptions;
+
+	public IReadOnlyList<string> EnvironmentOptions => _parent.EnvironmentOptions;
+
+	[ObservableProperty] private string _name = string.Empty;
+	[ObservableProperty] private string _kind = "Mssql";
+	[ObservableProperty] private string _endpoint = string.Empty;
+	[ObservableProperty] private int? _port;
+	[ObservableProperty] private string? _username;
+	[ObservableProperty] private string? _version;
+	[ObservableProperty] private string? _size;
+	[ObservableProperty] private int? _storageGb;
+	[ObservableProperty] private string _environment = "Test";
+	[ObservableProperty] private bool _isActive;
+	[ObservableProperty] private string _editName = string.Empty;
+	[ObservableProperty] private string _editKind = "Mssql";
+	[ObservableProperty] private string _editEndpoint = string.Empty;
+	[ObservableProperty] private string _editPort = string.Empty;
+	[ObservableProperty] private string _editUsername = string.Empty;
+	[ObservableProperty] private string _editPassword = string.Empty;
+	[ObservableProperty] private string _editVersion = string.Empty;
+	[ObservableProperty] private string _editSize = string.Empty;
+	[ObservableProperty] private string _editStorageGb = string.Empty;
+	[ObservableProperty] private string _editEnvironment = "Test";
+	[ObservableProperty] private bool _editActive;
+	[ObservableProperty] private bool _isEditMode;
+	[ObservableProperty] private bool _isBusy;
+	[ObservableProperty] private string? _error;
+
+	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public string EndpointSummary => Port is { } port ? $"{Endpoint}:{port}" : Endpoint;
+
+	public string CredentialSummary => string.IsNullOrWhiteSpace(Username)
+		? "No credential"
+		: $"credential: {Username}";
+
+	public string DetailsSummary
+	{
+		get
+		{
+			var parts = new List<string>();
+			if (!string.IsNullOrWhiteSpace(Version))
+			{
+				parts.Add(Version);
+			}
+
+			if (!string.IsNullOrWhiteSpace(Size))
+			{
+				parts.Add(Size);
+			}
+
+			if (StorageGb is { } storage)
+			{
+				parts.Add($"{storage} GB");
+			}
+
+			return parts.Count == 0 ? "No sizing details yet" : string.Join(" | ", parts);
+		}
+	}
+
+	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	partial void OnEditKindChanged(string value)
+	{
+		if (string.IsNullOrWhiteSpace(EditPort) || EditPort is "1433" or "5432" or "6379")
+		{
+			EditPort = ServersViewModel.DefaultDataServicePort(value);
+		}
+	}
+
+	private void ApplyFrom(DataServiceResponse dataService)
+	{
+		Name = dataService.Name;
+		Kind = dataService.Kind;
+		Endpoint = dataService.Endpoint;
+		Port = dataService.Port;
+		Username = dataService.Username;
+		Version = dataService.Version;
+		Size = dataService.Size;
+		StorageGb = dataService.StorageGb;
+		Environment = dataService.Environment;
+		IsActive = dataService.IsActive;
+		OnPropertyChanged(nameof(EndpointSummary));
+		OnPropertyChanged(nameof(CredentialSummary));
+		OnPropertyChanged(nameof(DetailsSummary));
+	}
+
+	[RelayCommand]
+	private void Edit()
+	{
+		EditName = Name;
+		EditKind = Kind;
+		EditEndpoint = Endpoint;
+		EditPort = Port?.ToString() ?? string.Empty;
+		EditUsername = Username ?? string.Empty;
+		EditPassword = string.Empty;
+		EditVersion = Version ?? string.Empty;
+		EditSize = Size ?? string.Empty;
+		EditStorageGb = StorageGb?.ToString() ?? string.Empty;
+		EditEnvironment = Environment;
+		EditActive = IsActive;
+		Error = null;
+		IsEditMode = true;
+	}
+
+	[RelayCommand]
+	private void CancelEdit()
+	{
+		Error = null;
+		IsEditMode = false;
+	}
+
+	[RelayCommand]
+	private async Task SaveAsync()
+	{
+		var name = EditName.Trim();
+		var endpoint = EditEndpoint.Trim();
+		var username = EditUsername.Trim();
+		if (name.Length == 0 || endpoint.Length == 0 || username.Length == 0)
+		{
+			Error = "Name, endpoint and username are required.";
+			return;
+		}
+
+		if (!ServersViewModel.TryParseOptionalInt(EditPort, "Port", allowZero: false, max: 65535, out var port, out var parseError) ||
+			!ServersViewModel.TryParseOptionalInt(EditStorageGb, "Storage GB", allowZero: true, max: null, out var storageGb, out parseError))
+		{
+			Error = parseError;
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			var updated = await _api.UpdateDataServiceAsync(_dataServiceId, new UpsertDataServiceRequest(
+				name,
+				EditKind,
+				endpoint,
+				port,
+				string.IsNullOrWhiteSpace(EditVersion) ? null : EditVersion.Trim(),
+				string.IsNullOrWhiteSpace(EditSize) ? null : EditSize.Trim(),
+				storageGb,
+				EditEnvironment,
+				EditActive,
+				username,
+				string.IsNullOrEmpty(EditPassword) ? null : EditPassword));
+
+			ApplyFrom(updated);
+			IsEditMode = false;
+			_parent.RebuildResources();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	[RelayCommand]
+	private async Task DiscoverAsync()
+	{
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			var updated = await _api.DiscoverDataServiceInventoryAsync(_dataServiceId);
+			ApplyFrom(updated);
+			_parent.RebuildResources();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
 		}
 	}
 }
@@ -409,10 +1012,20 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 	[ObservableProperty] private string _name = string.Empty;
 	[ObservableProperty] private string? _hostname;
 	[ObservableProperty] private string _os = "Linux";
+	[ObservableProperty] private string? _osVersion;
+	[ObservableProperty] private string? _machineSize;
 	[ObservableProperty] private string _hostingType = "SelfHosted";
 	[ObservableProperty] private string? _publicIpAddress;
 	[ObservableProperty] private string? _privateIpAddress;
 	[ObservableProperty] private string _environment = "Test";
+	[ObservableProperty] private bool _isActive = true;
+	[ObservableProperty] private IReadOnlyList<string> _capabilities = [];
+	[ObservableProperty] private IReadOnlyList<int> _usedPorts = [];
+	[ObservableProperty] private int? _cpuCores;
+	[ObservableProperty] private int? _memoryMb;
+	[ObservableProperty] private int? _diskGb;
+	[ObservableProperty] private int? _applicationDiskGb;
+	[ObservableProperty] private int? _backupDiskGb;
 
 	public ObservableCollection<CredentialRowViewModel> Credentials { get; }
 
@@ -424,15 +1037,84 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 
 	public IReadOnlyList<string> EnvironmentOptions => _parent.EnvironmentOptions;
 
+	public bool HasResourceSummary =>
+		CpuCores.HasValue ||
+		MemoryMb.HasValue ||
+		DiskGb.HasValue ||
+		ApplicationDiskGb.HasValue ||
+		BackupDiskGb.HasValue;
+
+	public string ResourceSummary
+	{
+		get
+		{
+			var parts = new List<string>();
+			if (CpuCores is { } cpu)
+			{
+				parts.Add($"{cpu} CPU");
+			}
+
+			if (MemoryMb is { } memory)
+			{
+				parts.Add($"{memory} MB RAM");
+			}
+
+			if (DiskGb is { } disk)
+			{
+				parts.Add($"{disk} GB disk");
+			}
+
+			if (ApplicationDiskGb is { } appDisk)
+			{
+				parts.Add($"{appDisk} GB apps");
+			}
+
+			if (BackupDiskGb is { } backupDisk)
+			{
+				parts.Add($"{backupDisk} GB backup");
+			}
+
+			return string.Join(" | ", parts);
+		}
+	}
+
+	public string UsedPortsText => UsedPorts.Count == 0
+		? "No known used ports"
+		: $"Used ports: {string.Join(", ", UsedPorts)}";
+
+	public bool HasDiscoveryDetails =>
+		!string.IsNullOrWhiteSpace(OsVersion) ||
+		!string.IsNullOrWhiteSpace(MachineSize);
+
+	public string DiscoverySummary => string.Join(" | ", new[] { OsVersion, MachineSize }
+		.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+	public bool HasCredentials => Credentials.Count > 0;
+
 	private void ApplyFrom(ServerResponse server)
 	{
 		Name = server.Name;
 		Hostname = server.Hostname;
 		Os = server.Os;
+		OsVersion = server.OsVersion;
+		MachineSize = server.MachineSize;
 		HostingType = server.HostingType;
 		PublicIpAddress = server.PublicIpAddress;
 		PrivateIpAddress = server.PrivateIpAddress;
 		Environment = server.Environment;
+		IsActive = server.IsActive;
+		Capabilities = server.Capabilities.ToArray();
+		UsedPorts = server.UsedPorts.ToArray();
+		CpuCores = server.Resources?.CpuCores;
+		MemoryMb = server.Resources?.MemoryMb;
+		DiskGb = server.Resources?.DiskGb;
+		ApplicationDiskGb = server.Resources?.ApplicationDiskGb;
+		BackupDiskGb = server.Resources?.BackupDiskGb;
+		OnPropertyChanged(nameof(HasResourceSummary));
+		OnPropertyChanged(nameof(ResourceSummary));
+		OnPropertyChanged(nameof(UsedPortsText));
+		OnPropertyChanged(nameof(HasDiscoveryDetails));
+		OnPropertyChanged(nameof(DiscoverySummary));
 	}
 
 	// ----- Add credential -----
@@ -475,6 +1157,12 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 	[ObservableProperty] private string _editEnvironment = "Test";
 	[ObservableProperty] private string _editPublicIp = string.Empty;
 	[ObservableProperty] private string _editPrivateIp = string.Empty;
+	[ObservableProperty] private string _editCpuCores = string.Empty;
+	[ObservableProperty] private string _editMemoryMb = string.Empty;
+	[ObservableProperty] private string _editDiskGb = string.Empty;
+	[ObservableProperty] private string _editApplicationDiskGb = string.Empty;
+	[ObservableProperty] private string _editBackupDiskGb = string.Empty;
+	[ObservableProperty] private string _editUsedPorts = string.Empty;
 	[ObservableProperty] private string _deleteConfirmName = string.Empty;
 	[ObservableProperty] private bool _isEditBusy;
 	[ObservableProperty] private string? _editError;
@@ -537,6 +1225,12 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 		EditEnvironment = Environment;
 		EditPublicIp = PublicIpAddress ?? string.Empty;
 		EditPrivateIp = PrivateIpAddress ?? string.Empty;
+		EditCpuCores = CpuCores?.ToString() ?? string.Empty;
+		EditMemoryMb = MemoryMb?.ToString() ?? string.Empty;
+		EditDiskGb = DiskGb?.ToString() ?? string.Empty;
+		EditApplicationDiskGb = ApplicationDiskGb?.ToString() ?? string.Empty;
+		EditBackupDiskGb = BackupDiskGb?.ToString() ?? string.Empty;
+		EditUsedPorts = string.Join(", ", UsedPorts);
 		DeleteConfirmName = string.Empty;
 		_parent.RaiseEditRequested(this);
 	}
@@ -626,12 +1320,24 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 			return;
 		}
 
+		if (!TryBuildResourceProfile(out var resources, out var resourceError))
+		{
+			EditError = resourceError;
+			return;
+		}
+
+		if (!TryParsePorts(out var ports, out var portsError))
+		{
+			EditError = portsError;
+			return;
+		}
+
 		IsEditBusy = true;
 		EditError = null;
 
 		try
 		{
-			var updated = await _api.UpdateServerAsync(_serverId, new UpdateServerRequest(
+			await _api.UpdateServerAsync(_serverId, new UpdateServerRequest(
 				name,
 				string.IsNullOrWhiteSpace(EditHostname) ? null : EditHostname.Trim(),
 				EditOs,
@@ -640,7 +1346,13 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 				privateIp.Length == 0 ? null : privateIp,
 				EditEnvironment));
 
-			ApplyFrom(updated);
+			var withCapacity = await _api.UpdateServerCapacityAsync(_serverId, new UpdateServerCapacityRequest(
+				Capabilities,
+				resources,
+				ports));
+
+			ApplyFrom(withCapacity);
+			_parent.RebuildResources();
 			EditCompleted?.Invoke(this, EventArgs.Empty);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -651,6 +1363,95 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 		{
 			IsEditBusy = false;
 		}
+	}
+
+	private bool TryBuildResourceProfile(out ResourceProfileRequest? resources, out string? error)
+	{
+		resources = null;
+		error = null;
+
+		if (!TryParseOptionalInt(EditCpuCores, "CPU cores", out var cpuCores, out error) ||
+			!TryParseOptionalInt(EditMemoryMb, "Memory MB", out var memoryMb, out error) ||
+			!TryParseOptionalInt(EditDiskGb, "Disk GB", out var diskGb, out error) ||
+			!TryParseOptionalInt(EditApplicationDiskGb, "Application disk GB", out var applicationDiskGb, out error) ||
+			!TryParseOptionalInt(EditBackupDiskGb, "Backup disk GB", out var backupDiskGb, out error))
+		{
+			return false;
+		}
+
+		if (diskGb is { } total &&
+			applicationDiskGb is { } appDisk &&
+			backupDiskGb is { } backupDisk &&
+			appDisk + backupDisk > total)
+		{
+			error = "Application disk and backup disk cannot exceed total disk.";
+			return false;
+		}
+
+		if (cpuCores.HasValue ||
+			memoryMb.HasValue ||
+			diskGb.HasValue ||
+			applicationDiskGb.HasValue ||
+			backupDiskGb.HasValue)
+		{
+			resources = new ResourceProfileRequest(cpuCores, memoryMb, diskGb, applicationDiskGb, backupDiskGb);
+		}
+
+		return true;
+	}
+
+	private static bool TryParseOptionalInt(string value, string label, out int? result, out string? error)
+	{
+		result = null;
+		error = null;
+
+		var trimmed = value.Trim();
+		if (trimmed.Length == 0)
+		{
+			return true;
+		}
+
+		if (!int.TryParse(trimmed, out var parsed))
+		{
+			error = $"{label} must be a whole number.";
+			return false;
+		}
+
+		if (parsed < 0)
+		{
+			error = $"{label} cannot be negative.";
+			return false;
+		}
+
+		result = parsed;
+		return true;
+	}
+
+	private bool TryParsePorts(out IReadOnlyList<int> ports, out string? error)
+	{
+		ports = [];
+		error = null;
+
+		var text = EditUsedPorts.Trim();
+		if (text.Length == 0)
+		{
+			return true;
+		}
+
+		var parsed = new List<int>();
+		foreach (var item in text.Split([',', ';', ' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries))
+		{
+			if (!int.TryParse(item, out var port) || port is < 1 or > 65535)
+			{
+				error = "Used ports must be numbers between 1 and 65535.";
+				return false;
+			}
+
+			parsed.Add(port);
+		}
+
+		ports = parsed.Distinct().Order().ToArray();
+		return true;
 	}
 
 	[RelayCommand(CanExecute = nameof(CanDelete))]
@@ -694,6 +1495,9 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 				input.Kind, input.OwnerUserId, input.ServiceName, input.Label);
 			var result = await _api.AddServerCredentialAsync(_serverId, request);
 			Credentials.Add(new CredentialRowViewModel(result, this));
+			OnPropertyChanged(nameof(HasCredentials));
+			_parent.RebuildResources();
+			await DiscoverInventoryAsync();
 
 			AddCredentialCompleted?.Invoke(this, EventArgs.Empty);
 		}
@@ -722,6 +1526,36 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 		{
 			await _api.RemoveServerCredentialAsync(_serverId, credential.Id);
 			Credentials.Remove(credential);
+			OnPropertyChanged(nameof(HasCredentials));
+			_parent.RebuildResources();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			CredentialError = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	[RelayCommand]
+	public async Task DiscoverInventoryAsync()
+	{
+		if (!HasCredentials)
+		{
+			CredentialError = "Add at least one credential before discovering inventory.";
+			return;
+		}
+
+		IsBusy = true;
+		CredentialError = null;
+
+		try
+		{
+			var updated = await _api.DiscoverServerInventoryAsync(_serverId);
+			ApplyFrom(updated);
+			_parent.RebuildResources();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{

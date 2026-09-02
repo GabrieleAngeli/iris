@@ -28,6 +28,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<ServerNode> Servers => Set<ServerNode>();
 
+    public DbSet<DataServiceInstance> DataServices => Set<DataServiceInstance>();
+
     public DbSet<ServerCredential> ServerCredentials => Set<ServerCredential>();
 
     public DbSet<ApplicationDefinition> Applications => Set<ApplicationDefinition>();

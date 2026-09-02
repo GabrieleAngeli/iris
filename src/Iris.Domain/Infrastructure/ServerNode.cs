@@ -56,6 +56,10 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
 
     public ServerOs Os { get; private set; }
 
+    public string? OsVersion { get; private set; }
+
+    public string? MachineSize { get; private set; }
+
     public ServerHostingType HostingType { get; private set; }
 
     public string? PublicIpAddress { get; private set; }
@@ -126,10 +130,29 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         Name = name.Trim();
         Hostname = string.IsNullOrWhiteSpace(hostname) ? null : hostname.Trim();
         Os = os;
+        OsVersion = null;
+        MachineSize = null;
         HostingType = hostingType;
         PublicIpAddress = string.IsNullOrWhiteSpace(publicIpAddress) ? null : publicIpAddress.Trim();
         PrivateIpAddress = string.IsNullOrWhiteSpace(privateIpAddress) ? null : privateIpAddress.Trim();
         Environment = environment;
+    }
+
+    public void ApplyInventoryDiscovery(
+        ServerOs os,
+        string? osVersion,
+        string? machineSize,
+        IEnumerable<NodeCapability> capabilities,
+        ResourceProfile? resources,
+        IEnumerable<int> usedPorts)
+    {
+        ArgumentNullException.ThrowIfNull(capabilities);
+        ArgumentNullException.ThrowIfNull(usedPorts);
+
+        Os = os;
+        OsVersion = string.IsNullOrWhiteSpace(osVersion) ? null : osVersion.Trim();
+        MachineSize = string.IsNullOrWhiteSpace(machineSize) ? null : machineSize.Trim();
+        UpdateCapacity(capabilities, resources, usedPorts);
     }
 
     /// <summary>

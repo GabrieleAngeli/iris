@@ -21,7 +21,9 @@ public sealed record NewDependencyDefinition(
     string Category,
     bool Required,
     string? Description,
-    string? PlaceholderKey);
+    string? PlaceholderKey,
+    string? ProviderApplicationSlug = null,
+    string? ProviderPlaceholderKey = null);
 
 /// <summary>Shape of one <see cref="PlaceholderDefinition"/> to create.</summary>
 public sealed record NewPlaceholderDefinition(
@@ -115,7 +117,7 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
 
         _dependencies.Clear();
         _dependencies.AddRange(dependencies.Select(d => new DependencyDefinition(
-            d.Id, Id, d.Name, d.Category, d.Required, d.Description, d.PlaceholderKey)));
+            d.Id, Id, d.Name, d.Category, d.Required, d.Description, d.PlaceholderKey, d.ProviderApplicationSlug, d.ProviderPlaceholderKey)));
 
         _placeholders.Clear();
         _placeholders.AddRange(placeholders.Select(p => new PlaceholderDefinition(

@@ -273,6 +273,26 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ArtifactFeed")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtifactName")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtifactPath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtifactProvider")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuildPipelineUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -437,6 +457,14 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ProviderApplicationSlug")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProviderPlaceholderKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("Required")
                         .HasColumnType("INTEGER");
 
@@ -542,6 +570,67 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("TransactionLog", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Infrastructure.DataServiceInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Port")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("StorageGb")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataServices", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -626,6 +715,10 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("MachineSize")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -634,6 +727,10 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<string>("Os")
                         .IsRequired()
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OsVersion")
+                        .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PrivateIpAddress")
@@ -891,6 +988,14 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         {
                             b1.Property<Guid>("ServerNodeId")
                                 .HasColumnType("TEXT");
+
+                            b1.Property<int?>("ApplicationDiskGb")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ResourceApplicationDiskGb");
+
+                            b1.Property<int?>("BackupDiskGb")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ResourceBackupDiskGb");
 
                             b1.Property<int?>("CpuCores")
                                 .HasColumnType("INTEGER")

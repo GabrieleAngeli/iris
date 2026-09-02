@@ -13,6 +13,11 @@ internal static class ApplicationMapping
         application.RepositoryUrl,
         application.DefaultBranch,
         application.Description,
+        application.ArtifactProvider,
+        application.ArtifactFeed,
+        application.ArtifactName,
+        application.ArtifactPath,
+        application.BuildPipelineUrl,
         application.IsActive,
         application.Versions.Select(v => v.ToSummaryResponse()).ToArray());
 
@@ -35,7 +40,7 @@ internal static class ApplicationMapping
         version.ConfigurationKeys.Select(k => new ConfigurationKeyResponse(
             k.Id, k.Key, k.TargetKind, k.Required, k.Secret, k.DefaultValue, k.Description, k.Purpose, k.PlaceholderKey)).ToArray(),
         version.Dependencies.Select(d => new DependencyResponse(
-            d.Id, d.Name, d.Category, d.Required, d.Description, d.PlaceholderKey)).ToArray(),
+            d.Id, d.Name, d.Category, d.Required, d.Description, d.PlaceholderKey, d.ProviderApplicationSlug, d.ProviderPlaceholderKey)).ToArray(),
         version.Placeholders.Select(p => new PlaceholderResponse(
             p.Id, p.Key, p.Category, p.Description, p.Required)).ToArray(),
         version.ImportWarnings.ToArray(),

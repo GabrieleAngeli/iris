@@ -1,7 +1,9 @@
 # Stato corrente
 
 Aggiornato: 2026-09-02. Verificato in questa sessione con `dotnet test Iris.sln`
-(146/146 verdi) e `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
+(156/156 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+-p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-build\` (output standard
+bloccato se l'app e' gia' aperta).
 
 ## Architettura
 
@@ -50,15 +52,36 @@ permette di ruotare un segreto già salvato. `ServerNode` porta anche `Capabilit
 (`NodeCapability`: LoadBalancer/Database/ServiceHost/Presentation), `Resources`
 (`ResourceProfile?`, CPU/RAM/disco opzionali) e `UsedPorts`, aggiornati con
 `PUT /servers/{id}/capacity` in modalità replace-whole.
+Nota: `ResourceProfile` ora distingue anche `ApplicationDiskGb` e `BackupDiskGb`; la
+pagina MAUI Servers li espone nella dialog di modifica insieme al disco totale.
+Quando un server ha almeno una credenziale, `POST /servers/{id}/discover` richiama il port
+`IServerInventoryProbe` (adapter mock deterministico oggi, futuro Ansible/SSH) e aggiorna
+OS rilevato, versione OS, dimensione macchina, CPU/RAM/dischi e porte usate. La pagina
+Servers avvia la discovery dopo l'inserimento credenziale e offre un comando manuale.
+Nella stessa sezione esiste anche l'inventory dei data service gestiti/RDS:
+`DataServiceInstance` per `Mssql`, `PostgreSql` e `Redis`, con endpoint, porta, username
+non segreto, password solo via `ISecretStore`, versione, size, storage e ambiente. La
+creazione RDS passa dal dialog `New server` tramite select `Server node` /
+`Managed data service`; dopo le credenziali il port `IDataServiceInventoryProbe` rileva
+tipo/versione/size/storage. Endpoint `/data-services` e discovery manuale
+`POST /data-services/{id}/discover`. Nel client MAUI server node e data service sono
+presentati nella stessa lista `Resources`, con icone differenti e filtri/sort per tipo,
+OS, versione e tag.
 
-**Applications** (`Iris.Domain.Applications`) - catalogo applicazioni backend-first:
-`ApplicationDefinition` (nome, slug, `RuntimeType`, repository, branch) con
+**Applications** (`Iris.Domain.Applications`) - catalogo applicazioni:
+`ApplicationDefinition` (nome, slug, `RuntimeType`, repository, branch, artifact provider,
+artifact feed/name/path e build pipeline URL) con
 `ApplicationVersion` figlie (versione, sorgente, `RuntimeMetadata` owned type che riusa
 `ServerOs`). Ogni versione porta la configuration knowledge dell'ultimo import Iris
 Extractor: `ConfigurationKey`/`DependencyDefinition`/`PlaceholderDefinition`, sostituite
 e non accumulate a ogni `ApplyImport`; `RawImportPackageJson` conserva il pacchetto grezzo
-per audit. Endpoint in `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`. Non esiste ancora
-una pagina client MAUI Applications.
+per audit. `DependencyDefinition` puo' collegare una dependency consumata a un placeholder
+esposto da un'altra application tramite `ProviderApplicationSlug` e
+`ProviderPlaceholderKey`. Endpoint in `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`, incluso
+`PUT /applications/{id}` per aggiornare l'inventory mantenendo lo slug stabile. Il client
+MAUI ha `ApplicationsPage` sotto Workspace: lista catalogo, create/edit via dialog modali,
+gating con `applications.read/write` e lock advisory `application`.
+La guida operativa e' in `docs/application-assimilation.md`.
 
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
@@ -73,16 +96,21 @@ MAUI ha `SetupWizardPage` e `AcceptInvitationPage`.
 
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
-9), sezioni gated per permesso (`AppShellViewModel.CanManageX`). Flussi secondari tramite
+9), Dashboard sempre prima voce, sezioni iconate/indentate e gating per permesso
+(`AppShellViewModel.CanManageX`). `Components` e' visibile solo in build DEBUG sotto la
+sezione Development. Flussi secondari tramite
 finestre modali OS vere (`IDialogService` -> `Window` MAUI owned + modale su Windows via
 Win32), non pannelli in-page. Setup wizard e accept invitation sono fuori dal flyout. Il
 flyout header contiene il profilo utente con link `Profile` e `Sign out`; il footer porta
-`System settings`. Login supporta `Remember me` per sessioni locali persistite in
-SecureStorage (fallback Preferences) e recupero password dal form.
+`System settings`. L'app parte da `StartupPage`, uno splash interno che controlla setup e
+sessione ricordata prima di mostrare la login; se il token `Remember me` e' valido naviga
+direttamente a dashboard/first-login senza flash della login. Login supporta `Remember me`
+per sessioni locali persistite in SecureStorage (fallback Preferences) e recupero password
+dal form.
 
 **Profile / System settings** - `GET /profile` restituisce `MeResponse`, permessi
 effettivi e history delle sessioni; `ProfilePage` espone dati utente, cambio password,
-permessi e access history. `GET /system/settings` espone integrazioni OpenBao/Ansible a
+permessi e access history. `GET /system/settings` espone integrazioni OpenBao/Ansible/Azure DevOps/Nexus a
 tutti gli utenti autenticati e include lo stato/config SMTP solo per `platform.admin`.
 `SystemSettingsPage` permette a tutti di scegliere `System`/`Light`/`Dark` theme locale.
 
@@ -114,6 +142,8 @@ salvataggio o chiamate reali verso OpenBao/Ansible.
 `InitialAccessModel` -> `AddUserIsProvisioned` -> `AddServers` ->
 `AddServerCredentialOwnership` -> `AddUserInvitations` -> `AddEditLocks` ->
 `AddUserLocalPassword` -> `AddApplications` -> `AddServerCapacity` -> `AddUserSessions` ->
-`AddMailProviderSettings`. Ogni migrazione esiste in entrambi i provider
+`AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
+`AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery`.
+Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

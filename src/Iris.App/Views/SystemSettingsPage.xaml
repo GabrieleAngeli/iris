@@ -69,7 +69,7 @@
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="10">
                             <Label Text="Service connections" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
-                            <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="140">
+                            <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="220">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="settings:IntegrationLinkResponse">
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,7" ColumnSpacing="12">

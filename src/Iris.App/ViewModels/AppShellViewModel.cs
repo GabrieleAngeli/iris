@@ -36,6 +36,21 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 	/// </summary>
 	public bool CanManageInfrastructure => _auth.Me?.EffectivePermissions.Contains("infrastructure.read") == true;
 
+	/// <summary>The application inventory is a workspace surface, gated by Global <c>applications.read</c>.</summary>
+	public bool CanSeeApplications => _auth.Me?.EffectivePermissions.Contains("applications.read") == true;
+
+	public bool IsDevelopment
+	{
+		get
+		{
+#if DEBUG
+			return true;
+#else
+			return false;
+#endif
+		}
+	}
+
 	/// <summary>Navigates to an absolute Shell route (e.g. <c>//dashboard</c>) and closes the flyout.</summary>
 	[RelayCommand]
 	private async Task Navigate(string? route)
@@ -56,6 +71,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(Initials));
 		OnPropertyChanged(nameof(CanManageUsers));
 		OnPropertyChanged(nameof(CanManageInfrastructure));
+		OnPropertyChanged(nameof(CanSeeApplications));
 	}
 
 	private static string ComputeInitials(string displayName)

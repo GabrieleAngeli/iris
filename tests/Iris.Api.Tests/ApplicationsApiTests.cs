@@ -34,6 +34,67 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Reader_cannot_update_an_application()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+        var create = await admin.PostAsJsonAsync("/applications", new
+        {
+            name,
+            runtimeType = "CSharp",
+            repositoryUrl = $"https://git.example/{name}",
+            defaultBranch = "main",
+        });
+        var application = await create.Content.ReadFromJsonAsync<ApplicationDto>();
+
+        var update = await Reader().PutAsJsonAsync($"/applications/{application!.Id}", new
+        {
+            name = "changed",
+            runtimeType = "Docker",
+            repositoryUrl = "https://git.example/changed",
+            defaultBranch = "release/main",
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_update_application_inventory()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+        var create = await admin.PostAsJsonAsync("/applications", new
+        {
+            name,
+            runtimeType = "CSharp",
+            repositoryUrl = $"https://git.example/{name}",
+            defaultBranch = "main",
+        });
+        var application = await create.Content.ReadFromJsonAsync<ApplicationDto>();
+
+        var update = await admin.PutAsJsonAsync($"/applications/{application!.Id}", new
+        {
+            name = $"{name}-renamed",
+            runtimeType = "Docker",
+            repositoryUrl = $"https://git.example/{name}-renamed",
+            defaultBranch = "release/main",
+            description = "Runtime inventory updated from the app catalog.",
+            isActive = false,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = await update.Content.ReadFromJsonAsync<ApplicationDto>();
+        Assert.Equal($"{name}-renamed", updated!.Name);
+        Assert.Equal(application.Slug, updated.Slug);
+        Assert.Equal("Docker", updated.RuntimeType);
+        Assert.Equal($"https://git.example/{name}-renamed", updated.RepositoryUrl);
+        Assert.Equal("release/main", updated.DefaultBranch);
+        Assert.Equal("Runtime inventory updated from the app catalog.", updated.Description);
+        Assert.False(updated.IsActive);
+    }
+
+    [Fact]
     public async Task Admin_can_create_an_application_add_a_version_and_import_its_configuration_knowledge()
     {
         var admin = Admin();
@@ -45,10 +106,17 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
             runtimeType = "CSharp",
             repositoryUrl = $"https://git.example/{name}",
             defaultBranch = "main",
+            artifactProvider = "Nexus",
+            artifactFeed = "iris/releases",
+            artifactName = $"{name}.zip",
+            artifactPath = $"drop/{name}.zip",
+            buildPipelineUrl = $"https://dev.azure.com/org/project/_build?definitionId={name}",
         });
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var application = await create.Content.ReadFromJsonAsync<ApplicationDto>();
         Assert.Empty(application!.Versions);
+        Assert.Equal("Nexus", application.ArtifactProvider);
+        Assert.Equal($"drop/{name}.zip", application.ArtifactPath);
 
         var addVersion = await admin.PostAsJsonAsync($"/applications/{application.Id}/versions", new
         {
@@ -93,7 +161,15 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
                 },
                 dependencies = new[]
                 {
-                    new { name = "postgres", category = "database", required = true, placeholderKey = "domain.db.main" },
+                    new
+                    {
+                        name = "postgres",
+                        category = "database",
+                        required = true,
+                        placeholderKey = "domain.db.main",
+                        providerApplicationSlug = "orders-api",
+                        providerPlaceholderKey = "domain.db.main.connectionString",
+                    },
                 },
                 placeholders = new[]
                 {
@@ -104,7 +180,9 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.OK, import.StatusCode);
         var detail = await import.Content.ReadFromJsonAsync<VersionDetailDto>();
         Assert.Single(detail!.ConfigurationKeys);
-        Assert.Single(detail.Dependencies);
+        var dependency = Assert.Single(detail.Dependencies);
+        Assert.Equal("orders-api", dependency.ProviderApplicationSlug);
+        Assert.Equal("domain.db.main.connectionString", dependency.ProviderPlaceholderKey);
         Assert.Single(detail.Placeholders);
         Assert.Single(detail.ImportWarnings);
 
@@ -166,11 +244,25 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
         Guid Id, string Version, string? SourceReference, RuntimeMetadataDto RuntimeMetadata,
         int ConfigurationKeyCount, int DependencyCount, int PlaceholderCount, DateTimeOffset? LastImportedAtUtc);
 
-    private sealed record ApplicationDto(Guid Id, string Name, string Slug, bool IsActive, List<VersionSummaryDto> Versions);
+    private sealed record ApplicationDto(
+        Guid Id,
+        string Name,
+        string Slug,
+        string RuntimeType,
+        string RepositoryUrl,
+        string DefaultBranch,
+        string? Description,
+        string? ArtifactProvider,
+        string? ArtifactFeed,
+        string? ArtifactName,
+        string? ArtifactPath,
+        string? BuildPipelineUrl,
+        bool IsActive,
+        List<VersionSummaryDto> Versions);
 
     private sealed record ConfigKeyDto(Guid Id, string Key);
 
-    private sealed record DependencyDto(Guid Id, string Name);
+    private sealed record DependencyDto(Guid Id, string Name, string? ProviderApplicationSlug, string? ProviderPlaceholderKey);
 
     private sealed record PlaceholderDto(Guid Id, string Key);
 

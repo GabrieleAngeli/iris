@@ -1,5 +1,6 @@
 using Iris.Application.Abstractions;
 using Iris.Infrastructure.Invitations;
+using Iris.Infrastructure.Inventory;
 using Iris.Infrastructure.Mail;
 using Iris.Infrastructure.Persistence;
 using Iris.Infrastructure.Persistence.Interceptors;
@@ -60,12 +61,15 @@ public static class DependencyInjection
         services.AddScoped<IRoleAssignmentRepository, RoleAssignmentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IServerRepository, ServerRepository>();
+        services.AddScoped<IDataServiceRepository, DataServiceRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.AddScoped<IMailProviderSettingsRepository, MailProviderSettingsRepository>();
         services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
+        services.TryAddScoped<IServerInventoryProbe, MockServerInventoryProbe>();
+        services.TryAddScoped<IDataServiceInventoryProbe, MockDataServiceInventoryProbe>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();

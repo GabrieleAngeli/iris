@@ -15,8 +15,8 @@ public partial class AppShell : Shell
 		// Detail routes reachable via GoToAsync.
 		Routing.RegisterRoute("activitydetail", typeof(Views.ActivityDetailPage));
 
-		// Always start on the login screen.
-		CurrentItem = LoginContent;
+		// Always start on the bootstrap splash; it decides whether login is needed.
+		CurrentItem = StartupContent;
 	}
 
 	private async void OnSignOutClicked(object? sender, EventArgs e)

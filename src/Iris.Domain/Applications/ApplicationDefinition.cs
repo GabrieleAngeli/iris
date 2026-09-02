@@ -28,7 +28,12 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         ApplicationRuntimeType runtimeType,
         string repositoryUrl,
         string defaultBranch,
-        string? description)
+        string? description,
+        string? artifactProvider = null,
+        string? artifactFeed = null,
+        string? artifactName = null,
+        string? artifactPath = null,
+        string? buildPipelineUrl = null)
         : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -42,6 +47,11 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         RepositoryUrl = repositoryUrl.Trim();
         DefaultBranch = defaultBranch.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        ArtifactProvider = Clean(artifactProvider);
+        ArtifactFeed = Clean(artifactFeed);
+        ArtifactName = Clean(artifactName);
+        ArtifactPath = Clean(artifactPath);
+        BuildPipelineUrl = Clean(buildPipelineUrl);
         IsActive = true;
     }
 
@@ -56,6 +66,16 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
     public string DefaultBranch { get; private set; }
 
     public string? Description { get; private set; }
+
+    public string? ArtifactProvider { get; private set; }
+
+    public string? ArtifactFeed { get; private set; }
+
+    public string? ArtifactName { get; private set; }
+
+    public string? ArtifactPath { get; private set; }
+
+    public string? BuildPipelineUrl { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -76,6 +96,39 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         _versions.Add(applicationVersion);
         return applicationVersion;
     }
+
+    public void UpdateInventory(
+        string name,
+        ApplicationRuntimeType runtimeType,
+        string repositoryUrl,
+        string defaultBranch,
+        string? description,
+        bool isActive,
+        string? artifactProvider = null,
+        string? artifactFeed = null,
+        string? artifactName = null,
+        string? artifactPath = null,
+        string? buildPipelineUrl = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(defaultBranch);
+
+        Name = name.Trim();
+        RuntimeType = runtimeType;
+        RepositoryUrl = repositoryUrl.Trim();
+        DefaultBranch = defaultBranch.Trim();
+        Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        ArtifactProvider = Clean(artifactProvider);
+        ArtifactFeed = Clean(artifactFeed);
+        ArtifactName = Clean(artifactName);
+        ArtifactPath = Clean(artifactPath);
+        BuildPipelineUrl = Clean(buildPipelineUrl);
+        IsActive = isActive;
+    }
+
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public void Rename(string name)
     {

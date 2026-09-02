@@ -296,3 +296,146 @@ mostrare warning di file bloccati se API/MAUI sono in esecuzione in Visual Studi
 **Rischi residui / cosa resta aperto**: per ora il log registra il livello entity
 create/update/delete, non ancora diff di campo old/new; quando arriveranno Deployments e
 Actions bisogna mappare i nuovi tipi in `TransactionLogInterceptor.AreaFor`.
+
+---
+
+## 2026-09-02 - Applications inventory nel client MAUI
+
+**Classificazione**: feature UX/catalogo applicazioni.
+
+**Cosa e' successo**: completato il primo strato visibile dell'assimilazione
+Applications: endpoint `PUT /applications/{id}` per aggiornare l'inventory, mantenendo
+immutabile lo slug; aggiunta la pagina MAUI `Applications` sotto Workspace, visibile con
+`applications.read`, con creazione e modifica via dialog modali. Le modifiche usano il
+lock advisory nuovo `application`, allineato a user/customer/server.
+
+**Client/API**: `IrisApiClient` espone read/create/update delle applicazioni; la pagina
+mostra runtime, repository, branch, stato attivo, conteggio versioni e riepilogo della
+configuration knowledge importata. Il dettaglio versione/import resta il prossimo
+incremento sopra l'inventory.
+
+**Verificato**: `dotnet test Iris.sln` verde - 151/151 test; `dotnet build Iris.App.sln
+--no-restore -p:UseAppHost=false` verde - 0 warning/0 errori.
+
+**Rischi residui / cosa resta aperto**: manca ancora la UI per aggiungere versioni e
+importare/consultare il dettaglio della configuration knowledge; subito dopo conviene
+passare a `DeploymentAssociation`, usando questa inventory come sorgente applicazioni.
+
+---
+
+## 2026-09-02 - Startup splash e restore sessione ricordata
+
+**Classificazione**: fix UX avvio client.
+
+**Cosa e' successo**: la login non e' piu' la prima pagina reale dell'app. Aggiunta
+`StartupPage`, uno splash interno registrato come ShellContent iniziale, che esegue il
+check setup con retry e prova il restore del token salvato da `Remember me`. Se il token
+e' valido naviga direttamente a dashboard o first-login; la login appare solo quando non
+c'e' una sessione ricordata valida o l'API resta irraggiungibile.
+
+**Motivazione**: prima il restore avveniva in `LoginPage.OnAppearing`, quindi la login
+veniva renderizzata per un attimo anche nel caso felice. Ora l'utente resta sullo splash
+durante il bootstrap.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde - 0
+warning/0 errori.
+
+---
+
+## 2026-09-02 - Server discovery, data services e artifact assimilation
+
+**Classificazione**: feature Infrastructure/Applications preparatoria ai Deployments.
+
+**Cosa e' successo**: aggiunto il port `IServerInventoryProbe` e l'endpoint
+`POST /servers/{id}/discover`, invocabile solo dopo aver registrato almeno una credenziale
+server. L'adapter attuale e' `MockServerInventoryProbe`, deterministico, ma il contratto e'
+gia' pronto per un probe Ansible/SSH reale: aggiorna OS rilevato, versione OS, dimensione
+macchina, capability, CPU/RAM/dischi e porte usate. La pagina MAUI Servers mostra questi
+dati e lancia la discovery dopo l'aggiunta credenziale o tramite comando manuale.
+
+**Data services**: introdotto `DataServiceInstance` per RDS/cache gestiti (`Mssql`,
+`PostgreSql`, `Redis`) con endpoint, porta, username, password solo via `ISecretStore`,
+versione, size, storage, ambiente e stato attivo. Aggiunti repository, handler, endpoint
+`/data-services`, mapping audit Infrastructure e UI nella sezione Servers. La creazione
+non e' piu' inline nella pagina: e' dentro `NewServerDialog`, tramite select `Server node`
+/ `Managed data service`; per RDS il form accetta solo username/password, non SSH.
+`IDataServiceInventoryProbe` rileva tipo/versione/size/storage dopo la credenziale.
+
+**Applications assimilation**: `ApplicationDefinition` ora conserva anche
+`ArtifactProvider`, `ArtifactFeed`, `ArtifactName`, `ArtifactPath` e `BuildPipelineUrl`.
+Le dependency importate possono puntare al provider con `ProviderApplicationSlug` e
+`ProviderPlaceholderKey`, cosi' una stessa chiave placeholder puo' rappresentare il servizio
+che la espone e quello che la consuma. Aggiunta la guida
+`docs/application-assimilation.md` con esempi .NET, Node/JavaScript, Java e Docker.
+
+**Persistenza**: migrazioni `AddInfrastructureDiscoveryDataServicesAndArtifacts` e
+`AddDataServiceCredentialsAndDiscovery` generate per SQLite e Postgres.
+
+**Verificato**: `dotnet test Iris.sln --no-restore` verde - 156/156 test; `dotnet build
+Iris.App.sln --no-restore -p:UseAppHost=false` verde - 0 warning/0 errori.
+
+---
+
+## 2026-09-02 - Dischi server per applicazioni e backup
+
+**Classificazione**: feature Infrastructure/capacity.
+
+**Cosa e' successo**: esteso `ResourceProfile` con due quote dedicate:
+`ApplicationDiskGb` e `BackupDiskGb`, mantenendo `DiskGb` come totale opzionale. Il
+capacity endpoint `PUT /servers/{id}/capacity` salva e restituisce le nuove quote,
+validando valori non negativi e, quando il totale e' noto, impedendo che applicazioni +
+backup superino il disco totale.
+
+**Client/API**: `IrisApiClient` ora espone `UpdateServerCapacityAsync`; la pagina Servers
+mostra un riepilogo risorse nella tile, e `EditServerDialog` consente di settare CPU/RAM,
+disco totale, disco applicazioni, disco backup e porte note nello stesso flusso di edit
+server.
+
+**Persistenza**: migrazione `AddServerDiskReservations` generata per SQLite e Postgres,
+con colonne nullable `ResourceApplicationDiskGb` e `ResourceBackupDiskGb` sulla tabella
+`Servers`.
+
+**Verificato**: `dotnet test Iris.sln` verde - 151/151 test; `dotnet build Iris.App.sln
+--no-restore -p:UseAppHost=false` verde - 0 warning/0 errori.
+
+---
+
+## 2026-09-02 - Riordino flyout MAUI
+
+**Classificazione**: fix UX navigazione client.
+
+**Cosa e' successo**: il flyout custom e' stato riorganizzato per leggere meglio le aree:
+Dashboard e' sempre la prima voce, poi Workspace, Governance, Infrastructure,
+Applications e Development. La pagina Applications e' ora sotto la sezione Applications
+come voce `Inventory`; `Components` e' stata spostata in Development ed e' visibile solo
+nelle build DEBUG.
+
+**Dettaglio UI**: le righe del flyout hanno ora icona, testo allineato e una piccola
+barra laterale che distingue la voce primaria Dashboard, avvicinando l'organizzazione al
+pattern amministrativo mostrato nello screenshot di riferimento.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde - 0
+warning/0 errori.
+
+---
+
+## 2026-09-02 - Lista infrastructure unificata server + RDS
+
+**Classificazione**: feature UX Infrastructure.
+
+**Cosa e' successo**: la pagina Servers non separa piu' "Managed data services" e
+"Server nodes": entrambe le tipologie confluiscono nella stessa lista `Resources`.
+Ogni riga usa una icona differente, badge per tipo/tecnologia/ambiente/versione e mantiene
+le azioni contestuali: edit e discovery per tutti, add credential solo per i server node.
+Il dialog `New resource` continua a scegliere tra `Server node` e `Managed data service`.
+
+**Filtri/sort**: aggiunta una barra filtri con tipo risorsa, OS (`Linux`, `Windows`,
+`N/A` per RDS), ricerca versione, ricerca tag e ordinamento per nome/tipo/OS/versione/tag,
+con toggle discendente. I tag aggregano tipo, tecnologia, ambiente, capability, porte e
+size/storage per rendere filtrabili anche informazioni operative.
+
+**Verificato**: `dotnet test Iris.sln --no-restore` verde - 156/156 test. La build MAUI e'
+verde con output isolato:
+`dotnet build Iris.App.sln --no-restore -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-build\`
+- 0 warning/0 errori. La build su output standard era bloccata da un processo `Iris.App`
+gia' in esecuzione.

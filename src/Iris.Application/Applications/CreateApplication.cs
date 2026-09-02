@@ -13,7 +13,12 @@ public sealed record CreateApplicationCommand(
     string RuntimeType,
     string RepositoryUrl,
     string DefaultBranch,
-    string? Description);
+    string? Description,
+    string? ArtifactProvider = null,
+    string? ArtifactFeed = null,
+    string? ArtifactName = null,
+    string? ArtifactPath = null,
+    string? BuildPipelineUrl = null);
 
 public sealed partial class CreateApplicationHandler(IApplicationRepository applications, IUnitOfWork unitOfWork)
 {
@@ -49,7 +54,18 @@ public sealed partial class CreateApplicationHandler(IApplicationRepository appl
         }
 
         var application = new ApplicationDefinition(
-            Guid.CreateVersion7(), command.Name, slug, runtimeType, command.RepositoryUrl, command.DefaultBranch, command.Description);
+            Guid.CreateVersion7(),
+            command.Name,
+            slug,
+            runtimeType,
+            command.RepositoryUrl,
+            command.DefaultBranch,
+            command.Description,
+            command.ArtifactProvider,
+            command.ArtifactFeed,
+            command.ArtifactName,
+            command.ArtifactPath,
+            command.BuildPipelineUrl);
 
         await applications.AddAsync(application, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
