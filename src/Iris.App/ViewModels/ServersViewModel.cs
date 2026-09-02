@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Iris.Contracts.Infrastructure;
 
 namespace Iris.App.ViewModels;
@@ -550,7 +551,7 @@ public partial class ServersViewModel : ObservableObject
 	}
 }
 
-public sealed class InfrastructureResourceRowViewModel
+public sealed class InfrastructureResourceRowViewModel : ObservableObject
 {
 	private readonly ServerRowViewModel? _server;
 	private readonly DataServiceRowViewModel? _dataService;
@@ -558,11 +559,13 @@ public sealed class InfrastructureResourceRowViewModel
 	public InfrastructureResourceRowViewModel(ServerRowViewModel server)
 	{
 		_server = server;
+		_server.PropertyChanged += OnInnerPropertyChanged;
 	}
 
 	public InfrastructureResourceRowViewModel(DataServiceRowViewModel dataService)
 	{
 		_dataService = dataService;
+		_dataService.PropertyChanged += OnInnerPropertyChanged;
 	}
 
 	public ServerRowViewModel? Server => _server;
@@ -572,6 +575,16 @@ public sealed class InfrastructureResourceRowViewModel
 	public bool IsServer => _server is not null;
 
 	public bool IsDataService => _dataService is not null;
+
+	public bool IsEditingDataService => _dataService?.IsEditMode == true;
+
+	public string? DataServiceError => _dataService?.Error;
+
+	public bool HasDataServiceError => _dataService?.HasError == true;
+
+	public string? ServerEditLockNotice => _server?.EditLockNotice;
+
+	public bool HasServerEditLockNotice => _server?.HasEditLockNotice == true;
 
 	public string IconGlyph => IsServer ? "\uE7F4" : "\uEFC7";
 
@@ -643,6 +656,26 @@ public sealed class InfrastructureResourceRowViewModel
 	public IAsyncRelayCommand DiscoverCommand => _server?.DiscoverInventoryCommand ?? _dataService!.DiscoverCommand;
 
 	public IRelayCommand? AddCredentialCommand => _server?.OpenAddCredentialCommand;
+
+	private void OnInnerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (sender == _dataService && e.PropertyName is nameof(DataServiceRowViewModel.IsEditMode))
+		{
+			OnPropertyChanged(nameof(IsEditingDataService));
+		}
+
+		if (sender == _dataService && e.PropertyName is nameof(DataServiceRowViewModel.Error) or nameof(DataServiceRowViewModel.HasError))
+		{
+			OnPropertyChanged(nameof(DataServiceError));
+			OnPropertyChanged(nameof(HasDataServiceError));
+		}
+
+		if (sender == _server && e.PropertyName is nameof(ServerRowViewModel.EditLockNotice) or nameof(ServerRowViewModel.HasEditLockNotice))
+		{
+			OnPropertyChanged(nameof(ServerEditLockNotice));
+			OnPropertyChanged(nameof(HasServerEditLockNotice));
+		}
+	}
 }
 
 public sealed partial class DataServiceRowViewModel : ObservableObject
