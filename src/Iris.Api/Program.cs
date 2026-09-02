@@ -64,6 +64,7 @@ app.MapAccessEndpoints();
 app.MapAuthEndpoints();
 app.MapProfileEndpoints();
 app.MapSystemSettingsEndpoints();
+app.MapActivityEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
 app.MapApplicationsEndpoints();

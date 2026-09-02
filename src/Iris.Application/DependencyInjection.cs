@@ -1,5 +1,6 @@
 using Iris.Application.Access;
 using Iris.Application.Applications;
+using Iris.Application.Audit;
 using Iris.Application.Governance;
 using Iris.Application.Infrastructure;
 using Iris.Application.Setup;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         services.TryAddScoped<ListUsersHandler>();
         services.TryAddScoped<ListAccessibleCustomersHandler>();
         services.TryAddScoped<GetSystemSettingsHandler>();
+        services.TryAddScoped<ListTransactionLogHandler>();
 
         // Governance commands
         services.TryAddScoped<CreateCustomerHandler>();

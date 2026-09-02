@@ -15,9 +15,20 @@ File da leggere prima di agire, per area.
 
 - `src/Iris.Domain/Access/{User,Role,RoleAssignment,AccessScope,ScopeType,Permissions,PermissionResolver,EditLock,UserInvitation,UserSession,SyntheticIdentity}.cs`
 - `src/Iris.Application/Access/*.cs`, `src/Iris.Application/Governance/*.cs`
-- `src/Iris.Api/Endpoints/{AccessEndpoints,AuthEndpoints,ProfileEndpoints,GovernanceEndpoints}.cs`
+- `src/Iris.Api/Endpoints/{AccessEndpoints,AuthEndpoints,ProfileEndpoints,ActivityEndpoints,GovernanceEndpoints}.cs`
 - `src/Iris.Api/Auth/{AuthenticationSetup,DevAuthenticationHandler,IrisSessionAuthenticationHandler,IrisSessionAuthenticationOptions}.cs`
 - `src/Iris.Infrastructure/Persistence/Seeding/SeedData.cs` - ruoli/utenti/clienti seed
+
+## Audit trail
+
+- `src/Iris.Domain/Audit/TransactionLogEntry.cs`
+- `src/Iris.Application/Audit/ListTransactionLog.cs`
+- `src/Iris.Application/Abstractions/ITransactionLogRepository.cs`
+- `src/Iris.Contracts/Audit/TransactionLogResponses.cs`
+- `src/Iris.Infrastructure/Persistence/Interceptors/TransactionLogInterceptor.cs`
+- `src/Iris.Infrastructure/Persistence/Repositories/TransactionLogRepository.cs`
+- `src/Iris.Infrastructure/Persistence/Configurations/TransactionLogEntryConfiguration.cs`
+- `src/Iris.Api/Endpoints/ActivityEndpoints.cs`
 
 ## Setup / mail / logging
 

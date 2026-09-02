@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Iris.Contracts.Audit;
 using Iris.Contracts.Settings;
 
 namespace Iris.App.ViewModels;
@@ -8,8 +9,10 @@ public partial class SystemSettingsViewModel(
 	IAppPreferenceService preferences) : ObservableObject
 {
 	private readonly string[] _themeModes = ["System", "Light", "Dark"];
+	private readonly string[] _activityAreas = ["All", "Governance", "Infrastructure", "Applications", "Settings"];
 
 	[ObservableProperty] private string _selectedThemeMode = preferences.ThemeMode;
+	[ObservableProperty] private string _selectedActivityArea = "All";
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
 	[ObservableProperty] private bool _canManageSystem;
@@ -24,7 +27,11 @@ public partial class SystemSettingsViewModel(
 
 	public IReadOnlyList<string> ThemeModes => _themeModes;
 
+	public IReadOnlyList<string> ActivityAreas => _activityAreas;
+
 	public ObservableCollection<IntegrationLinkResponse> Integrations { get; } = [];
+
+	public ObservableCollection<TransactionLogRow> Activity { get; } = [];
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
 
@@ -33,7 +40,19 @@ public partial class SystemSettingsViewModel(
 	partial void OnSelectedThemeModeChanged(string value) =>
 		preferences.ThemeMode = value;
 
-	partial void OnIsBusyChanged(bool value) => LoadCommand.NotifyCanExecuteChanged();
+	partial void OnSelectedActivityAreaChanged(string value)
+	{
+		if (CanManageSystem && RefreshActivityCommand.CanExecute(null))
+		{
+			RefreshActivityCommand.Execute(null);
+		}
+	}
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		LoadCommand.NotifyCanExecuteChanged();
+		RefreshActivityCommand.NotifyCanExecuteChanged();
+	}
 
 	[RelayCommand(CanExecute = nameof(CanLoad))]
 	private async Task LoadAsync()
@@ -52,6 +71,8 @@ public partial class SystemSettingsViewModel(
 			{
 				Integrations.Add(integration);
 			}
+
+			await LoadActivityAsync();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -64,6 +85,44 @@ public partial class SystemSettingsViewModel(
 	}
 
 	private bool CanLoad() => !IsBusy;
+
+	[RelayCommand(CanExecute = nameof(CanLoad))]
+	private async Task RefreshActivityAsync()
+	{
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			await LoadActivityAsync();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private async Task LoadActivityAsync()
+	{
+		if (!CanManageSystem)
+		{
+			Activity.Clear();
+			return;
+		}
+
+		var area = SelectedActivityArea == "All" ? null : SelectedActivityArea;
+		var entries = await api.GetTransactionLogAsync(area, take: 50);
+
+		Activity.Clear();
+		foreach (var entry in entries)
+		{
+			Activity.Add(new TransactionLogRow(entry));
+		}
+	}
 
 	private void ApplyMail(MailProviderSettingsResponse? mail)
 	{
@@ -89,4 +148,21 @@ public partial class SystemSettingsViewModel(
 		SmtpFromDisplayName = mail.FromDisplayName ?? "-";
 		SmtpEnableSsl = mail.EnableSsl ? "Enabled" : "Disabled";
 	}
+}
+
+public sealed class TransactionLogRow(TransactionLogEntryResponse response)
+{
+	public string When => response.OccurredAtUtc.ToLocalTime().ToString("g");
+
+	public string Area => response.Area;
+
+	public string Action => response.Action;
+
+	public string Actor => response.ActorDisplayName == response.ActorEmail
+		? response.ActorEmail
+		: $"{response.ActorDisplayName} ({response.ActorEmail})";
+
+	public string Target => $"{response.EntityType} {response.EntityId}";
+
+	public string Summary => response.Summary;
 }

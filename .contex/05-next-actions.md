@@ -8,21 +8,22 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 2. ~~**ServerNode - capability, resource hints, porte note**~~ Fatto.
 3. ~~**Auth produzione + first-run setup + SMTP + SSO admin claim**~~ Fatto.
 4. ~~**Profile / System settings / password recovery / remember me**~~ Fatto.
-5. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
+5. ~~**Audit trail / activity per area**~~ Fatto.
+6. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
    Version + Customer + Context + ServerNode target + binding placeholder + stato. Usare FK
    reali verso `Customer`/`CustomerContext`/`ServerNode`/`ApplicationVersion`; non duplicare
    quei concetti.
-6. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
+7. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
    come handler `ValidateDeployment`, producendo una lista tipata di check con severità.
    Regole iniziali: placeholder non risolto, dipendenza non legata, OS incompatibile,
    capability mancante, collisione porte, capacità insufficiente.
-7. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
+8. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
    OpenBao plan: tutti mock), stato (Draft/Prepared/Pending/Running/Completed/Failed),
    endpoint preview/prepare, storico azioni.
-8. **Pagina client Applications**: nuova sezione flyout + lista + dettaglio versione/import,
+9. **Pagina client Applications**: nuova sezione flyout + lista + dettaglio versione/import,
    stesso pattern di `UsersPage`/`ServersPage`, dopo aver deciso quanto del workflow
    backend-first deve essere esposto subito.
-9. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
+10. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni

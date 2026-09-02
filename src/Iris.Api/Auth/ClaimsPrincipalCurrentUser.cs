@@ -32,6 +32,11 @@ public sealed class ClaimsPrincipalCurrentUser(IHttpContextAccessor httpContextA
 
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated == true;
 
+    public Guid? UserId =>
+        Guid.TryParse(Principal?.FindFirstValue(AccessProvisioningClaimsTransformation.InternalUserIdClaim), out var id)
+            ? id
+            : null;
+
     public string? ExternalId => FirstClaim(ExternalIdClaims);
 
     public string? Email => FirstClaim(EmailClaims);

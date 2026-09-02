@@ -35,6 +35,7 @@ public static class DependencyInjection
 
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<AuditableEntityInterceptor>();
+        services.AddScoped<TransactionLogInterceptor>();
 
         services.AddDbContext<IrisDbContext>((sp, options) =>
         {
@@ -48,7 +49,9 @@ public static class DependencyInjection
                     break;
             }
 
-            options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+            options.AddInterceptors(
+                sp.GetRequiredService<AuditableEntityInterceptor>(),
+                sp.GetRequiredService<TransactionLogInterceptor>());
         });
 
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -62,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.AddScoped<IMailProviderSettingsRepository, MailProviderSettingsRepository>();
+        services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
         services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();

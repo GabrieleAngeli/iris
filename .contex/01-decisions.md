@@ -69,6 +69,10 @@ Vincolanti finché non cambiate con un aggiornamento esplicito di questo file.
   indietro.
 - Seed (`IrisDbSeeder`/`SeedData.cs`) resta idempotente e usa gli stessi costruttori
   pubblici del dominio; non bypassare le invarianti per comodità di seeding.
+- Il transaction log delle modifiche e' cross-cutting e automatico via
+  `TransactionLogInterceptor`: non aggiungere log duplicati nei singoli handler se basta
+  una riga create/update/delete per entity nello stesso `SaveChanges`. Nuove aree dominio
+  devono essere mappate in `AreaFor(...)` quando vengono introdotte.
 
 ## Client MAUI
 

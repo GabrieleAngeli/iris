@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Iris.Contracts.Access;
+using Iris.Contracts.Audit;
 using Iris.Contracts.Governance;
 using Iris.Contracts.Infrastructure;
 using Iris.Contracts.Settings;
@@ -104,6 +105,11 @@ public interface IIrisApiClient
 	Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default);
 
 	Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default);
+
+	Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
+		string? area = null,
+		int take = 50,
+		CancellationToken cancellationToken = default);
 
 	/// <summary>Registers a server. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default);
@@ -227,6 +233,17 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<SystemSettingsResponse>(HttpMethod.Get, "/system/settings", cancellationToken);
+
+	public Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
+		string? area = null,
+		int take = 50,
+		CancellationToken cancellationToken = default)
+	{
+		var path = string.IsNullOrWhiteSpace(area)
+			? $"/activity?take={take}"
+			: $"/activity?area={Uri.EscapeDataString(area)}&take={take}";
+		return GetListAsync<TransactionLogEntryResponse>(path, cancellationToken);
+	}
 
 	public Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ServerResponse>("/servers", request, cancellationToken);

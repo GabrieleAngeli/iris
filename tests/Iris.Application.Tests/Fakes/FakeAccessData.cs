@@ -410,6 +410,8 @@ internal sealed class StubCurrentUser(string externalId, string email, string di
 {
     public bool IsAuthenticated => true;
 
+    public Guid? UserId => null;
+
     public string? ExternalId { get; } = externalId;
 
     public string? Email { get; } = email;

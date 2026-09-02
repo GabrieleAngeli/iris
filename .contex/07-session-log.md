@@ -268,3 +268,31 @@ verde - 0 warning/0 errori.
 OpenBao/Ansible, ma non salva ancora modifiche post-setup ne' testa connessioni verso
 OpenBao/Ansible; le integrazioni restano dichiarative finche' non arriva il modulo
 Actions/Deployments.
+
+---
+
+## 2026-09-02 - Transaction log e activity per area
+
+**Classificazione**: feature cross-cutting audit/compliance.
+
+**Cosa e' successo**: aggiunto `TransactionLogEntry` e tabella `TransactionLog`, scritta
+automaticamente da `TransactionLogInterceptor` durante `SaveChanges`. Ogni create/update/
+delete su entita' dominio mappate produce una riga con `TransactionId`, timestamp UTC,
+area, azione, entity type/id, summary e attore (`ActorUserId`, email, display name,
+external id). Le aree iniziali sono Governance, Infrastructure, Applications e Settings.
+
+**API/UI**: aggiunto `GET /activity?area=...&take=...`, riservato a `platform.admin`.
+`SystemSettingsPage` mostra un pannello Activity con filtro per area (`All`, Governance,
+Infrastructure, Applications, Settings), autore e target della modifica.
+
+**Persistenza**: migrazione `AddTransactionLog` generata per entrambi i provider:
+SQLite in `src/Iris.Infrastructure/Persistence/Migrations`, Postgres in
+`src/Iris.Migrations.Postgres/Migrations`.
+
+**Verificato**: `dotnet test Iris.sln` verde - 146/146 test; `dotnet build Iris.App.sln
+--no-restore -p:UseAppHost=false` verde - 0 warning/0 errori. Il build standard puo'
+mostrare warning di file bloccati se API/MAUI sono in esecuzione in Visual Studio.
+
+**Rischi residui / cosa resta aperto**: per ora il log registra il livello entity
+create/update/delete, non ancora diff di campo old/new; quando arriveranno Deployments e
+Actions bisogna mappare i nuovi tipi in `TransactionLogInterceptor.AreaFor`.

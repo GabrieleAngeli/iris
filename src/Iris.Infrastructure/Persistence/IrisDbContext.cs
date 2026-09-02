@@ -1,5 +1,6 @@
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
+using Iris.Domain.Audit;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
@@ -40,6 +41,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
     public DbSet<PlaceholderDefinition> ApplicationPlaceholders => Set<PlaceholderDefinition>();
 
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
+
+    public DbSet<TransactionLogEntry> TransactionLogEntries => Set<TransactionLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -8,6 +8,9 @@ public interface ICurrentUser
 {
     bool IsAuthenticated { get; }
 
+    /// <summary>Internal Iris user id, stamped after provisioning when the request is authenticated.</summary>
+    Guid? UserId { get; }
+
     /// <summary>Stable identity-provider subject/object id (Entra ID <c>oid</c> or a dev id).</summary>
     string? ExternalId { get; }
 

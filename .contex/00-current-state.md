@@ -1,7 +1,7 @@
 # Stato corrente
 
 Aggiornato: 2026-09-02. Verificato in questa sessione con `dotnet test Iris.sln`
-(145/145 verdi) e `dotnet build Iris.App.sln` verde.
+(146/146 verdi) e `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false` verde.
 
 ## Architettura
 
@@ -86,9 +86,15 @@ permessi e access history. `GET /system/settings` espone integrazioni OpenBao/An
 tutti gli utenti autenticati e include lo stato/config SMTP solo per `platform.admin`.
 `SystemSettingsPage` permette a tutti di scegliere `System`/`Light`/`Dark` theme locale.
 
-**Security / logging** - Serilog è il provider di logging dell'API con sink guidati da
-configurazione. CI security minima con Gitleaks + Semgrep, più `.gitleaks.toml`,
-`.semgrepignore` e `.gitignore` rafforzato contro file segreti locali.
+**Audit / logging** - Serilog è il provider di logging dell'API con sink guidati da
+configurazione. Il transaction log applicativo (`TransactionLog`) viene scritto da un
+interceptor EF nello stesso `SaveChanges`: per ogni create/update/delete registra
+`TransactionId`, data UTC, area (`Governance`/`Infrastructure`/`Applications`/`Settings`),
+azione, entity type/id e attore (`ActorUserId`, email, display name, external id). `GET
+/activity?area=...&take=...` restituisce la history per area ai `platform.admin`;
+`SystemSettingsPage` mostra un pannello Activity filtrabile per area. CI security minima
+con Gitleaks + Semgrep, più `.gitleaks.toml`, `.semgrepignore` e `.gitignore` rafforzato
+contro file segreti locali.
 
 ## Cosa NON è costruito
 

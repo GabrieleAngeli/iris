@@ -142,6 +142,28 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     }
 
     [Fact]
+    public async Task Platform_admin_can_see_transaction_log_filtered_by_area()
+    {
+        var admin = Admin();
+        var key = "audit-" + Guid.NewGuid().ToString("N")[..8];
+        var create = await admin.PostAsJsonAsync("/customers", new { key, name = "Audited Customer" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var customer = await create.Content.ReadFromJsonAsync<CustomerDto>();
+
+        var logs = await admin.GetFromJsonAsync<List<TransactionLogDto>>("/activity?area=Governance&take=20");
+
+        Assert.NotNull(logs);
+        var entry = Assert.Single(logs!, e => e.EntityType == "Customer" && e.EntityId == customer!.Id.ToString());
+        Assert.Equal("Governance", entry.Area);
+        Assert.Equal("Create", entry.Action);
+        Assert.Equal("admin@iris.local", entry.ActorEmail);
+        Assert.Equal("Iris Platform Admin", entry.ActorDisplayName);
+        Assert.NotEqual(Guid.Empty, entry.TransactionId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await Reader().GetAsync("/activity?area=Governance")).StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_can_pre_provision_a_user_and_assign_it_a_role()
     {
         var admin = Admin();
@@ -331,4 +353,18 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     private sealed record MailSettingsDto(bool IsConfigured);
 
     private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint);
+
+    private sealed record TransactionLogDto(
+        Guid Id,
+        Guid TransactionId,
+        DateTimeOffset OccurredAtUtc,
+        string Area,
+        string Action,
+        string EntityType,
+        string EntityId,
+        Guid? ActorUserId,
+        string ActorEmail,
+        string ActorDisplayName,
+        string? ActorExternalId,
+        string Summary);
 }

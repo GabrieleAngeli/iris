@@ -86,6 +86,40 @@
                             </CollectionView>
                         </VerticalStackLayout>
                     </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,180,Auto" ColumnSpacing="12">
+                                <Label Text="Activity" FontFamily="{StaticResource FontSemibold}" FontSize="15"
+                                       VerticalOptions="Center" />
+                                <Picker Grid.Column="1" ItemsSource="{Binding ActivityAreas}"
+                                        SelectedItem="{Binding SelectedActivityArea}" />
+                                <Button Grid.Column="2" Text="Refresh" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding RefreshActivityCommand}" />
+                            </Grid>
+                            <CollectionView ItemsSource="{Binding Activity}" HeightRequest="320">
+                                <CollectionView.EmptyView>
+                                    <Label Text="No recent activity." Style="{StaticResource Caption}" />
+                                </CollectionView.EmptyView>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TransactionLogRow">
+                                        <Grid ColumnDefinitions="150,110,*,220" Padding="0,7" ColumnSpacing="12">
+                                            <Label Text="{Binding When}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                            <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
+                                                <Label Text="{Binding Area}" Style="{StaticResource Caption}" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="2" Spacing="0">
+                                                <Label Text="{Binding Summary}" Style="{StaticResource Body}" />
+                                                <Label Text="{Binding Target}" Style="{StaticResource Caption}" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="3" Text="{Binding Actor}" Style="{StaticResource Caption}"
+                                                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
                 </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
