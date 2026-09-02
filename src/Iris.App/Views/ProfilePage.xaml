@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.ProfilePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:sys="clr-namespace:System;assembly=netstandard"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ProfileViewModel"
+    Title="Profile">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Profile" Style="{StaticResource TitleLarge}" />
+                    <Label Text="{Binding Email}" Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                        <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 22"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}">
+                            <Label Text="&#xE77B;" FontFamily="{StaticResource FontIcons}" FontSize="18"
+                                   TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                            <Label Text="{Binding DisplayName}" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
+                            <Label Text="{Binding Scope, StringFormat='Scope: {0}'}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <Border IsVisible="{Binding HasStatus}"
+                        BackgroundColor="{AppThemeBinding Light=#E6F4EA, Dark=#223D2A}"
+                        Stroke="{AppThemeBinding Light=#B7DFBE, Dark=#3A7047}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Status}" FontSize="13" />
+                </Border>
+
+                <Grid ColumnDefinitions="1.1*,1*" ColumnSpacing="18">
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Change password" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Current password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding CurrentPassword}" IsPassword="True" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="New password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding NewPassword}" IsPassword="True" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Confirm password" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding ConfirmPassword}" IsPassword="True" ReturnType="Go"
+                                           ReturnCommand="{Binding ChangePasswordCommand}" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <Button Text="Update password" Command="{Binding ChangePasswordCommand}"
+                                    HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Effective permissions" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                            <CollectionView ItemsSource="{Binding Permissions}" HeightRequest="290">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="sys:String">
+                                        <Label Text="{Binding .}" Padding="0,4" FontSize="13" />
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Access history" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                        <CollectionView ItemsSource="{Binding AccessHistory}" HeightRequest="220">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AccessHistoryRow">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14" Padding="0,7">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="{Binding Method}" Style="{StaticResource Body}" />
+                                            <Label Text="{Binding SignedInAt, StringFormat='Signed in: {0}'}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding ExpiresAt, StringFormat='Expires: {0}'}"
+                                               Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                        <Label Grid.Column="2" Text="{Binding Current}" Style="{StaticResource Caption}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView xmlns:controls="clr-namespace:Iris.App.Controls"
+                              IsActive="{Binding IsBusy}" Message="Loading profile..." />
+    </Grid>
+</ContentPage>
+

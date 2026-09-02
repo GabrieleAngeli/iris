@@ -36,6 +36,8 @@ public sealed class IssueUserInvitationHandler(
         var user = await users.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("User", command.UserId);
 
+        SelfGovernanceGuard.ThrowIfCurrentUser(user, currentUser);
+
         // Supersede any invitation still on file for this user.
         var existing = await invitations.GetForUserAsync(user.Id, cancellationToken).ConfigureAwait(false);
         foreach (var stale in existing)

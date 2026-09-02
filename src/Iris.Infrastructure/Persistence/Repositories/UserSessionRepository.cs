@@ -12,5 +12,13 @@ internal sealed class UserSessionRepository(IrisDbContext dbContext) : IUserSess
     public Task<UserSession?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default) =>
         dbContext.Set<UserSession>().SingleOrDefaultAsync(s => s.TokenHash == tokenHash, cancellationToken);
 
+    public async Task<IReadOnlyList<UserSession>> GetForUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        (await dbContext.Set<UserSession>()
+            .Where(s => s.UserId == userId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false))
+        .OrderByDescending(s => s.CreatedAtUtc)
+        .ToList();
+
     public void Remove(UserSession session) => dbContext.Set<UserSession>().Remove(session);
 }

@@ -53,9 +53,9 @@ land on the **Dashboard**. The flyout switches between Dashboard, **Access**
 
 ### API location
 
-`Services/IrisApiClient.cs` → `IrisApiOptions.BaseUrl` defaults to
-`http://localhost:5006` (the API's Kestrel HTTP profile). Change it there, or
-register a configured `IrisApiOptions` in `MauiProgram.cs`, to point elsewhere.
+`appsettings.Development.json` -> `IrisApi:BaseUrl` defaults to
+`http://localhost:5006` (the API's Kestrel HTTP profile). The same file also
+contains the development Entra ID values used by single sign-on.
 
 ## What's inside
 

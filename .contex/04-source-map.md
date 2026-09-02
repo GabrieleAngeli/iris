@@ -15,18 +15,20 @@ File da leggere prima di agire, per area.
 
 - `src/Iris.Domain/Access/{User,Role,RoleAssignment,AccessScope,ScopeType,Permissions,PermissionResolver,EditLock,UserInvitation,UserSession,SyntheticIdentity}.cs`
 - `src/Iris.Application/Access/*.cs`, `src/Iris.Application/Governance/*.cs`
-- `src/Iris.Api/Endpoints/{AccessEndpoints,AuthEndpoints,GovernanceEndpoints}.cs`
+- `src/Iris.Api/Endpoints/{AccessEndpoints,AuthEndpoints,ProfileEndpoints,GovernanceEndpoints}.cs`
 - `src/Iris.Api/Auth/{AuthenticationSetup,DevAuthenticationHandler,IrisSessionAuthenticationHandler,IrisSessionAuthenticationOptions}.cs`
 - `src/Iris.Infrastructure/Persistence/Seeding/SeedData.cs` - ruoli/utenti/clienti seed
 
 ## Setup / mail / logging
 
-- `src/Iris.Application/Setup/{GetSetupStatus,CompleteSetup,TestMailConnection}.cs`
+- `src/Iris.Application/Setup/{GetSetupStatus,CompleteSetup,TestMailConnection,ClaimSetupAdmin}.cs`
+- `src/Iris.Application/Settings/GetSystemSettings.cs`
 - `src/Iris.Contracts/Setup/SetupRequests.cs`
+- `src/Iris.Contracts/Settings/SystemSettingsResponses.cs`
 - `src/Iris.Domain/Settings/MailProviderSettings.cs`
 - `src/Iris.Infrastructure/Mail/SmtpEmailSender.cs`
 - `src/Iris.Infrastructure/Invitations/SmtpInvitationNotifier.cs`
-- `src/Iris.Api/Endpoints/SetupEndpoints.cs`
+- `src/Iris.Api/Endpoints/{SetupEndpoints,SystemSettingsEndpoints}.cs`
 - `src/Iris.Api/Program.cs` - Serilog, endpoint mapping, migrate+seed demo switch
 
 ## Infrastructure
@@ -53,9 +55,12 @@ File da leggere prima di agire, per area.
 ## Client MAUI
 
 - `src/Iris.App/AppShell.xaml` + `ViewModels/AppShellViewModel.cs` - navigazione/gating
-- `src/Iris.App/Services/{IrisApiClient,AuthService,DialogService}.cs`
-- `src/Iris.App/Views/{LoginPage,SetupWizardPage,AcceptInvitationPage}.xaml`
-- `src/Iris.App/ViewModels/{LoginViewModel,SetupWizardViewModel,AcceptInvitationViewModel}.cs`
+- `src/Iris.App/appsettings.Development.json`
+- `src/Iris.App/Services/{AppConfiguration,AppPreferenceService,IrisApiClient,AuthService,DialogService,WindowGeometry}.cs`
+- `src/Iris.App/Platforms/Windows/NativeWindowConfigurator.cs` - restore/persistenza
+  geometria e stato maximized delle finestre Windows
+- `src/Iris.App/Views/{LoginPage,SetupWizardPage,AcceptInvitationPage,ProfilePage,SystemSettingsPage}.xaml`
+- `src/Iris.App/ViewModels/{LoginViewModel,SetupWizardViewModel,AcceptInvitationViewModel,ProfileViewModel,SystemSettingsViewModel}.cs`
 - `src/Iris.App/Views/Dialogs/` - dialog esistenti come riferimento di pattern
 - `src/Iris.App/Resources/Styles/{Colors,Styles}.xaml` - token design system
 - `src/Iris.App/ViewModels/{UsersViewModel,CustomersViewModel,ServersViewModel}.cs` -

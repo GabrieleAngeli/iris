@@ -1,17 +1,21 @@
+using Iris.Contracts.Access;
+
 namespace Iris.App.ViewModels;
 
 public partial class LoginViewModel : ObservableObject
 {
 	private readonly IAuthService _auth;
+	private readonly IIrisApiClient _api;
 
-	public LoginViewModel(IAuthService auth)
+	public LoginViewModel(IAuthService auth, IIrisApiClient api)
 	{
 		_auth = auth;
+		_api = api;
 	}
 
-	[ObservableProperty] private string _username = "admin@iris.local";
+	[ObservableProperty] private string _username = string.Empty;
 	[ObservableProperty] private string _password = string.Empty;
-	[ObservableProperty] private bool _rememberMe = true;
+	[ObservableProperty] private bool _rememberMe;
 	[ObservableProperty] private bool _isPasswordHidden = true;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _errorMessage;
@@ -23,6 +27,7 @@ public partial class LoginViewModel : ObservableObject
 	partial void OnIsBusyChanged(bool value)
 	{
 		SignInCommand.NotifyCanExecuteChanged();
+		ForgotPasswordCommand.NotifyCanExecuteChanged();
 		UseSsoCommand.NotifyCanExecuteChanged();
 	}
 
@@ -40,7 +45,7 @@ public partial class LoginViewModel : ObservableObject
 
 		try
 		{
-			var result = await _auth.SignInAsync(Username, Password);
+			var result = await _auth.SignInAsync(Username, Password, RememberMe);
 			if (!result.Success)
 			{
 				ErrorMessage = result.Error;
@@ -61,12 +66,47 @@ public partial class LoginViewModel : ObservableObject
 
 	private bool CanSignIn() => !IsBusy;
 
-	[RelayCommand]
-	private async Task ForgotPasswordAsync() =>
-		await Shell.Current.DisplayAlert("Sign in",
-			"If your organization uses Microsoft 365, continue with single sign-on instead. Otherwise, use the " +
-			"invitation link an administrator sent you to set your password, or ask them to send a new one.",
-			"Got it");
+	[RelayCommand(CanExecute = nameof(CanSignIn))]
+	private async Task ForgotPasswordAsync()
+	{
+		var email = Username.Trim();
+		if (email.Length == 0)
+		{
+			ErrorMessage = "Enter your email first.";
+			return;
+		}
+
+		IsBusy = true;
+		ErrorMessage = null;
+
+		try
+		{
+			await _api.RequestPasswordResetAsync(new RequestPasswordResetRequest(email));
+			await Shell.Current.DisplayAlert("Password recovery",
+				"If the account exists, Iris has sent a password reset invitation.",
+				"OK");
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	public async Task<bool> TryResumeAsync()
+	{
+		var result = await _auth.TryResumeRememberedSessionAsync();
+		if (!result.Success)
+		{
+			return false;
+		}
+
+		await Shell.Current.GoToAsync("//dashboard");
+		return true;
+	}
 
 	/// <summary>Raised when the operator has an invitation link/token to redeem.</summary>
 	public event EventHandler? AcceptInvitationRequested;

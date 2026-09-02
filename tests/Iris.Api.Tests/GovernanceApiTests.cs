@@ -123,6 +123,25 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     }
 
     [Fact]
+    public async Task System_settings_show_sensitive_configuration_only_to_platform_admins()
+    {
+        var adminSettings = await Admin().GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        var readerSettings = await Reader().GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+
+        Assert.NotNull(adminSettings);
+        Assert.True(adminSettings!.CanManageSystem);
+        Assert.NotNull(adminSettings.Mail);
+        Assert.Contains(adminSettings.Integrations, i => i.Key == "openbao");
+        Assert.Contains(adminSettings.Integrations, i => i.Key == "ansible");
+
+        Assert.NotNull(readerSettings);
+        Assert.False(readerSettings!.CanManageSystem);
+        Assert.Null(readerSettings.Mail);
+        Assert.Contains(readerSettings.Integrations, i => i.Key == "openbao");
+        Assert.Contains(readerSettings.Integrations, i => i.Key == "ansible");
+    }
+
+    [Fact]
     public async Task Admin_can_pre_provision_a_user_and_assign_it_a_role()
     {
         var admin = Admin();
@@ -219,6 +238,42 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     }
 
     [Fact]
+    public async Task Admin_cannot_manage_their_own_user_account()
+    {
+        var admin = Admin();
+        var me = await admin.GetFromJsonAsync<MeDto>("/me");
+        var users = await admin.GetFromJsonAsync<List<UserDto>>("/governance/users");
+        var self = Assert.Single(users!, u => u.Id == me!.UserId);
+        var assignment = Assert.Single(self.Assignments, a => a.RoleKey == "platform-admin");
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await admin.PutAsJsonAsync($"/governance/users/{self.Id}", new
+            {
+                email = self.Email,
+                displayName = "Self Edited",
+                isActive = true
+            })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await admin.PostAsJsonAsync($"/governance/users/{self.Id}/assignments", new
+            {
+                roleKey = "reader",
+                scopeType = "Global",
+                customerId = (Guid?)null,
+                contextId = (Guid?)null
+            })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await admin.DeleteAsync($"/governance/users/{self.Id}/assignments/{assignment.AssignmentId}")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await admin.PostAsync($"/governance/users/{self.Id}/invitation", null)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await admin.DeleteAsync($"/governance/users/{self.Id}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Edit_locks_coordinate_two_operators()
     {
         var admin = Admin();
@@ -258,9 +313,22 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
 
     private sealed record EditedCustomerDto(Guid Id, string Key, string Name, bool IsActive);
 
-    private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<object> Assignments);
+    private sealed record MeDto(Guid UserId);
+
+    private sealed record UserDto(Guid Id, string Email, bool IsProvisioned, List<UserAssignmentDto> Assignments);
+
+    private sealed record UserAssignmentDto(Guid AssignmentId, string RoleKey);
 
     private sealed record EditedUserDto(Guid Id, string Email, string DisplayName, bool IsActive, List<object> Assignments);
 
     private sealed record AssignmentDto(Guid Id, Guid UserId, string RoleKey);
+
+    private sealed record SystemSettingsDto(
+        bool CanManageSystem,
+        MailSettingsDto? Mail,
+        List<IntegrationLinkDto> Integrations);
+
+    private sealed record MailSettingsDto(bool IsConfigured);
+
+    private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint);
 }

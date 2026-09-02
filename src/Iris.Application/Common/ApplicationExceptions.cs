@@ -7,5 +7,8 @@ public sealed class NotFoundException(string resource, object key)
 /// <summary>The request conflicts with the current state (duplicate key, existing assignment…). HTTP 409.</summary>
 public sealed class ConflictException(string message) : Exception(message);
 
+/// <summary>The caller is authenticated, but cannot perform this operation. HTTP 403.</summary>
+public sealed class ForbiddenException(string message) : Exception(message);
+
 /// <summary>The request is well-formed but semantically invalid. HTTP 400.</summary>
 public sealed class ValidationException(string message) : Exception(message);

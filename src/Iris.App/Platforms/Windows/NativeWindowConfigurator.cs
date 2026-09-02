@@ -28,6 +28,7 @@ internal sealed class NativeWindowConfigurator(WindowGeometryStore store) : INat
 		WhenNativeReady(window, (appWindow, _, _) =>
 		{
 			Safe(() => RestoreGeometry(appWindow, persistKey, IntPtr.Zero));
+			Safe(() => RestoreMaximizedState(appWindow, persistKey));
 			PersistGeometryContinuously(appWindow, persistKey);
 		});
 	}
@@ -99,6 +100,18 @@ internal sealed class NativeWindowConfigurator(WindowGeometryStore store) : INat
 	{
 		appWindow.Changed += (win, args) =>
 		{
+			if (TryGetCurrentDisplayRect(win, out var displayRect))
+			{
+				store.SetDisplay(key, displayRect);
+			}
+
+			var isMaximized = win.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+			store.SetMaximized(key, isMaximized);
+			if (isMaximized)
+			{
+				return;
+			}
+
 			if (!args.DidPositionChange && !args.DidSizeChange)
 			{
 				return;
@@ -109,39 +122,167 @@ internal sealed class NativeWindowConfigurator(WindowGeometryStore store) : INat
 		};
 	}
 
+	private void RestoreMaximizedState(AppWindow appWindow, string key)
+	{
+		if (store.IsMaximized(key) && appWindow.Presenter is OverlappedPresenter presenter)
+		{
+			MoveToStoredDisplay(appWindow, key);
+			presenter.Maximize();
+		}
+	}
+
+	private void MoveToStoredDisplay(AppWindow appWindow, string key)
+	{
+		var target = store.TryGetDisplay(key, out var savedDisplay)
+			? FindDisplay(savedDisplay)
+			: null;
+		var area = (target ?? PrimaryDisplay())?.WorkArea;
+		if (area is null)
+		{
+			return;
+		}
+
+		var size = appWindow.Size;
+		appWindow.MoveAndResize(CenteredRect(size.Width, size.Height, area.Value));
+	}
+
 	private void RestoreGeometry(AppWindow appWindow, string key, IntPtr centreOverOwner)
 	{
-		if (store.TryGet(key, out var rect) && IsOnAScreen(appWindow, rect))
+		if (store.TryGet(key, out var rect))
 		{
-			appWindow.MoveAndResize(new RectInt32(rect.X, rect.Y, rect.Width, rect.Height));
+			var area = BestVisibleArea(rect) ?? PrimaryDisplay()?.WorkArea;
+			if (area is not null)
+			{
+				appWindow.MoveAndResize(IsVisibleWithin(rect, area.Value)
+					? ClampToWorkArea(rect, area.Value)
+					: CenteredRect(rect.Width, rect.Height, area.Value));
+			}
+
 			return;
 		}
 
 		if (centreOverOwner != IntPtr.Zero && GetWindowRect(centreOverOwner, out var owner))
 		{
+			var ownerRect = new WindowRect(
+				owner.Left,
+				owner.Top,
+				owner.Right - owner.Left,
+				owner.Bottom - owner.Top);
+			var area = BestVisibleArea(ownerRect)?.WorkArea ?? PrimaryDisplay()?.WorkArea;
 			var size = appWindow.Size;
-			var x = owner.Left + (((owner.Right - owner.Left) - size.Width) / 2);
-			var y = owner.Top + (((owner.Bottom - owner.Top) - size.Height) / 2);
-			appWindow.Move(new PointInt32(Math.Max(owner.Left, x), Math.Max(owner.Top, y)));
+			var centered = new WindowRect(
+				owner.Left + (((owner.Right - owner.Left) - size.Width) / 2),
+				owner.Top + (((owner.Bottom - owner.Top) - size.Height) / 2),
+				size.Width,
+				size.Height);
+			var target = area is null
+				? new RectInt32(centered.X, centered.Y, centered.Width, centered.Height)
+				: ClampToWorkArea(centered, area.Value);
+			appWindow.MoveAndResize(target);
+			return;
+		}
+
+		var primary = PrimaryDisplay()?.WorkArea;
+		if (primary is not null)
+		{
+			var size = appWindow.Size;
+			appWindow.MoveAndResize(CenteredRect(size.Width, size.Height, primary.Value));
 		}
 	}
 
-	private static bool IsOnAScreen(AppWindow appWindow, WindowRect rect)
+	private static DisplayArea? BestVisibleArea(WindowRect rect)
 	{
 		try
 		{
-			var area = (DisplayArea.GetFromWindowId(appWindow.Id, DisplayAreaFallback.Nearest)
-				?? DisplayArea.Primary).OuterBounds;
-
-			var visibleX = rect.X + rect.Width - 80 > area.X && rect.X + 80 < area.X + area.Width;
-			var visibleY = rect.Y + 40 > area.Y && rect.Y + 40 < area.Y + area.Height;
-			return visibleX && visibleY;
+			return DisplayArea.FindAll()
+				.Where(area => IsVisibleWithin(rect, area.WorkArea))
+				.OrderByDescending(area => IntersectionArea(rect, area.WorkArea))
+				.FirstOrDefault();
 		}
 		catch (Exception)
 		{
-			return true;
+			return null;
 		}
 	}
+
+	private static DisplayArea? FindDisplay(WindowRect savedDisplay)
+	{
+		try
+		{
+			return DisplayArea.FindAll().FirstOrDefault(area => SameBounds(area.OuterBounds, savedDisplay));
+		}
+		catch (Exception)
+		{
+			return null;
+		}
+	}
+
+	private static bool TryGetCurrentDisplayRect(AppWindow appWindow, out WindowRect rect)
+	{
+		rect = default;
+		try
+		{
+			var bounds = (DisplayArea.GetFromWindowId(appWindow.Id, DisplayAreaFallback.Nearest)
+				?? DisplayArea.Primary).OuterBounds;
+			rect = ToWindowRect(bounds);
+			return true;
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+
+	private static bool IsVisibleWithin(WindowRect rect, RectInt32 area)
+	{
+		return IntersectionWidth(rect, area) >= Math.Min(160, rect.Width)
+			&& IntersectionHeight(rect, area) >= Math.Min(80, rect.Height);
+	}
+
+	private static RectInt32 ClampToWorkArea(WindowRect rect, RectInt32 area)
+	{
+		var width = Math.Min(rect.Width, area.Width);
+		var height = Math.Min(rect.Height, area.Height);
+		var x = Math.Clamp(rect.X, area.X, area.X + area.Width - width);
+		var y = Math.Clamp(rect.Y, area.Y, area.Y + area.Height - height);
+		return new RectInt32(x, y, width, height);
+	}
+
+	private static RectInt32 CenteredRect(int requestedWidth, int requestedHeight, RectInt32 area)
+	{
+		var width = Math.Min(requestedWidth, area.Width);
+		var height = Math.Min(requestedHeight, area.Height);
+		var x = area.X + Math.Max(0, (area.Width - width) / 2);
+		var y = area.Y + Math.Max(0, (area.Height - height) / 2);
+		return new RectInt32(x, y, width, height);
+	}
+
+	private static int IntersectionArea(WindowRect rect, RectInt32 area) =>
+		IntersectionWidth(rect, area) * IntersectionHeight(rect, area);
+
+	private static int IntersectionWidth(WindowRect rect, RectInt32 area) =>
+		Math.Max(0, Math.Min(rect.X + rect.Width, area.X + area.Width) - Math.Max(rect.X, area.X));
+
+	private static int IntersectionHeight(WindowRect rect, RectInt32 area) =>
+		Math.Max(0, Math.Min(rect.Y + rect.Height, area.Y + area.Height) - Math.Max(rect.Y, area.Y));
+
+	private static DisplayArea? PrimaryDisplay()
+	{
+		try
+		{
+			return DisplayArea.Primary;
+		}
+		catch (Exception)
+		{
+			return null;
+		}
+	}
+
+	private static bool SameBounds(RectInt32 area, WindowRect saved) =>
+		area.X == saved.X && area.Y == saved.Y && area.Width == saved.Width && area.Height == saved.Height;
+
+	private static WindowRect ToWindowRect(RectInt32 rect) =>
+		new(rect.X, rect.Y, rect.Width, rect.Height);
 
 	// ---- native plumbing --------------------------------------------------
 

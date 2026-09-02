@@ -25,6 +25,20 @@ public static class AuthEndpoints
             .WithSummary("Sign in with a local email and password; returns a bearer session token.")
             .AllowAnonymous();
 
+        auth.MapPost("/password/reset", async (
+                RequestPasswordResetRequest body,
+                RequestPasswordResetHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new RequestPasswordResetCommand(body.Email), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("RequestPasswordReset")
+            .WithSummary("Request a password reset invitation link for a local account.")
+            .AllowAnonymous();
+
         app.MapPost("/invitations/accept", async (
                 AcceptInvitationRequest body,
                 AcceptInvitationHandler handler,

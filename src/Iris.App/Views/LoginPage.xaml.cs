@@ -3,12 +3,14 @@ namespace Iris.App.Views;
 public partial class LoginPage : ContentPage
 {
 	private readonly IIrisApiClient _api;
+	private readonly LoginViewModel _vm;
 	private bool _checkedSetup;
+	private bool _checkedRememberedSession;
 
 	public LoginPage(LoginViewModel vm, IIrisApiClient api)
 	{
 		InitializeComponent();
-		BindingContext = vm;
+		BindingContext = _vm = vm;
 		_api = api;
 
 		vm.AcceptInvitationRequested += async (_, _) => await Shell.Current.GoToAsync("//accept-invitation");
@@ -45,8 +47,10 @@ public partial class LoginPage : ContentPage
 				if (status.NeedsSetup)
 				{
 					await Shell.Current.GoToAsync("//setup");
+					return;
 				}
 
+				await TryResumeRememberedSessionAsync();
 				return;
 			}
 			catch (Exception ex) when (ex is IrisApiException or HttpRequestException or TaskCanceledException)
@@ -62,5 +66,18 @@ public partial class LoginPage : ContentPage
 				await Task.Delay(SetupCheckRetryDelay);
 			}
 		}
+
+		await TryResumeRememberedSessionAsync();
+	}
+
+	private async Task TryResumeRememberedSessionAsync()
+	{
+		if (_checkedRememberedSession)
+		{
+			return;
+		}
+
+		_checkedRememberedSession = true;
+		await _vm.TryResumeAsync();
 	}
 }

@@ -62,6 +62,8 @@ app.MapHealthChecks("/health").WithName("GetHealth").AllowAnonymous();
 
 app.MapAccessEndpoints();
 app.MapAuthEndpoints();
+app.MapProfileEndpoints();
+app.MapSystemSettingsEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
 app.MapApplicationsEndpoints();

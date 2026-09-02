@@ -6,22 +6,23 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 
 1. ~~**Applications - catalogo + import configuration knowledge**~~ Fatto.
 2. ~~**ServerNode - capability, resource hints, porte note**~~ Fatto.
-3. ~~**Auth produzione + first-run setup + SMTP**~~ Fatto.
-4. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
+3. ~~**Auth produzione + first-run setup + SMTP + SSO admin claim**~~ Fatto.
+4. ~~**Profile / System settings / password recovery / remember me**~~ Fatto.
+5. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
    Version + Customer + Context + ServerNode target + binding placeholder + stato. Usare FK
    reali verso `Customer`/`CustomerContext`/`ServerNode`/`ApplicationVersion`; non duplicare
    quei concetti.
-5. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
+6. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
    come handler `ValidateDeployment`, producendo una lista tipata di check con severità.
    Regole iniziali: placeholder non risolto, dipendenza non legata, OS incompatibile,
    capability mancante, collisione porte, capacità insufficiente.
-6. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
+7. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
    OpenBao plan: tutti mock), stato (Draft/Prepared/Pending/Running/Completed/Failed),
    endpoint preview/prepare, storico azioni.
-7. **Pagina client Applications**: nuova sezione flyout + lista + dettaglio versione/import,
+8. **Pagina client Applications**: nuova sezione flyout + lista + dettaglio versione/import,
    stesso pattern di `UsersPage`/`ServersPage`, dopo aver deciso quanto del workflow
    backend-first deve essere esposto subito.
-8. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
+9. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
@@ -63,3 +64,24 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 - Serilog configurato; rimosso file segreto accidentale e rafforzato `.gitignore`.
 - Suite corrente verificata in questa sessione: `dotnet test Iris.sln -c Release`, 135/135
   test verdi.
+
+### 2026-09-02 - bootstrap SSO controllato
+
+- Aggiunto `POST /setup/claim-admin`: richiede autenticazione, allow-list
+  `Iris:Setup:AdminClaimEmails` e nessun platform-admin gia' assegnato.
+- Il client MAUI, dopo SSO riuscito, chiama automaticamente il claim se `/setup/status`
+  indica che il setup serve ancora; questo sblocca il primo accesso SSO senza seed
+  automatici e senza dover configurare subito SMTP.
+- Suite corrente verificata in questa sessione: `dotnet test Iris.sln -c Release`, 139/139
+  test verdi.
+
+### 2026-09-02 - profilo, impostazioni sistema, recovery, remember me
+
+- Flyout: `Profile` e `Sign out` sotto l'identita' utente; footer spostato su
+  `System settings`.
+- `ProfilePage`: dati utente, cambio password, permessi effettivi, access history.
+- `SystemSettingsPage`: tema locale `System`/`Light`/`Dark` per tutti; SMTP e integrazioni
+  OpenBao/Ansible visibili lato API solo con `platform.admin` per la parte sensibile SMTP.
+- Login: recupero password anonimo/non-enumerante e `Remember me` per sessione locale.
+- Suite corrente verificata in questa sessione: `dotnet test Iris.sln`, 145/145 test
+  verdi; `dotnet build Iris.App.sln` verde.

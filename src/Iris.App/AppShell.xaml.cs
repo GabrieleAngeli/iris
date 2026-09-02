@@ -4,10 +4,13 @@ namespace Iris.App;
 
 public partial class AppShell : Shell
 {
-	public AppShell(AppShellViewModel vm)
+	private readonly IAuthService _auth;
+
+	public AppShell(AppShellViewModel vm, IAuthService auth)
 	{
 		InitializeComponent();
 		BindingContext = vm;
+		_auth = auth;
 
 		// Detail routes reachable via GoToAsync.
 		Routing.RegisterRoute("activitydetail", typeof(Views.ActivityDetailPage));
@@ -23,6 +26,7 @@ public partial class AppShell : Shell
 			return;
 
 		FlyoutIsPresented = false;
+		_auth.SignOut();
 		await GoToAsync("//login");
 	}
 }

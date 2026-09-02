@@ -49,13 +49,17 @@
                                         <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                                             <HorizontalStackLayout Spacing="8">
                                                 <Label Text="{Binding DisplayName}" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding IsCurrentUser}">
+                                                    <Label Text="You" Style="{StaticResource Caption}" />
+                                                </Border>
                                                 <Border Style="{StaticResource Badge}" IsVisible="{Binding IsProvisioned, Converter={StaticResource InvertBoolConverter}}">
                                                     <Label Text="Pending" Style="{StaticResource Caption}" />
                                                 </Border>
                                             </HorizontalStackLayout>
                                             <Label Text="{Binding Email}" Style="{StaticResource Caption}" />
                                         </VerticalStackLayout>
-                                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center"
+                                                               IsVisible="{Binding CanAdminister}">
                                             <Button Text="&#xE70F;" Style="{StaticResource IconButton}"
                                                     Command="{Binding OpenEditCommand}"
                                                     ToolTipProperties.Text="Edit / delete user" />
@@ -78,7 +82,8 @@
                                                         <Label Text="{Binding ScopeDescription}" Style="{StaticResource Caption}" />
                                                     </VerticalStackLayout>
                                                     <Button Grid.Column="1" Text="Revoke" Style="{StaticResource LinkButton}"
-                                                            Command="{Binding Owner.RevokeCommand}" CommandParameter="{Binding .}" />
+                                                            Command="{Binding Owner.RevokeCommand}" CommandParameter="{Binding .}"
+                                                            IsVisible="{Binding Owner.CanAdminister}" />
                                                 </Grid>
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>

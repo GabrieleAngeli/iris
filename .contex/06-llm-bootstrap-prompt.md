@@ -3,7 +3,7 @@
 Usare questo prompt all'inizio di una nuova sessione o dopo compattazione del contesto.
 
 ```text
-Stai lavorando nel repository D:\Repos\gabriele-angeli\iris, branch feature/applications-catalog.
+Stai lavorando nel repository D:\Repos\gabriele-angeli\iris, branch feature/deployments-validation.
 
 Prima di agire leggi la cartella .contex in ordine:
 1. .contex/00-current-state.md
@@ -38,8 +38,9 @@ Stato:
 Access/AAA, Governance (utenti/clienti/inviti/edit-lock/password), Infrastructure
 (server+credenziali+capability/risorse/porte), Applications backend-first (catalogo,
 versioni, import configuration knowledge), auth produzione con sessioni locali, first-run
-setup wizard, SMTP, Serilog e security scanning minimo sono costruiti e verificati con
-test backend verdi. Deployments, Validation Engine e Actions non esistono ancora:
+setup wizard, bootstrap SSO controllato via `/setup/claim-admin`, SMTP, Serilog e security
+scanning minimo sono costruiti e verificati con test backend verdi. Deployments,
+Validation Engine e Actions non esistono ancora:
 prossimo lavoro pianificato in .contex/05-next-actions.md, con F:\Work\Iris_v2 come
 riferimento concettuale di dominio (non di codice: mai buildato con successo, non in git).
 

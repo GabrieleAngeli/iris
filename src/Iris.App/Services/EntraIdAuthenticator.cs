@@ -30,7 +30,7 @@ public sealed class EntraIdAuthenticator(
 		if (!options.IsConfigured)
 		{
 			return new EntraIdSignInResult(false, null,
-				"Microsoft 365 sign-in isn't configured yet. Set TenantId/ClientId/ApiScope in EntraIdOptions " +
+				"Microsoft 365 sign-in isn't configured yet. Set TenantId/ClientId/ApiScope in appsettings.Development.json " +
 				"— see docs/entra-id-setup.md.");
 		}
 
@@ -50,10 +50,12 @@ public sealed class EntraIdAuthenticator(
 			}
 			catch (MsalUiRequiredException)
 			{
-				result = await pca.AcquireTokenInteractive(Scopes)
-					.WithParentActivityOrWindow(windowHandleProvider.GetHandle())
-					.ExecuteAsync(cancellationToken)
-					.ConfigureAwait(false);
+				result = await AcquireTokenInteractiveAsync(cancellationToken).ConfigureAwait(false);
+			}
+			catch (MsalServiceException ex) when (IsConflictingIdentity(ex))
+			{
+				await SignOutAsync().ConfigureAwait(false);
+				result = await AcquireTokenInteractiveAsync(cancellationToken).ConfigureAwait(false);
 			}
 
 			return new EntraIdSignInResult(true, result.AccessToken, null);
@@ -63,6 +65,15 @@ public sealed class EntraIdAuthenticator(
 			return new EntraIdSignInResult(false, null, ex.Message);
 		}
 	}
+
+	private Task<AuthenticationResult> AcquireTokenInteractiveAsync(CancellationToken cancellationToken) =>
+		pca.AcquireTokenInteractive(Scopes)
+			.WithParentActivityOrWindow(windowHandleProvider.GetHandle())
+			.WithPrompt(Prompt.SelectAccount)
+			.ExecuteAsync(cancellationToken);
+
+	private static bool IsConflictingIdentity(MsalServiceException ex) =>
+		ex.Message.Contains("AADSTS50197", StringComparison.OrdinalIgnoreCase);
 
 	public async Task SignOutAsync()
 	{

@@ -12,6 +12,7 @@ public sealed class UpdateUserHandler(
     IUserRepository users,
     IRoleAssignmentRepository assignments,
     IRoleRepository roles,
+    ICurrentUser currentUser,
     IUnitOfWork unitOfWork)
 {
     public async Task<UserResponse> HandleAsync(UpdateUserCommand command, CancellationToken cancellationToken = default)
@@ -33,6 +34,8 @@ public sealed class UpdateUserHandler(
 
         var user = await users.GetAsync(command.Id, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("User", command.Id);
+
+        SelfGovernanceGuard.ThrowIfCurrentUser(user, currentUser);
 
         if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
         {

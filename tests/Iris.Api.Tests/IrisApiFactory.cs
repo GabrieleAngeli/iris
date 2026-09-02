@@ -14,8 +14,20 @@ namespace Iris.Api.Tests;
 /// </summary>
 public sealed class IrisApiFactory : WebApplicationFactory<Program>
 {
+    private readonly bool _seedDemoData;
+
     private readonly string _databasePath =
         Path.Combine(Path.GetTempPath(), $"iris-apitest-{Guid.NewGuid():N}.db");
+
+    public IrisApiFactory()
+        : this(seedDemoData: true)
+    {
+    }
+
+    internal IrisApiFactory(bool seedDemoData)
+    {
+        _seedDemoData = seedDemoData;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -26,6 +38,7 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:IrisDb", $"Data Source={_databasePath}");
         builder.UseSetting("Iris:Database:Provider", "Sqlite");
         builder.UseSetting("Iris:Database:MigrateOnStartup", "true");
+        builder.UseSetting("Iris:Database:SeedDemoData", _seedDemoData ? "true" : "false");
         builder.UseSetting("Iris:Auth:Mode", "Dev");
 
         builder.ConfigureAppConfiguration((_, config) =>
@@ -35,6 +48,7 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:IrisDb"] = $"Data Source={_databasePath}",
                 ["Iris:Database:Provider"] = "Sqlite",
                 ["Iris:Database:MigrateOnStartup"] = "true",
+                ["Iris:Database:SeedDemoData"] = _seedDemoData ? "true" : "false",
                 ["Iris:Auth:Mode"] = "Dev",
                 ["Iris:Auth:DevHeaderName"] = "X-Dev-User",
                 ["Iris:Auth:AllowAnyEmail"] = "false",

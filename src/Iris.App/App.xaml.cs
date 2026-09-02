@@ -5,9 +5,13 @@ namespace Iris.App;
 
 public partial class App : Application
 {
-	public App()
+	private readonly IAppPreferenceService _preferences;
+
+	public App(IAppPreferenceService preferences)
 	{
+		_preferences = preferences;
 		InitializeComponent();
+		_preferences.ApplyTheme();
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)

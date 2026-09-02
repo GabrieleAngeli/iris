@@ -33,6 +33,14 @@ public sealed class AccessApiTests(IrisApiFactory factory) : IClassFixture<IrisA
     }
 
     [Fact]
+    public async Task Profile_requires_authentication()
+    {
+        var response = await CreateClient().GetAsync("/profile");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Me_as_platform_admin_reports_full_permission_catalog()
     {
         var payload = await CreateClient("admin@iris.local").GetFromJsonAsync<MeDto>("/me");
@@ -41,6 +49,19 @@ public sealed class AccessApiTests(IrisApiFactory factory) : IClassFixture<IrisA
         Assert.Equal("admin@iris.local", payload!.Email);
         Assert.Contains("platform.admin", payload.EffectivePermissions);
         Assert.Contains("governance.roles.manage", payload.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task Profile_reports_current_user_permissions_and_access_history()
+    {
+        var profile = await CreateClient("admin@iris.local").GetFromJsonAsync<ProfileDto>("/profile");
+
+        Assert.NotNull(profile);
+        Assert.Equal("admin@iris.local", profile!.Me.Email);
+        Assert.Contains("platform.admin", profile.Me.EffectivePermissions);
+        var history = Assert.Single(profile.AccessHistory);
+        Assert.True(history.IsCurrent);
+        Assert.NotEmpty(history.Method);
     }
 
     [Fact]
@@ -64,6 +85,10 @@ public sealed class AccessApiTests(IrisApiFactory factory) : IClassFixture<IrisA
     }
 
     private sealed record MeDto(string Email, List<string> EffectivePermissions);
+
+    private sealed record ProfileDto(MeDto Me, List<AccessHistoryDto> AccessHistory);
+
+    private sealed record AccessHistoryDto(DateTimeOffset SignedInAtUtc, DateTimeOffset ExpiresAtUtc, string Method, bool IsCurrent);
 
     private sealed record CustomerDto(string Key, string Name);
 }

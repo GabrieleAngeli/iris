@@ -5,6 +5,7 @@ using System.Text.Json;
 using Iris.Contracts.Access;
 using Iris.Contracts.Governance;
 using Iris.Contracts.Infrastructure;
+using Iris.Contracts.Settings;
 using Iris.Contracts.Setup;
 using Iris.Contracts.Tenancy;
 
@@ -33,14 +34,20 @@ public interface IIrisApiClient
 
 	Task<MeResponse?> GetMeAsync(CancellationToken cancellationToken = default);
 
+	Task<MyProfileResponse> GetProfileAsync(CancellationToken cancellationToken = default);
+
 	/// <summary>Whether the first-run setup wizard (mail provider + super-admin) still needs to run. Anonymous.</summary>
 	Task<SetupStatusResponse> GetSetupStatusAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>Configures the mail relay and creates the first super-admin. Anonymous, usable only once.</summary>
 	Task<CompleteSetupResponse> CompleteSetupAsync(CompleteSetupRequest request, CancellationToken cancellationToken = default);
 
+	Task<ClaimSetupAdminResponse> ClaimSetupAdminAsync(CancellationToken cancellationToken = default);
+
 	/// <summary>Signs in with a local email and password; returns a bearer session token. Anonymous — no prior auth needed.</summary>
 	Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
+
+	Task<RequestPasswordResetResponse> RequestPasswordResetAsync(RequestPasswordResetRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>Sets or changes the caller's local (non-SSO) password. <c>currentPassword</c> is required only for a change.</summary>
 	Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default);
@@ -96,6 +103,8 @@ public interface IIrisApiClient
 	/// <summary>Every registered server and the credentials it holds. Requires <c>infrastructure.read</c> at Global scope.</summary>
 	Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default);
 
+	Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a server. Requires <c>infrastructure.write</c>.</summary>
 	Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default);
 
@@ -144,11 +153,20 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<SetupStatusResponse> GetSetupStatusAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<SetupStatusResponse>(HttpMethod.Get, "/setup/status", cancellationToken);
 
+	public Task<MyProfileResponse> GetProfileAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<MyProfileResponse>(HttpMethod.Get, "/profile", cancellationToken);
+
 	public Task<CompleteSetupResponse> CompleteSetupAsync(CompleteSetupRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CompleteSetupResponse>("/setup/complete", request, cancellationToken);
 
+	public Task<ClaimSetupAdminResponse> ClaimSetupAdminAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ClaimSetupAdminResponse>(HttpMethod.Post, "/setup/claim-admin", cancellationToken);
+
 	public Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<LoginResponse>("/auth/login", request, cancellationToken);
+
+	public Task<RequestPasswordResetResponse> RequestPasswordResetAsync(RequestPasswordResetRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<RequestPasswordResetResponse>("/auth/password/reset", request, cancellationToken);
 
 	public Task SetPasswordAsync(SetPasswordRequest request, CancellationToken cancellationToken = default) =>
 		SendNoResultAsync(HttpMethod.Post, "/auth/password", request, cancellationToken);
@@ -206,6 +224,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<ServerResponse>("/servers", cancellationToken);
+
+	public Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<SystemSettingsResponse>(HttpMethod.Get, "/system/settings", cancellationToken);
 
 	public Task<ServerResponse> CreateServerAsync(CreateServerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ServerResponse>("/servers", request, cancellationToken);

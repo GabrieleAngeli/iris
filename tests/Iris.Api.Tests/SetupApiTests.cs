@@ -62,9 +62,8 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
         // user exists, so this must be its own IrisApiFactory, not a variant sharing the class
         // fixture's already-seeded one. `empty` owns disposal (deletes its temp db);
         // `emptyConfigured` is the WithWebHostBuilder variant used to create clients.
-        using var empty = new IrisApiFactory();
-        WebApplicationFactory<Program> emptyConfigured =
-            empty.WithWebHostBuilder(b => b.UseSetting("Iris:Database:SeedDemoData", "false"));
+        using var empty = new IrisApiFactory(seedDemoData: false);
+        WebApplicationFactory<Program> emptyConfigured = empty.WithWebHostBuilder(_ => { });
         var anon = emptyConfigured.CreateClient();
 
         var before = await anon.GetFromJsonAsync<StatusDto>("/setup/status");
@@ -119,9 +118,59 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
         Assert.Equal(HttpStatusCode.Conflict, replay.StatusCode);
     }
 
+    [Fact]
+    public async Task Allow_listed_authenticated_user_can_claim_the_first_platform_admin_role()
+    {
+        using var empty = new IrisApiFactory(seedDemoData: false);
+        WebApplicationFactory<Program> emptyConfigured =
+            empty.WithWebHostBuilder(b =>
+            {
+                b.UseSetting("Iris:Setup:AdminClaimEmails:0", "admin@iris.local");
+            });
+
+        var client = emptyConfigured.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Dev-User", "admin@iris.local");
+
+        var before = await emptyConfigured.CreateClient().GetFromJsonAsync<StatusDto>("/setup/status");
+        Assert.True(before!.NeedsSetup);
+
+        var claim = await client.PostAsync("/setup/claim-admin", content: null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+        var result = await claim.Content.ReadFromJsonAsync<ClaimSetupAdminDto>();
+        Assert.Equal("admin@iris.local", result!.Email);
+
+        var me = await client.GetFromJsonAsync<MeDto>("/me");
+        Assert.Contains("platform.admin", me!.EffectivePermissions);
+
+        var after = await emptyConfigured.CreateClient().GetFromJsonAsync<StatusDto>("/setup/status");
+        Assert.False(after!.NeedsSetup);
+    }
+
+    [Fact]
+    public async Task Authenticated_user_outside_the_claim_allow_list_cannot_claim_setup_admin()
+    {
+        using var empty = new IrisApiFactory(seedDemoData: false);
+        WebApplicationFactory<Program> emptyConfigured =
+            empty.WithWebHostBuilder(b =>
+            {
+                b.UseSetting("Iris:Setup:AdminClaimEmails:0", "admin@iris.local");
+            });
+
+        var client = emptyConfigured.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Dev-User", "gio@globex.example");
+
+        var claim = await client.PostAsync("/setup/claim-admin", content: null);
+        Assert.Equal(HttpStatusCode.Forbidden, claim.StatusCode);
+
+        var status = await emptyConfigured.CreateClient().GetFromJsonAsync<StatusDto>("/setup/status");
+        Assert.True(status!.NeedsSetup);
+    }
+
     private sealed record StatusDto(bool NeedsSetup);
 
     private sealed record CompleteSetupDto(Guid UserId, string Email, string Token, DateTimeOffset ExpiresAtUtc);
 
-    private sealed record MeDto(Guid UserId, string Email);
+    private sealed record ClaimSetupAdminDto(Guid UserId, string Email, string DisplayName);
+
+    private sealed record MeDto(Guid UserId, string Email, IReadOnlyList<string> EffectivePermissions);
 }

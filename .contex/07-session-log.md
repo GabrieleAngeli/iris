@@ -167,3 +167,104 @@ prodotto.
 **Prossimo step**: modellare `DeploymentAssociation` con FK reali a
 `ApplicationDefinition`/`ApplicationVersion`, `Customer`/`CustomerContext` e `ServerNode`,
 poi aggiungere `ValidateDeployment` usando configuration knowledge e server capacity.
+
+---
+
+## 2026-09-02 — bootstrap SSO controllato / claim primo admin
+
+**Classificazione**: feature di sicurezza/setup (bootstrap produzione senza seed nascosto).
+
+**Cosa è successo**: aggiunto un meccanismo controllato per partire con SSO su database
+vuoto: `POST /setup/claim-admin` richiede un'identita' gia' autenticata, verifica che
+l'email sia presente in `Iris:Setup:AdminClaimEmails`, ricontrolla che non esista ancora
+alcun assignment al ruolo `platform-admin`, provisiona JIT l'utente corrente e assegna il
+ruolo di primo amministratore. Il client MAUI ora, dopo un SSO riuscito, interroga
+`/setup/status` e invoca automaticamente il claim quando l'istanza necessita ancora setup.
+
+**Decisione di prodotto**: il claim concede solo il ruolo admin e non configura SMTP. Il
+wizard tradizionale `/setup/complete` resta il flusso completo mail + primo admin; il claim
+serve per testare/attivare SSO in modo esplicito senza reintrodurre seed automatici.
+
+**Documentazione**: aggiornato `docs/entra-id-setup.md` con la variabile
+`Iris__Setup__AdminClaimEmails__0` e il comportamento atteso al primo login SSO. Il client
+MAUI ora legge `src/Iris.App/appsettings.Development.json`, copiato nell'output di build,
+per `IrisApi:BaseUrl` e `EntraId:{TenantId,ClientId,ApiScope}`.
+
+**Verificato**: `dotnet build Iris.sln -c Release --no-restore` e
+`dotnet test Iris.sln -c Release --no-build` verdi — 139/139 test. Il client MAUI compila
+con `dotnet build src\Iris.App\Iris.App.csproj -c Debug --no-restore` usando `OutDir`
+separato; l'output standard era bloccato da un processo `Iris.App` gia' in esecuzione.
+
+**Rischi residui / cosa resta aperto**: manca ancora una UI dedicata alla configurazione
+SMTP post-claim; finche' non c'e', gli inviti ricadono sul notifier/logging se SMTP non e'
+stato configurato.
+
+**Prossimo step**: tornare al piano Deployments/Validation, usando questo bootstrap SSO
+come base per i test su installazione pulita.
+
+---
+
+## 2026-09-02 — persistenza stato maximized finestra MAUI
+
+**Classificazione**: fix UX client Windows.
+
+**Cosa è successo**: `WindowGeometryStore` salvava solo posizione e dimensione, quindi una
+finestra principale chiusa in maximized veniva riaperta con l'ultimo rettangolo salvato.
+Ora salva anche il flag `window.maximized.<key>` e i bounds del display
+`window.display.<key>`; `NativeWindowConfigurator` ripristina la geometria normale, sposta
+la finestra sul display salvato se ancora presente e poi massimizza, evitando di
+sovrascrivere il rettangolo normale con le dimensioni fullscreen mentre la finestra e'
+maximized.
+
+**Verificato**: `dotnet build src\Iris.App\Iris.App.csproj -c Debug --no-restore` verde
+con `OutDir` separato.
+
+---
+
+## 2026-09-02 — Governance users: tile read-only per l'utente corrente
+
+**Classificazione**: fix UX + guardrail autorizzativo.
+
+**Cosa è successo**: nella pagina Users il chiamante viene ordinato sempre per primo,
+marcato con badge `You` e reso una tile di sola visualizzazione: niente edit, assign,
+revoke, delete o invitation dalla UI. Lato Application/API e' stato aggiunto
+`SelfGovernanceGuard`, cosi' anche chiamate dirette agli endpoint Governance ricevono 403
+quando tentano update/delete/assign/revoke/invite sul proprio `User`.
+
+**Verificato**: Governance application/API test verdi; `dotnet test Iris.sln -c Release
+--no-build` verde — 141/141 test. Client MAUI compilato con `OutDir` separato.
+
+---
+
+## 2026-09-02 - Profilo, system settings, password recovery, remember me
+
+**Classificazione**: feature UX/auth client + nuovi endpoint API.
+
+**Cosa e' successo**: il flyout MAUI ora mostra `Profile` e `Sign out` sotto nome/email
+dell'utente corrente; il footer non contiene piu' il sign-out e punta a `System settings`.
+Creata `ProfilePage` con dati utente, cambio password locale, permessi effettivi e access
+history; creata `SystemSettingsPage` con scelta theme `System`/`Light`/`Dark` per tutti e
+visibilita' SMTP/integrations lato superadmin.
+
+**Backend/API**: aggiunti `GET /profile`, `GET /system/settings` e
+`POST /auth/password/reset`. Il reset password e' anonimo e non-enumerante: risponde
+sempre `Sent=true`, ma per un utente attivo emette un token one-time tramite il repository
+inviti e invia il link con il notifier esistente. `GetMyProfileHandler` legge le sessioni
+Iris locali; se il chiamante arriva da SSO/dev header e non c'e' una sessione locale,
+mostra una riga sintetica per la sessione autenticata corrente.
+
+**Client**: `LoginPage` ora espone `Forgot password?` e `Remember me`. Le sessioni locali
+ricordate usano SecureStorage con fallback Preferences; lo SSO resta affidato a MSAL/WAM.
+La preferenza tema viene applicata all'avvio tramite `AppPreferenceService`.
+
+**Bug intercettato e corretto**: SQLite non supporta bene l'ordinamento EF diretto su
+`DateTimeOffset`; `UserSessionRepository.GetForUserAsync` ora filtra a DB e ordina in
+memoria, sufficiente per la history utente e compatibile con i test SQLite.
+
+**Verificato**: `dotnet test Iris.sln` verde - 145/145 test; `dotnet build Iris.App.sln`
+verde - 0 warning/0 errori.
+
+**Rischi residui / cosa resta aperto**: System settings mostra lo stato SMTP e i link
+OpenBao/Ansible, ma non salva ancora modifiche post-setup ne' testa connessioni verso
+OpenBao/Ansible; le integrazioni restano dichiarative finche' non arriva il modulo
+Actions/Deployments.

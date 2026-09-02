@@ -9,10 +9,12 @@ namespace Iris.App.ViewModels;
 public partial class UsersViewModel : ObservableObject
 {
 	private readonly IIrisApiClient _api;
+	private readonly IAuthService _auth;
 
-	public UsersViewModel(IIrisApiClient api)
+	public UsersViewModel(IIrisApiClient api, IAuthService auth)
 	{
 		_api = api;
+		_auth = auth;
 	}
 
 	public ObservableCollection<UserRowViewModel> Users { get; } = [];
@@ -51,11 +53,15 @@ public partial class UsersViewModel : ObservableObject
 			var users = await _api.GetUsersAsync();
 			_roles = await _api.GetRolesAsync();
 			_customers = await _api.GetCustomersAsync();
+			var currentUserId = _auth.Me?.UserId;
 
 			Users.Clear();
-			foreach (var user in users)
+			foreach (var user in users
+				.OrderByDescending(u => u.Id == currentUserId)
+				.ThenBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
+				.ThenBy(u => u.Email, StringComparer.OrdinalIgnoreCase))
 			{
-				Users.Add(new UserRowViewModel(user, _roles, _customers, _api, this));
+				Users.Add(new UserRowViewModel(user, _roles, _customers, _api, this, user.Id == currentUserId));
 			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -151,8 +157,9 @@ public partial class UsersViewModel : ObservableObject
 		{
 			var created = await _api.CreateUserAsync(new CreateUserRequest(email, displayName));
 
-			var row = new UserRowViewModel(created, _roles, _customers, _api, this);
-			Users.Insert(0, row);
+			var row = new UserRowViewModel(created, _roles, _customers, _api, this, isCurrentUser: false);
+			var insertIndex = Users.Any(u => u.IsCurrentUser) ? 1 : 0;
+			Users.Insert(insertIndex, row);
 
 			NewUserCompleted?.Invoke(this, EventArgs.Empty);
 
@@ -184,12 +191,14 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 		IReadOnlyList<RoleResponse> roles,
 		IReadOnlyList<CustomerSummaryResponse> customers,
 		IIrisApiClient api,
-		UsersViewModel parent)
+		UsersViewModel parent,
+		bool isCurrentUser)
 	{
 		_userId = user.Id;
 		_api = api;
 		_parent = parent;
 		IsProvisioned = user.IsProvisioned;
+		IsCurrentUser = isCurrentUser;
 		Roles = roles;
 		Customers = customers;
 		// this is only valid once the object exists, so this can't be a field initializer.
@@ -204,6 +213,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 
 	/// <summary>False for a user an admin created ahead of their first sign-in.</summary>
 	public bool IsProvisioned { get; }
+
+	/// <summary>The signed-in operator: visible in Governance, never self-administered from here.</summary>
+	public bool IsCurrentUser { get; }
+
+	public bool CanAdminister => !IsCurrentUser;
 
 	private void ApplyFrom(UserResponse user)
 	{
@@ -253,7 +267,15 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	}
 
 	[RelayCommand]
-	private void OpenAssign() => _parent.OpenAssignPanel(this);
+	private void OpenAssign()
+	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
+		_parent.OpenAssignPanel(this);
+	}
 
 	// ----- Edit / delete -----
 
@@ -286,7 +308,7 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	string IConfirmDeletable.DeleteTargetName => DisplayName;
 
 	/// <summary>Delete is armed only once the operator has typed the display name exactly.</summary>
-	public bool CanDelete => string.Equals(DeleteConfirmName.Trim(), DisplayName, StringComparison.Ordinal);
+	public bool CanDelete => CanAdminister && string.Equals(DeleteConfirmName.Trim(), DisplayName, StringComparison.Ordinal);
 
 	partial void OnEditErrorChanged(string? value) => OnPropertyChanged(nameof(HasEditError));
 
@@ -314,6 +336,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private async Task OpenEditAsync()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		EditLockNotice = null;
 		EditError = null;
 
@@ -419,6 +446,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private void RequestInvite()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		InviteError = null;
 		InvitationLink = null;
 		InvitationExpiresAt = null;
@@ -461,6 +493,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private void RequestDelete()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		DeleteConfirmName = string.Empty;
 		EditError = null;
 		DeleteRequested?.Invoke(this, EventArgs.Empty);
@@ -471,6 +508,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private void RequestAssignFromEdit()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		AssignRequested?.Invoke(this, EventArgs.Empty);
 		_parent.RaiseAssignFromEdit(this);
 	}
@@ -478,6 +520,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private async Task SaveEditAsync()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		var displayName = EditDisplayName.Trim();
 		var email = EditEmail.Trim();
 		if (displayName.Length == 0 || email.Length == 0)
@@ -508,6 +555,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand(CanExecute = nameof(CanDelete))]
 	private async Task DeleteAsync()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		IsEditBusy = true;
 		EditError = null;
 
@@ -530,6 +582,11 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private async Task AssignAsync()
 	{
+		if (IsCurrentUser)
+		{
+			return;
+		}
+
 		if (SelectedRole is null)
 		{
 			AssignError = "Choose a role.";
@@ -589,7 +646,7 @@ public sealed partial class UserRowViewModel : ObservableObject, IConfirmDeletab
 	[RelayCommand]
 	private async Task RevokeAsync(AssignmentRowViewModel? assignment)
 	{
-		if (assignment is null)
+		if (IsCurrentUser || assignment is null)
 		{
 			return;
 		}

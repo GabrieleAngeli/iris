@@ -29,6 +29,13 @@ Vincolanti finché non cambiate con un aggiornamento esplicito di questo file.
 - Endpoint minimal-API senza `customerId`/`contextId` in route sono valutati a scope
   Global da `PermissionAuthorizationHandler`; `/me` non scopato risponde alla domanda
   "quali sezioni vede questo utente nel client".
+- Nessun operatore puo' auto-governare il proprio account Iris dalla pagina/endpoint
+  Governance: update/delete/assign/revoke/invite sul proprio `User` sono sempre 403. Il
+  client deve mostrare l'utente corrente in cima alla lista come tile read-only.
+- Le modifiche consentite sul proprio account vivono in `Profile`, non in Governance:
+  cambio password locale via `/auth/password`, lettura permessi effettivi e history
+  accessi via `/profile`. La vista profilo non concede assegnazione/revoca ruoli o
+  disattivazione del proprio utente.
 
 ## Segreti
 
@@ -45,6 +52,10 @@ Vincolanti finché non cambiate con un aggiornamento esplicito di questo file.
 - In produzione il database nasce vuoto dopo le migrazioni; `SeedDemoData` resta attivo
   solo per sviluppo/demo. Non introdurre seed automatici di super-admin fuori dal flusso
   setup.
+- Il bootstrap SSO controllato vive in `/setup/claim-admin`: richiede un utente gia'
+  autenticato, una allow-list esplicita `Iris:Setup:AdminClaimEmails`, e nessun assignment
+  esistente al ruolo `platform-admin`. E' one-shot e concede solo il ruolo: non configura
+  SMTP e non crea seed automatici.
 - I token di sessione Iris sono opachi, non JWT, e sono persistiti solo come hash. La
   selezione dello schema auth resta in `AuthenticationSetup`: dev header se presente, JWT
   Entra ID se il bearer token ha forma JWT, altrimenti sessione Iris.
@@ -69,6 +80,12 @@ Vincolanti finché non cambiate con un aggiornamento esplicito di questo file.
   restano in `Shell.FlyoutContentTemplate` fatto a mano.
 - Una nuova sezione di navigazione è gated da un `CanManageX` su `AppShellViewModel`,
   calcolato da `IAuthService.Me.EffectivePermissions` e ricalcolato su `StateChanged`.
+- `System settings` e' una destinazione visibile a tutti per preferenze locali
+  (`System`/`Light`/`Dark`); dati sensibili come SMTP sono inclusi solo se il chiamante ha
+  `platform.admin`.
+- `Remember me` vale per login locale Iris e persiste il bearer token opaco in
+  SecureStorage con fallback Preferences; l'SSO resta affidato alla cache MSAL/WAM e al
+  relativo sign-out provider.
 
 ## Scelte già prese per i prossimi moduli
 

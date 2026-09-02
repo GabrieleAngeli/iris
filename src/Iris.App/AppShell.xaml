@@ -31,7 +31,7 @@
             </Grid>
 
             <!-- ===================== Account ===================== -->
-            <Grid Padding="20,14" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+            <Grid Padding="20,14" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8"
                   BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}">
                 <Border WidthRequest="36" HeightRequest="36" StrokeThickness="0"
                         BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}"
@@ -46,6 +46,11 @@
                     <Label Text="{Binding Email}" FontSize="11" LineBreakMode="TailTruncation"
                            TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="12">
+                    <Button Text="Profile" Style="{StaticResource LinkButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="//profile" />
+                    <Button Text="Sign out" Style="{StaticResource LinkButton}" Clicked="OnSignOutClicked" />
+                </HorizontalStackLayout>
             </Grid>
 
         </VerticalStackLayout>
@@ -132,8 +137,9 @@
 
     <Shell.FlyoutFooter>
         <Grid>
-            <Label Text="Sign out" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
-            <Button Text="Sign out" Style="{StaticResource FlyoutRowButtonStyle}" Clicked="OnSignOutClicked" />
+            <Label Text="System settings" Style="{StaticResource Body}" Margin="20,12" VerticalOptions="Center" />
+            <Button Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
+                    Command="{Binding NavigateCommand}" CommandParameter="//system-settings" />
         </Grid>
     </Shell.FlyoutFooter>
 
@@ -179,6 +185,12 @@
     </FlyoutItem>
     <FlyoutItem Title="Servers" Route="servers" FlyoutItemIsVisible="False">
         <ShellContent Title="Servers" ContentTemplate="{DataTemplate views:ServersPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Profile" Route="profile" FlyoutItemIsVisible="False">
+        <ShellContent Title="Profile" ContentTemplate="{DataTemplate views:ProfilePage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="System settings" Route="system-settings" FlyoutItemIsVisible="False">
+        <ShellContent Title="System settings" ContentTemplate="{DataTemplate views:SystemSettingsPage}" />
     </FlyoutItem>
     <FlyoutItem Title="Dashboard" Route="dashboard" FlyoutItemIsVisible="False">
         <ShellContent Title="Dashboard" ContentTemplate="{DataTemplate views:DashboardPage}" />

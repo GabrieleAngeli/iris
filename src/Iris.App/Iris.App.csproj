@@ -85,4 +85,8 @@
 		<ProjectReference Include="..\Iris.Contracts\Iris.Contracts.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<None Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

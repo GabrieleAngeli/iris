@@ -17,6 +17,7 @@ public sealed class ApplicationExceptionHandler(
         var (status, title) = exception switch
         {
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
+            ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             ValidationException or InvalidScopeRequestException => (StatusCodes.Status400BadRequest, "Invalid request"),
             _ => (0, string.Empty),

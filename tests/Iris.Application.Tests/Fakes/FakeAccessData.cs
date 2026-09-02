@@ -139,6 +139,13 @@ internal sealed class FakeUserSessionRepository(FakeStore store) : IUserSessionR
     public Task<UserSession?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.Sessions.SingleOrDefault(s => s.TokenHash == tokenHash));
 
+    public Task<IReadOnlyList<UserSession>> GetForUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<UserSession>>(
+            store.Sessions
+                .Where(s => s.UserId == userId)
+                .OrderByDescending(s => s.CreatedAtUtc)
+                .ToList());
+
     public void Remove(UserSession session) => store.Sessions.Remove(session);
 }
 

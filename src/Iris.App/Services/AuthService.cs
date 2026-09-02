@@ -14,7 +14,9 @@ public interface IAuthService
 	/// Signs in with a local email and password — for anyone without an SSO platform to lean on.
 	/// Verified against a real account; issues a session token used on every later request.
 	/// </summary>
-	Task<AuthResult> SignInAsync(string username, string password, CancellationToken ct = default);
+	Task<AuthResult> SignInAsync(string username, string password, bool rememberMe = false, CancellationToken ct = default);
+
+	Task<AuthResult> TryResumeRememberedSessionAsync(CancellationToken ct = default);
 
 	/// <summary>Carries a freshly set local password on subsequent dev-mode calls (used by the first-login step).</summary>
 	void UseLocalPassword(string password);
@@ -37,7 +39,10 @@ public interface IAuthService
 
 public readonly record struct AuthResult(bool Success, string? Error);
 
-public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraId) : IAuthService
+public sealed class AuthService(
+	IIrisApiClient api,
+	IEntraIdAuthenticator entraId,
+	IAppPreferenceService preferences) : IAuthService
 {
 	public bool IsAuthenticated { get; private set; }
 	public string? CurrentUser { get; private set; }
@@ -45,7 +50,7 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 
 	public event EventHandler? StateChanged;
 
-	public async Task<AuthResult> SignInAsync(string username, string password, CancellationToken ct = default)
+	public async Task<AuthResult> SignInAsync(string username, string password, bool rememberMe = false, CancellationToken ct = default)
 	{
 		if (string.IsNullOrWhiteSpace(username))
 		{
@@ -76,7 +81,37 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 			return new AuthResult(false, "The Iris API did not respond in time.");
 		}
 
-		return await ApplySessionAsync(token, ct);
+		var result = await ApplySessionAsync(token, ct);
+		if (result.Success)
+		{
+			if (rememberMe)
+			{
+				await preferences.SetRememberedSessionTokenAsync(token).ConfigureAwait(false);
+			}
+			else
+			{
+				preferences.ClearRememberedSessionToken();
+			}
+		}
+
+		return result;
+	}
+
+	public async Task<AuthResult> TryResumeRememberedSessionAsync(CancellationToken ct = default)
+	{
+		var token = await preferences.GetRememberedSessionTokenAsync().ConfigureAwait(false);
+		if (string.IsNullOrWhiteSpace(token))
+		{
+			return new AuthResult(false, null);
+		}
+
+		var result = await ApplySessionAsync(token, ct);
+		if (!result.Success)
+		{
+			preferences.ClearRememberedSessionToken();
+		}
+
+		return result;
 	}
 
 	public async Task<AuthResult> ApplySessionAsync(string token, CancellationToken ct = default)
@@ -122,6 +157,12 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 
 		try
 		{
+			var setup = await api.GetSetupStatusAsync(ct);
+			if (setup.NeedsSetup)
+			{
+				await api.ClaimSetupAdminAsync(ct);
+			}
+
 			var me = await api.GetMeAsync(ct);
 			if (me is null)
 			{
@@ -130,6 +171,11 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 			}
 
 			return ApplySignedInUser(me);
+		}
+		catch (IrisApiException ex)
+		{
+			api.BearerToken = null;
+			return new AuthResult(false, ex.Message);
 		}
 		catch (HttpRequestException ex)
 		{
@@ -151,6 +197,7 @@ public sealed class AuthService(IIrisApiClient api, IEntraIdAuthenticator entraI
 		api.DevUserEmail = null;
 		api.DevUserPassword = null;
 		api.BearerToken = null;
+		preferences.ClearRememberedSessionToken();
 		_ = entraId.SignOutAsync();
 		StateChanged?.Invoke(this, EventArgs.Empty);
 	}

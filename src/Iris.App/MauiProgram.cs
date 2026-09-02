@@ -45,8 +45,10 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
 
+		var appConfiguration = AppConfiguration.Load();
+
 		// ---- API client --------------------------------------------
-		builder.Services.AddSingleton(new IrisApiOptions());
+		builder.Services.AddSingleton(appConfiguration.IrisApi);
 		builder.Services.AddSingleton<IIrisApiClient>(sp =>
 		{
 			var options = sp.GetRequiredService<IrisApiOptions>();
@@ -55,7 +57,7 @@ public static class MauiProgram
 		});
 
 		// ---- Microsoft 365 / Entra ID single sign-on ---------------
-		builder.Services.AddSingleton(new EntraIdOptions());
+		builder.Services.AddSingleton(appConfiguration.EntraId);
 		builder.Services.AddSingleton<IPublicClientApplication>(sp =>
 		{
 			var options = sp.GetRequiredService<EntraIdOptions>();
@@ -79,6 +81,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<INativeWindowConfigurator, NullNativeWindowConfigurator>();
 #endif
 		builder.Services.AddSingleton<IDialogService, DialogService>();
+		builder.Services.AddSingleton<IAppPreferenceService, AppPreferenceService>();
 
 		// ---- Services ---------------------------------------------
 		builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -96,6 +99,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<DashboardViewModel>();
 		builder.Services.AddTransient<ComponentsViewModel>();
 		builder.Services.AddTransient<AccessViewModel>();
+		builder.Services.AddTransient<ProfileViewModel>();
+		builder.Services.AddTransient<SystemSettingsViewModel>();
 		builder.Services.AddTransient<UsersViewModel>();
 		builder.Services.AddTransient<CustomersViewModel>();
 		builder.Services.AddTransient<ServersViewModel>();
@@ -108,6 +113,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<DashboardPage>();
 		builder.Services.AddTransient<ComponentsPage>();
 		builder.Services.AddTransient<AccessPage>();
+		builder.Services.AddTransient<ProfilePage>();
+		builder.Services.AddTransient<SystemSettingsPage>();
 		builder.Services.AddTransient<UsersPage>();
 		builder.Services.AddTransient<CustomersPage>();
 		builder.Services.AddTransient<ServersPage>();

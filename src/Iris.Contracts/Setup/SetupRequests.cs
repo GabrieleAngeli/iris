@@ -31,3 +31,9 @@ public sealed record CompleteSetupRequest(
 /// in — no separate login step for the very first interaction with a fresh install.
 /// </summary>
 public sealed record CompleteSetupResponse(Guid UserId, string Email, string Token, DateTimeOffset ExpiresAtUtc);
+
+/// <summary>
+/// Result of <c>POST /setup/claim-admin</c>: the authenticated SSO identity that claimed the
+/// first platform-admin role. No token is returned because the caller already has one.
+/// </summary>
+public sealed record ClaimSetupAdminResponse(Guid UserId, string Email, string DisplayName);

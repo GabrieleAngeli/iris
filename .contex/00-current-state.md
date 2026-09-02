@@ -1,7 +1,7 @@
 # Stato corrente
 
-Aggiornato: 2026-09-02. Verificato in questa sessione con `dotnet test Iris.sln -c Release`
-(135/135 verdi).
+Aggiornato: 2026-09-02. Verificato in questa sessione con `dotnet test Iris.sln`
+(145/145 verdi) e `dotnet build Iris.App.sln` verde.
 
 ## Architettura
 
@@ -29,13 +29,17 @@ Entra ID (Microsoft.Identity.Web, MSAL+WAM sul client) e session token Iris.
 `POST /auth/login` valida email/password locale e rilascia un bearer token opaco, salvato come
 hash in `UserSession` (non JWT). `IrisSessionAuthenticationHandler` ricostruisce l'identità
 locale con `SyntheticIdentity`. `POST /invitations/accept` è anonimo e consuma un token
-one-time per impostare la prima password locale.
+one-time per impostare la prima password locale. `POST /auth/password/reset` e'
+anonimo/non-enumerante: se l'utente esiste ed e' attivo genera un nuovo link one-time via
+lo stesso meccanismo inviti, altrimenti risponde comunque `Sent=true`.
 
 **Governance** - CRUD utenti (crea/modifica/elimina/assegna ruolo/revoca), CRUD
 clienti+contesti (`Iris.Domain.Tenancy.Customer`/`CustomerContext`, riusa `ContextKind`
 Test/Staging/Production), inviti one-time con token hashato SHA-256 (`UserInvitation`),
 edit lock advisory cross-risorsa (`EditLock`: heartbeat 45s, TTL 2min, force-unlock per
-`platform.admin`) condiviso da utenti, clienti e server.
+`platform.admin`) condiviso da utenti, clienti e server. Un operatore non puo'
+auto-governarsi: update/delete/assign/revoke/invite sul proprio `User` sono bloccati lato
+Application/API e il client mostra la propria riga in testa come tile read-only.
 
 **Infrastructure** - `ServerNode` (nome, hostname, OS Linux/Windows, hosting
 self-hosted/cloud, IP pubblico+privato, `Environment` come `ContextKind`) con
@@ -60,15 +64,27 @@ una pagina client MAUI Applications.
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
 super-admin. Endpoint anonimi: `GET /setup/status`, `POST /setup/test-mail`,
 `POST /setup/complete`; `CompleteSetupHandler` è replay-safe perché fallisce se esiste già un
-assignment `platform-admin`. SMTP reale via MailKit (`SmtpEmailSender`), password SMTP
-conservata solo via `ISecretStore`. Il client MAUI ha `SetupWizardPage` e
-`AcceptInvitationPage`.
+assignment `platform-admin`. Esiste anche bootstrap SSO controllato:
+`POST /setup/claim-admin` richiede autenticazione, allow-list
+`Iris:Setup:AdminClaimEmails` e database senza platform-admin; il client MAUI lo chiama
+automaticamente dopo SSO se `/setup/status` indica setup necessario. SMTP reale via
+MailKit (`SmtpEmailSender`), password SMTP conservata solo via `ISecretStore`. Il client
+MAUI ha `SetupWizardPage` e `AcceptInvitationPage`.
 
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
 9), sezioni gated per permesso (`AppShellViewModel.CanManageX`). Flussi secondari tramite
 finestre modali OS vere (`IDialogService` -> `Window` MAUI owned + modale su Windows via
-Win32), non pannelli in-page. Setup wizard e accept invitation sono fuori dal flyout.
+Win32), non pannelli in-page. Setup wizard e accept invitation sono fuori dal flyout. Il
+flyout header contiene il profilo utente con link `Profile` e `Sign out`; il footer porta
+`System settings`. Login supporta `Remember me` per sessioni locali persistite in
+SecureStorage (fallback Preferences) e recupero password dal form.
+
+**Profile / System settings** - `GET /profile` restituisce `MeResponse`, permessi
+effettivi e history delle sessioni; `ProfilePage` espone dati utente, cambio password,
+permessi e access history. `GET /system/settings` espone integrazioni OpenBao/Ansible a
+tutti gli utenti autenticati e include lo stato/config SMTP solo per `platform.admin`.
+`SystemSettingsPage` permette a tutti di scegliere `System`/`Light`/`Dark` theme locale.
 
 **Security / logging** - Serilog è il provider di logging dell'API con sink guidati da
 configurazione. CI security minima con Gitleaks + Semgrep, più `.gitleaks.toml`,
@@ -83,7 +99,9 @@ i lati pronti da confrontare (`ApplicationVersion.RuntimeMetadata` vs
 `ServerNode.Capabilities`/`Resources`/`UsedPorts`), ma le regole vere e proprie non sono
 ancora scritte.
 
-OpenBao/AWX/Ansible/Grafana restano mockati o non integrati per design.
+OpenBao/AWX/Ansible/Grafana restano mockati o non integrati per design. La pagina System
+settings mostra collegamenti/configurazioni dichiarate ma non esegue ancora test,
+salvataggio o chiamate reali verso OpenBao/Ansible.
 
 ## Migrazioni applicate (ordine)
 

@@ -105,6 +105,20 @@ public sealed class AuthApiTests(IrisApiFactory factory) : IClassFixture<IrisApi
     }
 
     [Fact]
+    public async Task Password_reset_is_anonymous_and_does_not_reveal_whether_the_email_exists()
+    {
+        var anon = factory.CreateClient();
+
+        var known = await anon.PostAsJsonAsync("/auth/password/reset", new { email = "admin@iris.local" });
+        var unknown = await anon.PostAsJsonAsync("/auth/password/reset", new { email = $"missing-{Guid.NewGuid():N}@example.test" });
+
+        Assert.Equal(HttpStatusCode.OK, known.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
+        Assert.True((await known.Content.ReadFromJsonAsync<PasswordResetDto>())!.Sent);
+        Assert.True((await unknown.Content.ReadFromJsonAsync<PasswordResetDto>())!.Sent);
+    }
+
+    [Fact]
     public async Task A_user_with_a_local_password_can_log_in_without_any_dev_header()
     {
         var f = AnyEmail();
@@ -167,6 +181,8 @@ public sealed class AuthApiTests(IrisApiFactory factory) : IClassFixture<IrisApi
     private sealed record MeDto(Guid UserId, string Email, bool PasswordSetupPending);
 
     private sealed record LoginDto(string Token, DateTimeOffset ExpiresAtUtc);
+
+    private sealed record PasswordResetDto(bool Sent);
 
     private sealed record AcceptInvitationDto(string Email);
 

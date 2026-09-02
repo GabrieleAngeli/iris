@@ -17,6 +17,7 @@ public sealed class AssignRoleHandler(
     IUserRepository users,
     IRoleRepository roles,
     IRoleAssignmentRepository assignments,
+    ICurrentUser currentUser,
     IUnitOfWork unitOfWork)
 {
     public async Task<AssignmentResponse> HandleAsync(
@@ -27,6 +28,8 @@ public sealed class AssignRoleHandler(
 
         var user = await users.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("User", command.UserId);
+
+        SelfGovernanceGuard.ThrowIfCurrentUser(user, currentUser);
 
         var role = await roles.GetByKeyAsync(command.RoleKey.Trim().ToLowerInvariant(), cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("Role", command.RoleKey);

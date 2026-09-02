@@ -32,6 +32,13 @@ public sealed class SetupHandlerTests
 
     private static TestMailConnectionHandler TestMailHandler(FakeStore store) => new(store.EmailSender);
 
+    private static ClaimSetupAdminHandler ClaimHandler(FakeStore store, ICurrentUser currentUser) => new(
+        store.RoleRepository,
+        store.RoleAssignmentRepository,
+        new UserProvisioningService(store.UserRepository, store.UnitOfWork),
+        currentUser,
+        store.UnitOfWork);
+
     private static MailProviderInput Mail(string? password = "s3cr3t") =>
         new("smtp.example.com", 587, "no-reply", password, "no-reply@example.com", "Iris", true);
 
@@ -174,5 +181,50 @@ public sealed class SetupHandlerTests
             Mail(), "")));
 
         Assert.Empty(store.EmailSender.TestedConnections);
+    }
+
+    [Fact]
+    public async Task ClaimSetupAdmin_grants_the_first_platform_admin_to_an_allow_listed_user()
+    {
+        var store = new FakeStore();
+        var role = PlatformAdminRole();
+        store.WithRole(role);
+        var currentUser = new StubCurrentUser("entra-1", "root@example.com", "Root Admin");
+
+        var result = await ClaimHandler(store, currentUser)
+            .HandleAsync(new ClaimSetupAdminCommand(["root@example.com"]));
+
+        Assert.Equal("root@example.com", result.Email);
+        var user = Assert.Single(store.Users);
+        Assert.Equal(user.Id, result.UserId);
+
+        var assignment = Assert.Single(store.Assignments);
+        Assert.Equal(user.Id, assignment.UserId);
+        Assert.Equal(role.Id, assignment.RoleId);
+        Assert.Equal(AccessScope.Global(), assignment.Scope);
+        Assert.False((await StatusHandler(store).HandleAsync(new GetSetupStatusQuery())).NeedsSetup);
+    }
+
+    [Fact]
+    public async Task ClaimSetupAdmin_requires_an_allow_list_and_cannot_run_after_setup()
+    {
+        var store = new FakeStore();
+        var role = PlatformAdminRole();
+        var existing = new User(Guid.NewGuid(), "existing", "existing@example.com", "Existing");
+        store.WithRole(role);
+
+        var currentUser = new StubCurrentUser("entra-1", "root@example.com", "Root Admin");
+        var handler = ClaimHandler(store, currentUser);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            handler.HandleAsync(new ClaimSetupAdminCommand([])));
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            handler.HandleAsync(new ClaimSetupAdminCommand(["someone-else@example.com"])));
+
+        store.WithUser(existing).WithAssignment(new RoleAssignment(Guid.NewGuid(), existing.Id, role.Id, AccessScope.Global()));
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            handler.HandleAsync(new ClaimSetupAdminCommand(["root@example.com"])));
     }
 }

@@ -8,6 +8,8 @@ namespace Iris.Application.Tests.Governance;
 
 public sealed class GovernanceHandlersTests
 {
+    private static StubCurrentUser AdminCaller() => new("ext-admin", "admin@iris.local", "Admin");
+
     private static FakeStore StoreWithReaderRole(out Role reader)
     {
         reader = new Role(Guid.NewGuid(), "reader", "Reader", isBuiltIn: true);
@@ -95,7 +97,7 @@ public sealed class GovernanceHandlersTests
         var customerId = Guid.NewGuid();
 
         var handler = new AssignRoleHandler(
-            store.UserRepository, store.RoleRepository, store.RoleAssignmentRepository, store.UnitOfWork);
+            store.UserRepository, store.RoleRepository, store.RoleAssignmentRepository, AdminCaller(), store.UnitOfWork);
 
         var result = await handler.HandleAsync(
             new AssignRoleCommand(user.Id, "reader", "Customer", customerId, null));
@@ -113,7 +115,7 @@ public sealed class GovernanceHandlersTests
     {
         var store = StoreWithReaderRole(out _);
         var handler = new AssignRoleHandler(
-            store.UserRepository, store.RoleRepository, store.RoleAssignmentRepository, store.UnitOfWork);
+            store.UserRepository, store.RoleRepository, store.RoleAssignmentRepository, AdminCaller(), store.UnitOfWork);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.HandleAsync(new AssignRoleCommand(Guid.NewGuid(), "reader", "Global", null, null)));
@@ -165,7 +167,7 @@ public sealed class GovernanceHandlersTests
         var assignment = new RoleAssignment(Guid.NewGuid(), user.Id, reader.Id, AccessScope.Global());
         store.WithUser(user).WithAssignment(assignment);
 
-        var handler = new RevokeRoleHandler(store.RoleAssignmentRepository, store.UnitOfWork);
+        var handler = new RevokeRoleHandler(store.RoleAssignmentRepository, store.UserRepository, AdminCaller(), store.UnitOfWork);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.HandleAsync(new RevokeRoleCommand(Guid.NewGuid(), assignment.Id)));
@@ -182,7 +184,7 @@ public sealed class GovernanceHandlersTests
         store.WithUser(user).WithAssignment(new RoleAssignment(Guid.NewGuid(), user.Id, reader.Id, AccessScope.Global()));
 
         var handler = new UpdateUserHandler(
-            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, store.UnitOfWork);
+            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, AdminCaller(), store.UnitOfWork);
 
         var updated = await handler.HandleAsync(new UpdateUserCommand(user.Id, "new@iris.local", "New Name", false));
 
@@ -206,7 +208,7 @@ public sealed class GovernanceHandlersTests
         store.WithUser(a).WithUser(b);
 
         var handler = new UpdateUserHandler(
-            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, store.UnitOfWork);
+            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, AdminCaller(), store.UnitOfWork);
 
         await Assert.ThrowsAsync<ConflictException>(() =>
             handler.HandleAsync(new UpdateUserCommand(b.Id, "a@iris.local", "B", true)));
@@ -223,7 +225,7 @@ public sealed class GovernanceHandlersTests
         var user = new User(Guid.NewGuid(), "ext-d", "d@iris.local", "D");
         store.WithUser(user).WithAssignment(new RoleAssignment(Guid.NewGuid(), user.Id, reader.Id, AccessScope.Global()));
 
-        var handler = new DeleteUserHandler(store.UserRepository, store.UnitOfWork);
+        var handler = new DeleteUserHandler(store.UserRepository, AdminCaller(), store.UnitOfWork);
 
         await handler.HandleAsync(new DeleteUserCommand(user.Id));
 
@@ -231,5 +233,44 @@ public sealed class GovernanceHandlersTests
         Assert.Empty(store.Assignments);
 
         await Assert.ThrowsAsync<NotFoundException>(() => handler.HandleAsync(new DeleteUserCommand(user.Id)));
+    }
+
+    [Fact]
+    public async Task User_governance_handlers_reject_self_management()
+    {
+        var store = StoreWithReaderRole(out var reader);
+        var caller = new User(Guid.NewGuid(), "ext-self", "self@iris.local", "Self");
+        var assignment = new RoleAssignment(Guid.NewGuid(), caller.Id, reader.Id, AccessScope.Global());
+        store.WithUser(caller).WithAssignment(assignment);
+        var currentUser = new StubCurrentUser(caller.ExternalId, caller.Email, caller.DisplayName);
+
+        var update = new UpdateUserHandler(
+            store.UserRepository, store.RoleAssignmentRepository, store.RoleRepository, currentUser, store.UnitOfWork);
+        var delete = new DeleteUserHandler(store.UserRepository, currentUser, store.UnitOfWork);
+        var assign = new AssignRoleHandler(
+            store.UserRepository, store.RoleRepository, store.RoleAssignmentRepository, currentUser, store.UnitOfWork);
+        var revoke = new RevokeRoleHandler(store.RoleAssignmentRepository, store.UserRepository, currentUser, store.UnitOfWork);
+        var invite = new IssueUserInvitationHandler(
+            store.UserRepository,
+            store.UserInvitationRepository,
+            new StubInvitationLinkBuilder(),
+            new RecordingInvitationNotifier(),
+            currentUser,
+            new FakeClock(DateTimeOffset.UtcNow),
+            store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            update.HandleAsync(new UpdateUserCommand(caller.Id, "new-self@iris.local", "New Self", false)));
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            delete.HandleAsync(new DeleteUserCommand(caller.Id)));
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            assign.HandleAsync(new AssignRoleCommand(caller.Id, "reader", "Global", null, null)));
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            revoke.HandleAsync(new RevokeRoleCommand(caller.Id, assignment.Id)));
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            invite.HandleAsync(new IssueUserInvitationCommand(caller.Id)));
+
+        Assert.Contains(caller, store.Users);
+        Assert.Contains(assignment, store.Assignments);
     }
 }

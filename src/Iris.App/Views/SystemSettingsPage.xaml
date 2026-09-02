@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.SystemSettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:settings="clr-namespace:Iris.Contracts.Settings;assembly=Iris.Contracts"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:SystemSettingsViewModel"
+    Title="System settings">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="System settings" Style="{StaticResource TitleLarge}" />
+                    <Label Text="Local preferences and platform connections." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,220" ColumnSpacing="18">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Appearance" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                            <Label Text="Theme preference is stored locally on this device." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                        <Picker Grid.Column="1" ItemsSource="{Binding ThemeModes}"
+                                SelectedItem="{Binding SelectedThemeMode}" />
+                    </Grid>
+                </Border>
+
+                <VerticalStackLayout IsVisible="{Binding CanManageSystem}" Spacing="18">
+                    <Border Style="{StaticResource Card}">
+                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="12">
+                            <Label Text="&#xE715;" FontFamily="{StaticResource FontIcons}" FontSize="18"
+                                   VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                <Label Text="SMTP" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                                <Label Text="{Binding SmtpSummary}" Style="{StaticResource Caption}" />
+                            </VerticalStackLayout>
+
+                            <Grid Grid.Row="1" Grid.ColumnSpan="2"
+                                  ColumnDefinitions="140,*,140,*" RowDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="12" RowSpacing="8">
+                                <Label Text="Host" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="1" Text="{Binding SmtpHost}" Style="{StaticResource Body}" />
+                                <Label Grid.Column="2" Text="Port" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="3" Text="{Binding SmtpPort}" Style="{StaticResource Body}" />
+
+                                <Label Grid.Row="1" Text="Username" Style="{StaticResource Caption}" />
+                                <Label Grid.Row="1" Grid.Column="1" Text="{Binding SmtpUsername}" Style="{StaticResource Body}" />
+                                <Label Grid.Row="1" Grid.Column="2" Text="SSL" Style="{StaticResource Caption}" />
+                                <Label Grid.Row="1" Grid.Column="3" Text="{Binding SmtpEnableSsl}" Style="{StaticResource Body}" />
+
+                                <Label Grid.Row="2" Text="From address" Style="{StaticResource Caption}" />
+                                <Label Grid.Row="2" Grid.Column="1" Text="{Binding SmtpFromAddress}" Style="{StaticResource Body}" />
+                                <Label Grid.Row="2" Grid.Column="2" Text="From name" Style="{StaticResource Caption}" />
+                                <Label Grid.Row="2" Grid.Column="3" Text="{Binding SmtpFromDisplayName}" Style="{StaticResource Body}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Service connections" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                            <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="140">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="settings:IntegrationLinkResponse">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,7" ColumnSpacing="12">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="{Binding Name}" Style="{StaticResource Body}" />
+                                                <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
+                                            </VerticalStackLayout>
+                                            <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
+                                                <Label Text="{Binding Status}" Style="{StaticResource Caption}" />
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView xmlns:controls="clr-namespace:Iris.App.Controls"
+                              IsActive="{Binding IsBusy}" Message="Loading settings..." />
+    </Grid>
+</ContentPage>

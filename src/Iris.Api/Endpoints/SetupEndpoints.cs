@@ -43,6 +43,28 @@ public static class SetupEndpoints
             .WithSummary("Configures the mail relay and creates the first super-admin. Usable only once.")
             .AllowAnonymous();
 
+        setup.MapPost("/claim-admin", async (
+                IConfiguration configuration,
+                ClaimSetupAdminHandler handler,
+                CancellationToken ct) =>
+            {
+                var allowedEmails = configuration
+                    .GetSection("Iris:Setup:AdminClaimEmails")
+                    .GetChildren()
+                    .Select(child => child.Value)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!)
+                    .ToArray();
+
+                var result = await handler
+                    .HandleAsync(new ClaimSetupAdminCommand(allowedEmails), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ClaimSetupAdmin")
+            .WithSummary("Lets an allow-listed authenticated SSO user claim the first platform-admin role.")
+            .RequireAuthorization();
+
         return app;
     }
 }
