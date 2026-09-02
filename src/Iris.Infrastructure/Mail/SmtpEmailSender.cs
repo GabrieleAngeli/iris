@@ -61,7 +61,9 @@ internal sealed class SmtpEmailSender(IMailProviderSettingsRepository mailSettin
         }
         catch (Exception ex)
         {
-            throw new MailConnectionException(MailTestStage.Send, $"Connected, but sending the test email failed: {ex.Message}");
+            throw new MailConnectionException(
+                MailTestStage.Send,
+                BuildSendFailureMessage(request.SmtpUsername, request.FromAddress, ex));
         }
         finally
         {
@@ -114,6 +116,32 @@ internal sealed class SmtpEmailSender(IMailProviderSettingsRepository mailSettin
         mime.Subject = subject;
         mime.Body = new TextPart(isHtml ? "html" : "plain") { Text = body };
         return mime;
+    }
+
+    private static string BuildSendFailureMessage(string? smtpUsername, string fromAddress, Exception ex)
+    {
+        if (IsSendAsDenied(ex.Message))
+        {
+            var account = string.IsNullOrWhiteSpace(smtpUsername)
+                ? "The configured SMTP account"
+                : $"The SMTP account '{smtpUsername}'";
+
+            return $"{account} is not allowed to send as '{fromAddress}'. Use that same address as the From address, or grant Send As permission for it in Microsoft 365.";
+        }
+
+        return $"Connected, but sending the test email failed: {TrimMailServerDiagnostics(ex.Message)}";
+    }
+
+    private static bool IsSendAsDenied(string message) =>
+        message.Contains("SendAsDenied", StringComparison.OrdinalIgnoreCase) ||
+        message.Contains("not allowed to send as", StringComparison.OrdinalIgnoreCase);
+
+    private static string TrimMailServerDiagnostics(string message)
+    {
+        var marker = message.IndexOf("[BeginDiagnosticData]", StringComparison.OrdinalIgnoreCase);
+        var trimmed = marker >= 0 ? message[..marker] : message;
+        trimmed = trimmed.Trim();
+        return trimmed.Length <= 300 ? trimmed : string.Concat(trimmed.AsSpan(0, 300), "...");
     }
 
     private static async Task DisconnectQuietlyAsync(SmtpClient client, CancellationToken cancellationToken)
