@@ -18,6 +18,9 @@ public interface IRoleAssignmentRepository
         AccessScope scope,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Whether any assignment (any scope, any user) references this role at all.</summary>
+    Task<bool> ExistsForRoleAsync(Guid roleId, CancellationToken cancellationToken = default);
+
     Task AddAsync(RoleAssignment assignment, CancellationToken cancellationToken = default);
 
     void Remove(RoleAssignment assignment);

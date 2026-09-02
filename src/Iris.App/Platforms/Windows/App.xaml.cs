@@ -1,4 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
+using Serilog;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -17,6 +18,11 @@ public partial class App : MauiWinUIApplication
 	public App()
 	{
 		this.InitializeComponent();
+
+		// UI-thread exceptions don't reach AppDomain.UnhandledException (wired in
+		// MauiProgram) — they need catching here instead. Logged, not suppressed:
+		// e.Handled is left false, so the app still crashes as it would without this hook.
+		this.UnhandledException += (_, e) => Log.Fatal(e.Exception, "Unhandled WinUI exception");
 	}
 
 	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();

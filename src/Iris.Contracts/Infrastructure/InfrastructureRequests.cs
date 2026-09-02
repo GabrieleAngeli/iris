@@ -44,3 +44,15 @@ public sealed record AddServerCredentialRequest(
     Guid? OwnerUserId,
     string? ServiceName,
     string? Label);
+
+/// <summary>Resource hints supplied by the operator. Any field may be omitted.</summary>
+public sealed record ResourceProfileRequest(int? CpuCores, int? MemoryMb, int? DiskGb);
+
+/// <summary>
+/// Body of <c>PUT /servers/{serverId}/capacity</c> — replaces the server's capability tags,
+/// resource hints and known used ports wholesale.
+/// </summary>
+public sealed record UpdateServerCapacityRequest(
+    IReadOnlyList<string> Capabilities,
+    ResourceProfileRequest? Resources,
+    IReadOnlyList<int> UsedPorts);

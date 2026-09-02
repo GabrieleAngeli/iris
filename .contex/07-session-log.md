@@ -1,0 +1,169 @@
+# Log di sessione
+
+Un'annotazione per iterazione significativa: cosa è cambiato, cosa è stato verificato,
+cosa resta aperto. Non un changelog di commit — quello lo dà `git log`. Questo è il "perché"
+e il "cosa resta da sapere" che il codice da solo non racconta.
+
+---
+
+## 2026-09-01 — Assimilazione da Iris_v2/Iris_v3, avvio `.contex/`
+
+**Classificazione**: consolidamento (documentazione operativa) + definizione (piano per
+Applications/Deployments/Actions).
+
+**Cosa è successo**: analizzate `F:\Work\Iris_v2` (bozza di dominio Applications/
+Deployments/Validation, mai completata) e `F:\Work\Iris_v3` (prodotto separato,
+"Momentum", nessuna relazione con Iris se non il nome della cartella). Prodotto un
+documento di confronto (artifact + `docs/analisi-iris-v2-v3.md`). Su richiesta
+dell'utente ("procedi con l'assimilazione proposta nel documento"), creata questa
+cartella `.contex/` adattando la convenzione di Momentum con contenuti scritti da zero
+per Iris.
+
+**Verificato**: `dotnet build Iris.sln` e `dotnet test Iris.sln` verdi prima di iniziare
+(92/92 test), stato riportato in `00-current-state.md` con quella baseline.
+
+**Rischi residui / cosa resta aperto**: il tooling di security scanning (Gitleaks +
+Semgrep, non l'intera pipeline Momentum — Checkov/tfsec non applicabili, nessuna IaC nel
+repo) e l'avvio del dominio Applications sono ancora da fare in questa stessa sessione,
+vedi `05-next-actions.md`.
+
+**Prossimo step**: (1) config Gitleaks/Semgrep minima; (2) plan mode per il primo
+incremento di dominio Applications, con estensione di `ServerNode`
+(capability/risorse/porte) come prerequisito.
+
+---
+
+## 2026-09-01 (continuazione) — Applications: catalogo + import della configuration knowledge
+
+**Classificazione**: feature (nuovo dominio, primo incremento verso Deployments/Actions).
+
+**Cosa è successo**: completata l'implementazione del piano approvato (salvato in
+`C:\Users\angel\.claude\plans\twinkling-seeking-papert.md`), decidendo di non estendere
+`ServerNode` in questo passaggio (rimandato — vedi `05-next-actions.md` punto 1) e di
+tenere backend-first senza pagina client. Fonte di riferimento:
+`F:\Work\Iris_v2\iris_codex_prompt_backend_hexagonal.md` (Domain Area 2 e 3), riscritta
+sulle convenzioni EF/CQRS attuali — non portato codice, solo la forma del dominio.
+
+Costruito dal basso verso l'alto:
+
+- **Dominio** (`src/Iris.Domain/Applications/`): `ApplicationDefinition` (aggregate root,
+  `AddVersion` con guardia su duplicati case-insensitive), `ApplicationVersion` (entità
+  figlia, `ApplyImport` sostituisce — non accumula — le tre collezioni + i warning, tiene
+  `RawImportPackageJson` per audit), `RuntimeMetadata` (owned type, riusa
+  `Iris.Domain.Infrastructure.ServerOs` invece di duplicarlo), `ConfigurationKey`/
+  `DependencyDefinition`/`PlaceholderDefinition` (entità figlie con propria `Id`, a
+  differenza dei record senza identità di Iris_v2 — servirà per indirizzarle
+  singolarmente quando arriverà il binding placeholder di una Deployment).
+  Nota di design: `RequiredPorts` e `ImportWarnings` sono collezioni scalari, non
+  navigation — quindi proprietà auto-implementate normali (EF Core 9 le mappa come
+  collezione primitiva nativa), non il pattern `List` privato + `.AsReadOnly()` usato per
+  le vere collezioni di entità figlie.
+- **Application/Contracts**: 5 handler (`CreateApplication`, `AddApplicationVersion`,
+  `ImportConfigurationPackage`, `ListApplications`, `GetApplicationVersionDetail`),
+  `IApplicationRepository`, mapping verso `Iris.Contracts.Applications.*`.
+- **Persistenza**: 5 `IEntityTypeConfiguration`, `ApplicationRepository`, 4 nuovi `DbSet`
+  su `IrisDbContext`. Migrazione `AddApplications` generata su entrambi i provider — su
+  SQLite le collezioni primitive (`RequiredPorts`, `ImportWarnings`) diventano colonne
+  TEXT (JSON), su Postgres array nativi (`integer[]`, `text[]`); ispezionate a mano
+  entrambe, corrispondono alle attese.
+- **Api**: `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`, 5 route, ciascuna con il
+  permesso già presente nel catalogo (`applications.read/write/import`, mai toccato
+  Governance/Access).
+- **Test**: `FakeApplicationRepository` in `Fakes/FakeAccessData.cs`, 9 test applicativi
+  (`ApplicationsHandlersTests`) e 3 test API end-to-end (`ApplicationsApiTests`,
+  incluso un 403 per il ruolo Reader).
+
+**Bug intercettato e corretto durante l'implementazione**: `ApplicationRepository
+.GetAllAsync` caricava le versioni ma non le loro collezioni figlie; dato che
+`ListApplicationsHandler`/`ToSummaryResponse` calcolano `ConfigurationKeyCount` ecc.
+contando quelle collezioni, il risultato era sempre zero in `GET /applications` — non
+un errore di compilazione, un bug silenzioso. Trovato dal test API end-to-end (il conteggio
+atteso dopo un import non tornava), corretto aggiungendo `Include(...).ThenInclude(...)`
+anche lì (non solo in `GetAsync`/`GetForUpdateAsync`), accettando il costo di caricare
+sempre quelle collezioni: sono conteggi, non contenuto, quindi la lista è comunque leggera.
+
+**Verificato**: `dotnet build Iris.sln` (0 errori/0 warning) e `dotnet test Iris.sln`
+verdi — 104/104 test (92 preesistenti + 12 nuovi).
+
+**Rischi residui / cosa resta aperto**: nessuna pagina client per questo dominio (voluto,
+backend-first); `ServerNode` non ancora esteso con capability/risorse/porte, quindi il
+confronto runtime-vs-server del Validation Engine non è ancora possibile — è il
+prerequisito del prossimo incremento (Deployments), vedi `05-next-actions.md`.
+
+**Prossimo step**: aggiornare `00-current-state.md`/`01-decisions.md` se necessario alla
+prossima iterazione; poi plan mode per l'estensione di `ServerNode`
+(capability/risorse/porte) seguita da Deployments.
+
+---
+
+## 2026-09-01 (terza continuazione) — ServerNode: capability, resource hints, porte note
+
+**Classificazione**: feature (estensione di dominio esistente, prerequisito esplicito del
+Validation Engine).
+
+**Cosa è successo**: prima di iniziare, l'incremento Applications precedente è stato
+committato (branch `feature/applications-catalog`, creato staccandosi da `main` per
+convenzione). Poi piano approvato e implementato per intero: `NodeCapability`
+(`src/Iris.Domain/Infrastructure/NodeCapability.cs`, enum semplice non `[Flags]`) e
+`ResourceProfile` (owned type nullable) nuovi; `ServerNode` esteso con `Capabilities`/
+`Resources`/`UsedPorts` e il metodo `UpdateCapacity` (replace wholesale, separato da
+`UpdateDetails`); nuovo endpoint `PUT /servers/{serverId}/capacity` (riusa
+`infrastructure.write`, nessun permesso nuovo); migrazione `AddServerCapacity` su
+entrambi i provider.
+
+**Decisione di modello presa in plan mode**: `UsedPorts` come semplice `IReadOnlyList<int>`
+(simmetrico a `RuntimeMetadata.RequiredPorts`), non `{Port, Purpose}` come nello schizzo
+Iris_v2 — motivata nel piano come scelta più adatta al confronto insiemistico che farà il
+Validation Engine; segnalata esplicitamente come la decisione più discutibile, non
+contestata in revisione.
+
+**Dettaglio tecnico non scontato**: per ottenere `Capabilities` (un `List<NodeCapability>`)
+salvato come array di stringhe leggibili (coerente con `Os`/`HostingType` mappati
+`.HasConversion<string>()`) invece che come array di interi, serve
+`builder.PrimitiveCollection(s => s.Capabilities).ElementType(e =>
+e.HasConversion<string>())` — un semplice `.Property(...).HasConversion<string>()` non
+compila su una collezione (quel metodo non esiste su `PropertyBuilder<IReadOnlyList<T>>`,
+solo su `PrimitiveCollectionBuilder`, che si ottiene con `.PrimitiveCollection(...)` non
+`.Property(...)`). Scoperto per errore di compilazione, corretto e verificato ispezionando
+la migrazione generata (SQLite: colonna TEXT con array di stringhe JSON; Postgres:
+`text[]` nativo).
+
+**Verificato**: `dotnet build Iris.sln` (0 errori/0 warning) e `dotnet test Iris.sln`
+verdi — 108/108 test (104 precedenti + 4 nuovi... nota: sono in realtà 6 nuovi ma 2 si
+sommano dentro lo stesso test API multi-asserzione — vedi conteggio per progetto:
+Domain.Tests 26, Application.Tests 56 (+3), Api.Tests 26 (+1)).
+
+**Rischi residui / cosa resta aperto**: nessuna pagina client (voluto, backend-first);
+Validation Engine non ancora scritto — ora ha tutto ciò che gli serve
+(`ApplicationVersion.RuntimeMetadata` vs `ServerNode.Capabilities`/`Resources`/
+`UsedPorts`) ma il confronto stesso è ancora da fare, insieme a Deployments.
+
+**Prossimo step**: commit di questo incremento; poi plan mode per Deployments
+(associazione Application+Version+Customer+Context+ServerNode) e/o Validation Engine.
+
+---
+
+## 2026-09-02 — riallineamento `.contex` alla branch `feature/applications-catalog`
+
+**Classificazione**: consolidamento documentazione operativa.
+
+**Cosa è successo**: dopo il passaggio alla branch `feature/applications-catalog`, è stato
+riletto il context pack e confrontato con il codice/commit correnti. Trovate frasi ormai
+stanti: Applications e Server capacity risultavano ancora "da fare" in alcuni file, e il
+bootstrap prompt indicava repository/branch sbagliati. Aggiornati stato corrente,
+decisioni, piano operativo, source map, prossime azioni e bootstrap prompt.
+
+**Stato reale confermato**: Applications backend-first, ServerNode capability/risorse/
+porte, login email/password con `UserSession`, accept invitation, setup wizard one-shot,
+SMTP MailKit, Serilog e security scanning minimo sono presenti in branch.
+
+**Verificato**: `dotnet test Iris.sln -c Release` verde — 135/135 test.
+
+**Rischi residui / cosa resta aperto**: client MAUI non ricompilato in questa iterazione
+perché il lavoro ha toccato solo documentazione `.contex`; resta assente la pagina MAUI
+Applications. Deployments, Validation Engine e Actions sono ancora il prossimo blocco di
+prodotto.
+
+**Prossimo step**: modellare `DeploymentAssociation` con FK reali a
+`ApplicationDefinition`/`ApplicationVersion`, `Customer`/`CustomerContext` e `ServerNode`,
+poi aggiungere `ValidateDeployment` usando configuration knowledge e server capacity.

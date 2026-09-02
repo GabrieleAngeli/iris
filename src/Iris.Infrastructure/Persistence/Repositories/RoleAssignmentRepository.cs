@@ -46,6 +46,9 @@ internal sealed class RoleAssignmentRepository(IrisDbContext dbContext) : IRoleA
                 && a.Scope.ContextId == scope.ContextId,
             cancellationToken);
 
+    public Task<bool> ExistsForRoleAsync(Guid roleId, CancellationToken cancellationToken = default) =>
+        dbContext.RoleAssignments.AnyAsync(a => a.RoleId == roleId, cancellationToken);
+
     public async Task AddAsync(RoleAssignment assignment, CancellationToken cancellationToken = default) =>
         await dbContext.RoleAssignments.AddAsync(assignment, cancellationToken).ConfigureAwait(false);
 

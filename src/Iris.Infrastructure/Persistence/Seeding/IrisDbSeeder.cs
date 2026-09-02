@@ -12,11 +12,22 @@ namespace Iris.Infrastructure.Persistence.Seeding;
 /// </summary>
 public sealed class IrisDbSeeder(IrisDbContext dbContext, ILogger<IrisDbSeeder> logger)
 {
-    public async Task SeedAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// The built-in role catalog is seeded unconditionally — it's the permission system, not
+    /// demo data. <paramref name="seedDemoData"/> gates the reference tenancy (Contoso/Globex,
+    /// the 5 demo users including a ready-made <c>admin@iris.local</c>): on in Development
+    /// (<c>Iris:Database:SeedDemoData</c>), off elsewhere, so a real deployment starts genuinely
+    /// empty and the first-run setup wizard is what creates its first super-admin.
+    /// </summary>
+    public async Task SeedAsync(bool seedDemoData, CancellationToken cancellationToken = default)
     {
         await SeedRolesAsync(cancellationToken).ConfigureAwait(false);
-        await SeedCustomersAsync(cancellationToken).ConfigureAwait(false);
-        await SeedUsersAndAssignmentsAsync(cancellationToken).ConfigureAwait(false);
+
+        if (seedDemoData)
+        {
+            await SeedCustomersAsync(cancellationToken).ConfigureAwait(false);
+            await SeedUsersAndAssignmentsAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task SeedRolesAsync(CancellationToken cancellationToken)

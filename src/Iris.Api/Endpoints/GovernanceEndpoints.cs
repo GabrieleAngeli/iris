@@ -175,6 +175,21 @@ public static class GovernanceEndpoints
             .WithSummary("Register a new customer.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageCustomers));
 
+        customers.MapPut("/{customerId:guid}", async (
+                Guid customerId,
+                UpdateCustomerRequest body,
+                UpdateCustomerHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new UpdateCustomerCommand(customerId, body.Name, body.IsActive), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("UpdateCustomer")
+            .WithSummary("Edit a customer's name and active flag.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageCustomers));
+
         customers.MapPost("/{customerId:guid}/contexts", async (
                 Guid customerId,
                 AddContextRequest body,

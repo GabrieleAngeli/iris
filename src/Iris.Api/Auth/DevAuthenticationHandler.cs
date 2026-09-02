@@ -1,8 +1,7 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Encodings.Web;
 using Iris.Application.Abstractions;
+using Iris.Domain.Access;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -38,12 +37,12 @@ public sealed class DevAuthenticationHandler(
         string displayName;
         if (user is not null)
         {
-            objectId = string.IsNullOrWhiteSpace(user.ObjectId) ? DeriveObjectId(email) : user.ObjectId;
+            objectId = string.IsNullOrWhiteSpace(user.ObjectId) ? SyntheticIdentity.DeriveObjectId(email) : user.ObjectId;
             displayName = string.IsNullOrWhiteSpace(user.Name) ? email : user.Name;
         }
         else if (Options.AllowAnyEmail)
         {
-            objectId = DeriveObjectId(email);
+            objectId = SyntheticIdentity.DeriveObjectId(email);
             displayName = email;
         }
         else
@@ -104,9 +103,4 @@ public sealed class DevAuthenticationHandler(
             : AuthenticateResult.Fail("Incorrect password.");
     }
 
-    private static string DeriveObjectId(string email)
-    {
-        var hash = MD5.HashData(Encoding.UTF8.GetBytes(email.ToLowerInvariant()));
-        return new Guid(hash).ToString();
-    }
 }

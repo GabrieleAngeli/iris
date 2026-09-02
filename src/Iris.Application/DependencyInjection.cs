@@ -1,6 +1,8 @@
 using Iris.Application.Access;
+using Iris.Application.Applications;
 using Iris.Application.Governance;
 using Iris.Application.Infrastructure;
+using Iris.Application.Setup;
 using Iris.Application.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -20,10 +22,15 @@ public static class DependencyInjection
         services.TryAddScoped<IUserAccessService, UserAccessService>();
         services.TryAddScoped<IPermissionAuthorizer, PermissionAuthorizer>();
         services.TryAddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.TryAddScoped<SessionIssuer>();
 
         // Queries
         services.TryAddScoped<GetMyAccessHandler>();
         services.TryAddScoped<SetMyPasswordHandler>();
+        services.TryAddScoped<LoginHandler>();
+        services.TryAddScoped<GetSetupStatusHandler>();
+        services.TryAddScoped<TestMailConnectionHandler>();
+        services.TryAddScoped<CompleteSetupHandler>();
         services.TryAddScoped<SkipMyPasswordSetupHandler>();
         services.TryAddScoped<GetPermissionCatalogHandler>();
         services.TryAddScoped<ListRolesHandler>();
@@ -32,11 +39,13 @@ public static class DependencyInjection
 
         // Governance commands
         services.TryAddScoped<CreateCustomerHandler>();
+        services.TryAddScoped<UpdateCustomerHandler>();
         services.TryAddScoped<AddContextHandler>();
         services.TryAddScoped<CreateUserHandler>();
         services.TryAddScoped<UpdateUserHandler>();
         services.TryAddScoped<DeleteUserHandler>();
         services.TryAddScoped<IssueUserInvitationHandler>();
+        services.TryAddScoped<AcceptInvitationHandler>();
         services.TryAddScoped<AcquireEditLockHandler>();
         services.TryAddScoped<ReleaseEditLockHandler>();
         services.TryAddScoped<GetEditLockHandler>();
@@ -47,10 +56,18 @@ public static class DependencyInjection
         services.TryAddScoped<ServerCredentialFactory>();
         services.TryAddScoped<CreateServerHandler>();
         services.TryAddScoped<UpdateServerHandler>();
+        services.TryAddScoped<UpdateServerCapacityHandler>();
         services.TryAddScoped<DeleteServerHandler>();
         services.TryAddScoped<AddServerCredentialHandler>();
         services.TryAddScoped<RemoveServerCredentialHandler>();
         services.TryAddScoped<ListServersHandler>();
+
+        // Applications commands
+        services.TryAddScoped<CreateApplicationHandler>();
+        services.TryAddScoped<AddApplicationVersionHandler>();
+        services.TryAddScoped<ImportConfigurationPackageHandler>();
+        services.TryAddScoped<ListApplicationsHandler>();
+        services.TryAddScoped<GetApplicationVersionDetailHandler>();
 
         return services;
     }

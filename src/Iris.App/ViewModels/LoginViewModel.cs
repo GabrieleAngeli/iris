@@ -64,8 +64,15 @@ public partial class LoginViewModel : ObservableObject
 	[RelayCommand]
 	private async Task ForgotPasswordAsync() =>
 		await Shell.Current.DisplayAlert("Sign in",
-			"Dev mode: the user name is a configured Iris dev user (e.g. admin@iris.local). The password is ignored.",
+			"If your organization uses Microsoft 365, continue with single sign-on instead. Otherwise, use the " +
+			"invitation link an administrator sent you to set your password, or ask them to send a new one.",
 			"Got it");
+
+	/// <summary>Raised when the operator has an invitation link/token to redeem.</summary>
+	public event EventHandler? AcceptInvitationRequested;
+
+	[RelayCommand]
+	private void RequestAcceptInvitation() => AcceptInvitationRequested?.Invoke(this, EventArgs.Empty);
 
 	[RelayCommand(CanExecute = nameof(CanSignIn))]
 	private async Task UseSsoAsync()

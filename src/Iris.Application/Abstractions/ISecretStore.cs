@@ -11,6 +11,13 @@ public interface ISecretStore
     /// <summary>Stores <paramref name="secretValue"/> and returns the reference to persist in its place.</summary>
     Task<string> StoreAsync(string logicalPath, string secretValue, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Resolves a reference back to its real value — for the rare case Iris itself is the
+    /// authorized consumer (e.g. authenticating an outgoing SMTP connection), rather than an
+    /// external tool like Ansible/AWX resolving it directly. Null if the reference is unknown.
+    /// </summary>
+    Task<string?> RetrieveAsync(string reference, CancellationToken cancellationToken = default);
+
     /// <summary>Removes the secret behind a reference previously returned by <see cref="StoreAsync"/>.</summary>
     Task DeleteAsync(string reference, CancellationToken cancellationToken = default);
 }

@@ -72,4 +72,64 @@ public sealed class InvitationHandlerTests
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.HandleAsync(new IssueUserInvitationCommand(Guid.NewGuid())));
     }
+
+    [Fact]
+    public async Task AcceptInvitation_sets_the_password_and_consumes_the_token()
+    {
+        var (issue, store, _) = Build(out var target);
+        var issued = await issue.HandleAsync(new IssueUserInvitationCommand(target.Id));
+
+        var accept = new AcceptInvitationHandler(
+            store.UserRepository, store.UserInvitationRepository, new FakePasswordHasher(), new FakeClock(Now), store.UnitOfWork);
+
+        var result = await accept.HandleAsync(new AcceptInvitationCommand(issued.Token, "brand-new-secret"));
+
+        Assert.Equal(target.Email, result.Email);
+        Assert.True(target.HasPassword);
+        Assert.True(new FakePasswordHasher().Verify("brand-new-secret", target.PasswordHash!));
+
+        var stored = Assert.Single(store.Invitations);
+        Assert.Equal(Now, stored.ConsumedAtUtc);
+        Assert.False(stored.IsPending(Now));
+    }
+
+    [Fact]
+    public async Task AcceptInvitation_rejects_unknown_consumed_or_expired_tokens()
+    {
+        var (issue, store, _) = Build(out var target);
+        var issued = await issue.HandleAsync(new IssueUserInvitationCommand(target.Id));
+
+        var clock = new FakeClock(Now);
+        var accept = new AcceptInvitationHandler(
+            store.UserRepository, store.UserInvitationRepository, new FakePasswordHasher(), clock, store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            accept.HandleAsync(new AcceptInvitationCommand("not-a-real-token", "brand-new-secret")));
+
+        // consumed
+        await accept.HandleAsync(new AcceptInvitationCommand(issued.Token, "brand-new-secret"));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            accept.HandleAsync(new AcceptInvitationCommand(issued.Token, "another-secret")));
+
+        // expired
+        var second = User.Invite(Guid.NewGuid(), "pending2@contoso.example", "Pat Two");
+        store.WithUser(second);
+        var reissued = await issue.HandleAsync(new IssueUserInvitationCommand(second.Id));
+        clock.Advance(IssueUserInvitationHandler.Lifetime + TimeSpan.FromMinutes(1));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            accept.HandleAsync(new AcceptInvitationCommand(reissued.Token, "brand-new-secret")));
+    }
+
+    [Fact]
+    public async Task AcceptInvitation_rejects_a_short_password()
+    {
+        var (issue, store, _) = Build(out var target);
+        var issued = await issue.HandleAsync(new IssueUserInvitationCommand(target.Id));
+
+        var accept = new AcceptInvitationHandler(
+            store.UserRepository, store.UserInvitationRepository, new FakePasswordHasher(), new FakeClock(Now), store.UnitOfWork);
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            accept.HandleAsync(new AcceptInvitationCommand(issued.Token, "short")));
+    }
 }

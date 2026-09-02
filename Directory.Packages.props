@@ -10,6 +10,11 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.12" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="3.10.0" />
 
+    <!-- Structured logging (Serilog: ILogger<T> stays the abstraction, this is just the provider) -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
+
     <!-- Persistence -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.8" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
@@ -23,6 +28,9 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.8" />
+
+    <!-- Mail (setup wizard's SMTP relay) -->
+    <PackageVersion Include="MailKit" Version="4.17.0" />
   </ItemGroup>
 
   <ItemGroup>

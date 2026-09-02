@@ -6,8 +6,11 @@ namespace Iris.Domain.Infrastructure;
 /// <summary>
 /// A registered server — shared or dedicated, self-hosted or cloud — that deployments can
 /// target. Reachability (<see cref="PublicIpAddress"/>/<see cref="PrivateIpAddress"/>) and
-/// the OS-login accounts (<see cref="Credentials"/>) tooling uses to reach it live here;
-/// capability tags, resource sizing and port/endpoint inventory are a later increment.
+/// the OS-login accounts (<see cref="Credentials"/>) tooling uses to reach it live here,
+/// along with what it can host (<see cref="Capabilities"/>), what capacity it has
+/// (<see cref="Resources"/>) and what ports are already spoken for (<see cref="UsedPorts"/>)
+/// — the counterpart the future Validation Engine will compare against an
+/// <c>ApplicationVersion.RuntimeMetadata</c>.
 /// </summary>
 public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
 {
@@ -18,6 +21,8 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         : base(Guid.Empty)
     {
         Name = string.Empty;
+        Capabilities = [];
+        UsedPorts = [];
     }
 
     public ServerNode(
@@ -41,6 +46,8 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         PrivateIpAddress = string.IsNullOrWhiteSpace(privateIpAddress) ? null : privateIpAddress.Trim();
         Environment = environment;
         IsActive = true;
+        Capabilities = [];
+        UsedPorts = [];
     }
 
     public string Name { get; private set; }
@@ -58,6 +65,15 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
     public ContextKind Environment { get; private set; }
 
     public bool IsActive { get; private set; }
+
+    /// <summary>What this server can host — a plain scalar collection, not a navigation.</summary>
+    public IReadOnlyList<NodeCapability> Capabilities { get; private set; }
+
+    /// <summary>Resource hints, as far as the operator knows them. Absent until set.</summary>
+    public ResourceProfile? Resources { get; private set; }
+
+    /// <summary>Ports already spoken for on this server — a plain scalar collection.</summary>
+    public IReadOnlyList<int> UsedPorts { get; private set; }
 
     public IReadOnlyCollection<ServerCredential> Credentials => _credentials.AsReadOnly();
 
@@ -114,6 +130,24 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         PublicIpAddress = string.IsNullOrWhiteSpace(publicIpAddress) ? null : publicIpAddress.Trim();
         PrivateIpAddress = string.IsNullOrWhiteSpace(privateIpAddress) ? null : privateIpAddress.Trim();
         Environment = environment;
+    }
+
+    /// <summary>
+    /// Replaces what this server can host, its resource hints and its known used ports —
+    /// wholesale (the current picture, not an incremental one), kept separate from
+    /// <see cref="UpdateDetails"/> since it changes on its own cadence.
+    /// </summary>
+    public void UpdateCapacity(
+        IEnumerable<NodeCapability> capabilities,
+        ResourceProfile? resources,
+        IEnumerable<int> usedPorts)
+    {
+        ArgumentNullException.ThrowIfNull(capabilities);
+        ArgumentNullException.ThrowIfNull(usedPorts);
+
+        Capabilities = capabilities.Distinct().ToList();
+        Resources = resources;
+        UsedPorts = usedPorts.Distinct().Order().ToList();
     }
 
     public void Activate() => IsActive = true;

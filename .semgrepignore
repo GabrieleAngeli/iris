@@ -1,0 +1,6 @@
+# Cartelle escluse dalla scansione Semgrep. Aggiungere codice generato o dipendenze
+# vendorizzate qui con una motivazione.
+**/bin/
+**/obj/
+**/Migrations/*.Designer.cs
+src/Iris.App/Platforms/

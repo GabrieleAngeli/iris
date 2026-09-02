@@ -63,6 +63,30 @@ public sealed class GovernanceHandlersTests
     }
 
     [Fact]
+    public async Task UpdateCustomer_renames_and_toggles_active()
+    {
+        var store = new FakeStore();
+        var customer = new Customer(Guid.NewGuid(), "acme", "Acme");
+        store.WithCustomer(customer);
+
+        var handler = new UpdateCustomerHandler(store.CustomerRepository, store.UnitOfWork);
+
+        var updated = await handler.HandleAsync(new UpdateCustomerCommand(customer.Id, "Acme Ltd", false));
+
+        Assert.Equal("Acme Ltd", updated.Name);
+        Assert.Equal("acme", updated.Key); // unchanged — Key is immutable
+        Assert.False(updated.IsActive);
+
+        var reactivated = await handler.HandleAsync(new UpdateCustomerCommand(customer.Id, "Acme Ltd", true));
+        Assert.True(reactivated.IsActive);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.HandleAsync(new UpdateCustomerCommand(Guid.NewGuid(), "X", true)));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            handler.HandleAsync(new UpdateCustomerCommand(customer.Id, "", true)));
+    }
+
+    [Fact]
     public async Task AssignRole_grants_once_and_rejects_duplicates()
     {
         var store = StoreWithReaderRole(out var reader);

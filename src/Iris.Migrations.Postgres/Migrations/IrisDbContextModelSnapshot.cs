@@ -241,6 +241,248 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.ToTable("UserInvitations", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Access.UserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DefaultBranch")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("RepositoryUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("RuntimeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Applications", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<string[]>("ImportWarnings")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("LastImportSchemaVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset?>("LastImportedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RawImportPackageJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationVersions", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ConfigurationKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DefaultValue")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("PlaceholderKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Secret")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.ToTable("ApplicationConfigurationKeys", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.DependencyDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PlaceholderKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.ToTable("ApplicationDependencies", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.PlaceholderDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.ToTable("ApplicationPlaceholders", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -301,6 +543,10 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.PrimitiveCollection<string[]>("Capabilities")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -342,9 +588,57 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.PrimitiveCollection<int[]>("UsedPorts")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.HasKey("Id");
 
                     b.ToTable("Servers", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Settings.MailProviderSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("EnableSsl")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("FromDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SmtpHost")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<string>("SmtpPasswordSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<int>("SmtpPort")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SmtpUsername")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MailProviderSettings", (string)null);
                 });
 
             modelBuilder.Entity("Iris.Domain.Tenancy.Customer", b =>
@@ -438,6 +732,91 @@ namespace Iris.Migrations.Postgres.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Access.UserSession", b =>
+                {
+                    b.HasOne("Iris.Domain.Access.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationDefinition", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("Iris.Domain.Applications.RuntimeMetadata", "RuntimeMetadata", b1 =>
+                        {
+                            b1.Property<Guid>("ApplicationVersionId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("PreferredOs")
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("PreferredOs");
+
+                            b1.Property<int?>("RequiredCpuCores")
+                                .HasColumnType("integer")
+                                .HasColumnName("RequiredCpuCores");
+
+                            b1.Property<int?>("RequiredMemoryMb")
+                                .HasColumnType("integer")
+                                .HasColumnName("RequiredMemoryMb");
+
+                            b1.PrimitiveCollection<int[]>("RequiredPorts")
+                                .IsRequired()
+                                .HasColumnType("integer[]")
+                                .HasColumnName("RequiredPorts");
+
+                            b1.Property<string>("RuntimeName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("RuntimeName");
+
+                            b1.HasKey("ApplicationVersionId");
+
+                            b1.ToTable("ApplicationVersions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ApplicationVersionId");
+                        });
+
+                    b.Navigation("RuntimeMetadata")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ConfigurationKey", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("ConfigurationKeys")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.DependencyDefinition", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("Dependencies")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.PlaceholderDefinition", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("Placeholders")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerCredential", b =>
                 {
                     b.HasOne("Iris.Domain.Infrastructure.ServerNode", null)
@@ -447,6 +826,36 @@ namespace Iris.Migrations.Postgres.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>
+                {
+                    b.OwnsOne("Iris.Domain.Infrastructure.ResourceProfile", "Resources", b1 =>
+                        {
+                            b1.Property<Guid>("ServerNodeId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int?>("CpuCores")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceCpuCores");
+
+                            b1.Property<int?>("DiskGb")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceDiskGb");
+
+                            b1.Property<int?>("MemoryMb")
+                                .HasColumnType("integer")
+                                .HasColumnName("ResourceMemoryMb");
+
+                            b1.HasKey("ServerNodeId");
+
+                            b1.ToTable("Servers");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ServerNodeId");
+                        });
+
+                    b.Navigation("Resources");
+                });
+
             modelBuilder.Entity("Iris.Domain.Tenancy.CustomerContext", b =>
                 {
                     b.HasOne("Iris.Domain.Tenancy.Customer", null)
@@ -454,6 +863,20 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationDefinition", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
+                {
+                    b.Navigation("ConfigurationKeys");
+
+                    b.Navigation("Dependencies");
+
+                    b.Navigation("Placeholders");
                 });
 
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>

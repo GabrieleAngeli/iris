@@ -53,9 +53,16 @@ Thumbs.db
 appsettings.*.local.json
 *.env.local
 
+# Local scratch notes / credentials — never tracked (stash real secrets here, not loose in the repo)
+*.local.md
+.secrets/
+
 # Local SQLite databases
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *Project Reference
+
+# Structured logs written by Serilog (Iris.Api, and Iris.App under its AppData folder)
+logs/

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -103,5 +104,73 @@ public sealed class AuthApiTests(IrisApiFactory factory) : IClassFixture<IrisApi
             (await anon.PostAsJsonAsync("/auth/password", new { newPassword = "a-good-secret" })).StatusCode);
     }
 
+    [Fact]
+    public async Task A_user_with_a_local_password_can_log_in_without_any_dev_header()
+    {
+        var f = AnyEmail();
+        var email = await PendingUserAsync("login");
+
+        // Bootstrap the password the normal dev-header way (as if it were the very first sign-in).
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await As(f, email).PostAsJsonAsync("/auth/password", new { newPassword = "correct-horse-battery" })).StatusCode);
+
+        // The real login endpoint, with a completely anonymous client — no X-Dev-User anywhere.
+        var anon = f.CreateClient();
+        var login = await anon.PostAsJsonAsync("/auth/login", new { email, password = "correct-horse-battery" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var session = await login.Content.ReadFromJsonAsync<LoginDto>();
+        Assert.NotEmpty(session!.Token);
+
+        anon.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+        var me = await anon.GetFromJsonAsync<MeDto>("/me");
+        Assert.Equal(email, me!.Email);
+
+        // wrong password -> 400, still no dev header anywhere
+        var wrong = await f.CreateClient().PostAsJsonAsync("/auth/login", new { email, password = "nope" });
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_invitation_can_be_redeemed_and_then_used_to_log_in()
+    {
+        var admin = Admin();
+        var email = $"invite-{Guid.NewGuid():N}@contoso.example";
+        var create = await admin.PostAsJsonAsync("/governance/users", new { email, displayName = "Invited Person" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var user = await create.Content.ReadFromJsonAsync<UserDto>();
+
+        var issue = await admin.PostAsJsonAsync($"/governance/users/{user!.Id}/invitation", new { });
+        Assert.Equal(HttpStatusCode.OK, issue.StatusCode);
+        var invitation = await issue.Content.ReadFromJsonAsync<InvitationDto>();
+
+        var anon = factory.CreateClient();
+
+        // wrong/garbage token -> 400
+        Assert.Equal(HttpStatusCode.BadRequest, (await anon.PostAsJsonAsync(
+            "/invitations/accept", new { token = "not-the-real-token", newPassword = "brand-new-secret" })).StatusCode);
+
+        var accept = await anon.PostAsJsonAsync(
+            "/invitations/accept", new { token = invitation!.Token, newPassword = "brand-new-secret" });
+        Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
+        var accepted = await accept.Content.ReadFromJsonAsync<AcceptInvitationDto>();
+        Assert.Equal(email, accepted!.Email);
+
+        // the token is one-time — redeeming it again fails
+        Assert.Equal(HttpStatusCode.BadRequest, (await anon.PostAsJsonAsync(
+            "/invitations/accept", new { token = invitation.Token, newPassword = "another-secret" })).StatusCode);
+
+        // and now the invited person can log in for real, with no SSO and no dev header
+        var login = await anon.PostAsJsonAsync("/auth/login", new { email, password = "brand-new-secret" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
     private sealed record MeDto(Guid UserId, string Email, bool PasswordSetupPending);
+
+    private sealed record LoginDto(string Token, DateTimeOffset ExpiresAtUtc);
+
+    private sealed record AcceptInvitationDto(string Email);
+
+    private sealed record UserDto(Guid Id, string Email);
+
+    private sealed record InvitationDto(Guid UserId, string Email, string DisplayName, string Token, string AcceptLink, DateTimeOffset ExpiresAtUtc);
 }

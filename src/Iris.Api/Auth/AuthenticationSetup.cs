@@ -19,16 +19,19 @@ public static class AuthenticationSetup
         var devUsers = configuration.GetSection("Iris:Auth:DevUsers").Get<List<DevUser>>() ?? [];
         var allowAnyEmail = configuration.GetValue("Iris:Auth:AllowAnyEmail", false);
 
-        var defaultScheme = mode switch
-        {
-            IrisAuthMode.Dev => DevAuthenticationOptions.SchemeName,
-            IrisAuthMode.EntraId => JwtBearerDefaults.AuthenticationScheme,
-            _ => CompositeScheme,
-        };
+        var devRegistered = mode is IrisAuthMode.Dev or IrisAuthMode.Both;
+        var entraIdRegistered = mode is IrisAuthMode.EntraId or IrisAuthMode.Both;
 
-        var authBuilder = services.AddAuthentication(defaultScheme);
+        // The local-password session scheme is always registered, independent of Iris:Auth:Mode —
+        // it must work even for an org with no Entra ID tenant configured at all. The composite
+        // scheme is therefore always the default now, routing every request to whichever of the
+        // (up to three) registered schemes actually applies to it.
+        var authBuilder = services.AddAuthentication(CompositeScheme);
 
-        if (mode is IrisAuthMode.Dev or IrisAuthMode.Both)
+        authBuilder.AddScheme<IrisSessionAuthenticationOptions, IrisSessionAuthenticationHandler>(
+            IrisSessionAuthenticationOptions.SchemeName, _ => { });
+
+        if (devRegistered)
         {
             authBuilder.AddScheme<DevAuthenticationOptions, DevAuthenticationHandler>(
                 DevAuthenticationOptions.SchemeName,
@@ -41,22 +44,39 @@ public static class AuthenticationSetup
                 });
         }
 
-        if (mode is IrisAuthMode.EntraId or IrisAuthMode.Both)
+        if (entraIdRegistered)
         {
             GuardEntraIdConfiguration(configuration);
             authBuilder.AddMicrosoftIdentityWebApi(configuration, "AzureAd");
         }
 
-        if (mode is IrisAuthMode.Both)
+        authBuilder.AddPolicyScheme(CompositeScheme, CompositeScheme, options =>
         {
-            authBuilder.AddPolicyScheme(CompositeScheme, CompositeScheme, options =>
+            options.ForwardDefaultSelector = context =>
             {
-                options.ForwardDefaultSelector = context =>
-                    context.Request.Headers.ContainsKey(devHeader)
-                        ? DevAuthenticationOptions.SchemeName
-                        : JwtBearerDefaults.AuthenticationScheme;
-            });
-        }
+                if (devRegistered && context.Request.Headers.ContainsKey(devHeader))
+                {
+                    return DevAuthenticationOptions.SchemeName;
+                }
+
+                var authHeader = context.Request.Headers.Authorization.ToString();
+                const string bearerPrefix = "Bearer ";
+                if (authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var token = authHeader[bearerPrefix.Length..].Trim();
+                    // A JWT always has two dots (header.payload.signature); our opaque session
+                    // token never does — that alone is enough to route correctly.
+                    if (entraIdRegistered && token.Count(c => c == '.') == 2)
+                    {
+                        return JwtBearerDefaults.AuthenticationScheme;
+                    }
+
+                    return IrisSessionAuthenticationOptions.SchemeName;
+                }
+
+                return entraIdRegistered ? JwtBearerDefaults.AuthenticationScheme : IrisSessionAuthenticationOptions.SchemeName;
+            };
+        });
 
         return builder;
     }

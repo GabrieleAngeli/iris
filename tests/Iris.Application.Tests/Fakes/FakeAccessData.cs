@@ -1,7 +1,9 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Domain.Access;
+using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
+using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Tests.Fakes;
@@ -19,9 +21,17 @@ internal sealed class FakeStore
 
     public List<ServerNode> Servers { get; } = [];
 
+    public List<ApplicationDefinition> Applications { get; } = [];
+
     public List<UserInvitation> Invitations { get; } = [];
 
+    public List<UserSession> Sessions { get; } = [];
+
     public List<EditLock> EditLocks { get; } = [];
+
+    public FakeEmailSender EmailSender { get; } = new();
+
+    public List<MailProviderSettings> MailSettings { get; } = [];
 
     public Dictionary<string, string> SecretsByReference { get; } = [];
 
@@ -57,6 +67,12 @@ internal sealed class FakeStore
         return this;
     }
 
+    public FakeStore WithApplication(ApplicationDefinition application)
+    {
+        Applications.Add(application);
+        return this;
+    }
+
     public FakeUnitOfWork UnitOfWork => new(this);
 
     public FakeUserRepository UserRepository => new(this);
@@ -69,11 +85,17 @@ internal sealed class FakeStore
 
     public FakeServerRepository ServerRepository => new(this);
 
+    public FakeApplicationRepository ApplicationRepository => new(this);
+
     public FakeSecretStore SecretStore => new(this);
 
     public FakeUserInvitationRepository UserInvitationRepository => new(this);
 
+    public FakeUserSessionRepository UserSessionRepository => new(this);
+
     public FakeEditLockRepository EditLockRepository => new(this);
+
+    public FakeMailProviderSettingsRepository MailProviderSettingsRepository => new(this);
 
     /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
     public UserAccessService AccessService => new(UserRepository, RoleAssignmentRepository, RoleRepository);
@@ -104,6 +126,60 @@ internal sealed class FakeUserInvitationRepository(FakeStore store) : IUserInvit
         Task.FromResult(store.Invitations.SingleOrDefault(i => i.TokenHash == tokenHash));
 
     public void Remove(UserInvitation invitation) => store.Invitations.Remove(invitation);
+}
+
+internal sealed class FakeUserSessionRepository(FakeStore store) : IUserSessionRepository
+{
+    public Task AddAsync(UserSession session, CancellationToken cancellationToken = default)
+    {
+        store.Sessions.Add(session);
+        return Task.CompletedTask;
+    }
+
+    public Task<UserSession?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Sessions.SingleOrDefault(s => s.TokenHash == tokenHash));
+
+    public void Remove(UserSession session) => store.Sessions.Remove(session);
+}
+
+internal sealed class FakeMailProviderSettingsRepository(FakeStore store) : IMailProviderSettingsRepository
+{
+    public Task<MailProviderSettings?> GetAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.MailSettings.SingleOrDefault());
+
+    public Task UpsertAsync(MailProviderSettings settings, CancellationToken cancellationToken = default)
+    {
+        store.MailSettings.Clear();
+        store.MailSettings.Add(settings);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records every send/test call instead of touching real SMTP. Set <see cref="FailTestWith"/> to simulate a bad connection.</summary>
+internal sealed class FakeEmailSender : IEmailSender
+{
+    public List<EmailMessage> SentMessages { get; } = [];
+
+    public List<MailConnectionTestRequest> TestedConnections { get; } = [];
+
+    public MailConnectionException? FailTestWith { get; set; }
+
+    public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+    {
+        SentMessages.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public Task TestConnectionAsync(MailConnectionTestRequest request, CancellationToken cancellationToken = default)
+    {
+        TestedConnections.Add(request);
+        if (FailTestWith is not null)
+        {
+            throw FailTestWith;
+        }
+
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeEditLockRepository(FakeStore store) : IEditLockRepository
@@ -221,6 +297,9 @@ internal sealed class FakeRoleAssignmentRepository(FakeStore store) : IRoleAssig
         Task.FromResult(store.Assignments.Any(a =>
             a.UserId == userId && a.RoleId == roleId && a.Scope.Equals(scope)));
 
+    public Task<bool> ExistsForRoleAsync(Guid roleId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Assignments.Any(a => a.RoleId == roleId));
+
     public Task AddAsync(RoleAssignment assignment, CancellationToken cancellationToken = default)
     {
         store.Assignments.Add(assignment);
@@ -271,6 +350,27 @@ internal sealed class FakeServerRepository(FakeStore store) : IServerRepository
     public void Remove(ServerNode server) => store.Servers.Remove(server);
 }
 
+internal sealed class FakeApplicationRepository(FakeStore store) : IApplicationRepository
+{
+    public Task<IReadOnlyList<ApplicationDefinition>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ApplicationDefinition>>(store.Applications.ToList());
+
+    public Task<ApplicationDefinition?> GetAsync(Guid applicationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.SingleOrDefault(a => a.Id == applicationId));
+
+    public Task<ApplicationDefinition?> GetForUpdateAsync(Guid applicationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.SingleOrDefault(a => a.Id == applicationId));
+
+    public Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.Applications.Any(a => a.Slug == slug));
+
+    public Task AddAsync(ApplicationDefinition application, CancellationToken cancellationToken = default)
+    {
+        store.Applications.Add(application);
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>Fake stand-in for OpenBao: records what was stored so tests can assert the raw secret never reaches the DB.</summary>
 internal sealed class FakeSecretStore(FakeStore store) : ISecretStore
 {
@@ -280,6 +380,9 @@ internal sealed class FakeSecretStore(FakeStore store) : ISecretStore
         store.SecretsByReference[reference] = secretValue;
         return Task.FromResult(reference);
     }
+
+    public Task<string?> RetrieveAsync(string reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.SecretsByReference.GetValueOrDefault(reference));
 
     public Task DeleteAsync(string reference, CancellationToken cancellationToken = default)
     {

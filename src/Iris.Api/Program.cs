@@ -9,8 +9,17 @@ using Iris.Contracts.Meta;
 using Iris.Infrastructure;
 using Iris.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog is the provider; ILogger<T> (already native to every project) stays the
+// abstraction. Sinks — where logs go — are entirely configuration-driven (the "Serilog"
+// section in appsettings), so adding a remote sink later needs no code change here.
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
@@ -28,6 +37,7 @@ builder.Services.AddScoped<IClaimsTransformation, AccessProvisioningClaimsTransf
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
@@ -54,10 +64,17 @@ app.MapAccessEndpoints();
 app.MapAuthEndpoints();
 app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
+app.MapApplicationsEndpoints();
+app.MapSetupEndpoints();
 
 if (builder.Configuration.GetValue("Iris:Database:MigrateOnStartup", true))
 {
-    await IrisDbInitializer.MigrateAndSeedAsync(app.Services);
+    // Off by default: a real deployment starts genuinely empty and the first-run setup wizard
+    // (GET /setup/status, POST /setup/complete) is what creates its first super-admin. On for
+    // local development (appsettings.Development.json) so the existing reference tenancy —
+    // Contoso/Globex, admin@iris.local already a platform-admin — keeps showing up as before.
+    var seedDemoData = builder.Configuration.GetValue("Iris:Database:SeedDemoData", false);
+    await IrisDbInitializer.MigrateAndSeedAsync(app.Services, seedDemoData);
 }
 
 app.Run();

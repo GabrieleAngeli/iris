@@ -154,8 +154,18 @@
                     <Button Text="Continue with single sign-on" Style="{StaticResource SecondaryButton}"
                             Command="{Binding UseSsoCommand}" HorizontalOptions="Fill" />
 
-                    <Label HorizontalOptions="Center" Style="{StaticResource Caption}"
-                           Text="Demo credentials — any user, password &quot;demo&quot;" />
+                    <Label HorizontalOptions="Center" Style="{StaticResource Caption}">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="First time here? " />
+                                <Span Text="Set your password from an invitation" TextDecorations="Underline">
+                                    <Span.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding RequestAcceptInvitationCommand}" />
+                                    </Span.GestureRecognizers>
+                                </Span>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
 
                 </VerticalStackLayout>
             </Grid>

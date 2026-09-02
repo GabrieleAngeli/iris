@@ -104,6 +104,60 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task Admin_can_set_a_servers_capacity_and_reader_cannot()
+    {
+        var admin = Admin();
+        var name = "cap-" + Guid.NewGuid().ToString("N")[..8];
+
+        var create = await admin.PostAsJsonAsync("/servers", new
+        {
+            name, os = "Linux", hostingType = "SelfHosted", privateIpAddress = "10.0.2.2", environment = "Test",
+        });
+        var server = await create.Content.ReadFromJsonAsync<ServerDto>();
+
+        var forbidden = await Reader().PutAsJsonAsync($"/servers/{server!.Id}/capacity", new
+        {
+            capabilities = new[] { "Database" },
+            resources = (object?)null,
+            usedPorts = Array.Empty<int>(),
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var update = await admin.PutAsJsonAsync($"/servers/{server.Id}/capacity", new
+        {
+            capabilities = new[] { "Database", "ServiceHost" },
+            resources = new { cpuCores = 4, memoryMb = 8192, diskGb = 100 },
+            usedPorts = new[] { 5432, 22, 22 },
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = await update.Content.ReadFromJsonAsync<ServerFullDto>();
+        Assert.Equal(["Database", "ServiceHost"], updated!.Capabilities);
+        Assert.Equal(4, updated.Resources!.CpuCores);
+        Assert.Equal([22, 5432], updated.UsedPorts);
+
+        // unknown capability -> 400
+        var bad = await admin.PutAsJsonAsync($"/servers/{server.Id}/capacity", new
+        {
+            capabilities = new[] { "FlyingCar" },
+            resources = (object?)null,
+            usedPorts = Array.Empty<int>(),
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+
+        // a second call replaces rather than accumulates
+        var cleared = await admin.PutAsJsonAsync($"/servers/{server.Id}/capacity", new
+        {
+            capabilities = Array.Empty<string>(),
+            resources = (object?)null,
+            usedPorts = Array.Empty<int>(),
+        });
+        var clearedDto = await cleared.Content.ReadFromJsonAsync<ServerFullDto>();
+        Assert.Empty(clearedDto!.Capabilities);
+        Assert.Null(clearedDto.Resources);
+        Assert.Empty(clearedDto.UsedPorts);
+    }
+
+    [Fact]
     public async Task Admin_can_register_a_server_and_manage_its_credentials()
     {
         var admin = Admin();
@@ -176,7 +230,11 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
 
     private sealed record ServerDto(Guid Id, string Name, List<CredentialDto> Credentials);
 
-    private sealed record ServerFullDto(Guid Id, string Name, string Os, string HostingType, string Environment);
+    private sealed record ResourceProfileDto(int? CpuCores, int? MemoryMb, int? DiskGb);
+
+    private sealed record ServerFullDto(
+        Guid Id, string Name, string Os, string HostingType, string Environment,
+        List<string> Capabilities, ResourceProfileDto? Resources, List<int> UsedPorts);
 
     private sealed record CredentialDto(
         Guid Id, string Username, string AuthMethod, string Kind,
