@@ -140,3 +140,30 @@ Validation Engine non ancora scritto — ora ha tutto ciò che gli serve
 
 **Prossimo step**: commit di questo incremento; poi plan mode per Deployments
 (associazione Application+Version+Customer+Context+ServerNode) e/o Validation Engine.
+
+---
+
+## 2026-09-02 — riallineamento `.contex` alla branch `feature/applications-catalog`
+
+**Classificazione**: consolidamento documentazione operativa.
+
+**Cosa è successo**: dopo il passaggio alla branch `feature/applications-catalog`, è stato
+riletto il context pack e confrontato con il codice/commit correnti. Trovate frasi ormai
+stanti: Applications e Server capacity risultavano ancora "da fare" in alcuni file, e il
+bootstrap prompt indicava repository/branch sbagliati. Aggiornati stato corrente,
+decisioni, piano operativo, source map, prossime azioni e bootstrap prompt.
+
+**Stato reale confermato**: Applications backend-first, ServerNode capability/risorse/
+porte, login email/password con `UserSession`, accept invitation, setup wizard one-shot,
+SMTP MailKit, Serilog e security scanning minimo sono presenti in branch.
+
+**Verificato**: `dotnet test Iris.sln -c Release` verde — 135/135 test.
+
+**Rischi residui / cosa resta aperto**: client MAUI non ricompilato in questa iterazione
+perché il lavoro ha toccato solo documentazione `.contex`; resta assente la pagina MAUI
+Applications. Deployments, Validation Engine e Actions sono ancora il prossimo blocco di
+prodotto.
+
+**Prossimo step**: modellare `DeploymentAssociation` con FK reali a
+`ApplicationDefinition`/`ApplicationVersion`, `Customer`/`CustomerContext` e `ServerNode`,
+poi aggiungere `ValidateDeployment` usando configuration knowledge e server capacity.
