@@ -150,7 +150,7 @@ internal sealed class NativeWindowConfigurator(WindowGeometryStore store) : INat
 	{
 		if (store.TryGet(key, out var rect))
 		{
-			var area = BestVisibleArea(rect) ?? PrimaryDisplay()?.WorkArea;
+			var area = (BestVisibleArea(rect) ?? PrimaryDisplay())?.WorkArea;
 			if (area is not null)
 			{
 				appWindow.MoveAndResize(IsVisibleWithin(rect, area.Value)
