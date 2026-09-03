@@ -161,6 +161,13 @@
                             <Button Grid.ColumnSpan="3" Text="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//applications" />
                         </Grid>
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                            <Label Grid.Column="1" Text="&#xE736;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Extractor guide" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Extractor guide" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//extractor-guide" />
+                        </Grid>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding IsDevelopment}">
@@ -258,6 +265,9 @@
     </FlyoutItem>
     <FlyoutItem Title="Applications" Route="applications" FlyoutItemIsVisible="False">
         <ShellContent Title="Applications" ContentTemplate="{DataTemplate views:ApplicationsPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Extractor guide" Route="extractor-guide" FlyoutItemIsVisible="False">
+        <ShellContent Title="Extractor guide" ContentTemplate="{DataTemplate views:ExtractorGuidePage}" />
     </FlyoutItem>
 
 </Shell>

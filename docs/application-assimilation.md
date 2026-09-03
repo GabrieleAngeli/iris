@@ -7,6 +7,11 @@ L'obiettivo e' separare tre piani:
 - build artifact: dove vive cio' che viene deployato davvero.
 - configuration knowledge: chiavi, dependency e placeholder estratti dalla pipeline.
 
+**Stato dell'implementazione**: solo la sezione `.NET` qui sotto descrive uno strumento
+realmente costruito (`src/Iris.Extractor`, pacchettizzato come `dotnet tool` con comando
+`iris-extractor`). Le sezioni `Node/JavaScript`, `Java` e `Docker` restano una guida di
+intento per iterazioni future — nessun estrattore per quegli stack esiste ancora nel repo.
+
 ## Inventory applicazione
 
 Ogni application deve avere:
@@ -108,12 +113,33 @@ servizio chiamante e il servizio chiamato.
 
 ## .NET
 
-Estrarre:
+`src/Iris.Extractor` e' un `dotnet tool` (comando `iris-extractor`) che analizza staticamente
+l'albero sorgente di un'applicazione .NET — nessuna compilazione/restore del progetto target,
+solo parsing di file e analisi sintattica Roslyn — ed estrae:
 
-- `appsettings*.json`
-- variabili `IConfiguration`
-- connection string
-- porte da `ASPNETCORE_URLS`, `launchSettings.json` o manifest deploy
+- `appsettings*.json`, appiattito in chiavi `Sezione:Chiave` (convenzione
+  `Microsoft.Extensions.Configuration`); `ConnectionStrings:*` diventa anche una `dependency`
+  di categoria `database`.
+- Usi di `IConfiguration` nel codice (`GetValue`, `GetSection`, `GetConnectionString`,
+  l'indicizzatore) — cattura chiavi che l'app legge ma che non compaiono in nessun
+  `appsettings.json` (es. valori solo da environment/secret store). Compaiono con
+  `targetKind = "code:IConfiguration"`.
+- Porte da `Properties/launchSettings.json` — **non** diventano una `configurationKey`: oggi
+  `RuntimeMetadata.RequiredPorts` si imposta solo alla creazione della `ApplicationVersion`
+  (`POST /applications/{id}/versions`) e non e' aggiornabile via `/import`, quindi l'estrattore
+  le segnala in `warnings[]` invece di scartarle silenziosamente.
+
+Un'euristica sui nomi (`password`, `secret`, `apikey`, `token`, `connectionstring`, `pwd`)
+marca `secret: true` le chiavi che sembrano sensibili; per quelle il pacchetto non porta mai
+un `defaultValue`.
+
+Installazione (finche' non esiste un feed NuGet pubblico dedicato, pacchettizzare e installare
+da un feed locale/interno):
+
+```bash
+dotnet pack src/Iris.Extractor -c Release -o ./nupkg
+dotnet tool install --global Iris.Extractor --add-source ./nupkg
+```
 
 Pipeline Azure DevOps:
 
@@ -122,22 +148,27 @@ Pipeline Azure DevOps:
 - script: dotnet publish src/MyApp/MyApp.csproj -c Release -o "$(Build.ArtifactStagingDirectory)/myapp"
 - publish: "$(Build.ArtifactStagingDirectory)/myapp"
   artifact: myapp
-- script: >
-    iris-extractor dotnet
-    --project src/MyApp/MyApp.csproj
-    --artifact-provider AzureDevOps
-    --artifact-feed "$(System.TeamProject)"
-    --artifact-name myapp
-    --artifact-path myapp
-    --output iris-package.json
-- script: >
-    curl -X POST "$(IRIS_API)/applications/$(IRIS_APP_ID)/versions/$(IRIS_VERSION_ID)/import"
-    -H "Authorization: Bearer $(IRIS_TOKEN)"
-    -H "Content-Type: application/json"
-    --data @iris-package.json
+- script: iris-extractor dotnet --root src/MyApp --output iris-package.json
+  env:
+    IRIS_API: $(IRIS_API)
+    IRIS_APPLICATION_ID: $(IRIS_APPLICATION_ID)
+    IRIS_VERSION_ID: $(IRIS_VERSION_ID)
+    IRIS_TOKEN: $(IRIS_TOKEN)
 ```
 
+`iris-extractor dotnet` scrive sempre `iris-package.json` (utile come artifact di pipeline
+anche senza upload); se `IRIS_API`/`IRIS_APPLICATION_ID`/`IRIS_VERSION_ID`/`IRIS_TOKEN` sono
+valorizzate (via env var, come sopra, o coi flag `--api`/`--application-id`/`--version-id`/
+`--token`) chiama anche direttamente `POST /applications/{applicationId}/versions/{versionId}/import`,
+senza bisogno di uno step `curl` separato. `IRIS_APPLICATION_ID`/`IRIS_VERSION_ID` vengono da un
+passo amministrativo precedente e separato: un operatore Iris crea prima l'`ApplicationDefinition`
+e la `ApplicationVersion` (`applications.write`); la pipeline ha bisogno solo del permesso
+dedicato `applications.import` sul token che usa.
+
 ## Node / JavaScript
+
+*Non ancora costruito — guida di intento. Il comando `iris-extractor node` mostrato sotto non
+esiste oggi; niente sul path di build lo produce.*
 
 Estrarre:
 
@@ -164,6 +195,9 @@ Pipeline:
 
 ## Java
 
+*Non ancora costruito — guida di intento. Il comando `iris-extractor java` mostrato sotto non
+esiste oggi; niente sul path di build lo produce.*
+
 Estrarre:
 
 - `application.yml`
@@ -188,6 +222,9 @@ Pipeline:
 ```
 
 ## Docker
+
+*Non ancora costruito — guida di intento. Il comando `iris-extractor docker` mostrato sotto non
+esiste oggi; niente sul path di build lo produce.*
 
 Estrarre:
 

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.ExtractorGuidePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ExtractorGuideViewModel"
+    Title="Extractor guide">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Extractor guide" Style="{StaticResource TitleLarge}" />
+                <Label Text="Download and run Iris Extractor to feed an application version's configuration knowledge from CI/CD."
+                       Style="{StaticResource Caption}" />
+            </VerticalStackLayout>
+
+            <!-- .NET — implemented -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="16">
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text=".NET" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
+                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalOptions="End">
+                            <Label Text="Available" Style="{StaticResource Caption}" />
+                        </Border>
+                    </Grid>
+
+                    <Label Style="{StaticResource Caption}">
+                        <Label.Text>Iris Extractor is a dotnet tool (iris-extractor) that statically scans a .NET application's source tree — appsettings*.json, IConfiguration usage in code, and launchSettings.json — and produces the configuration package a pipeline sends to Iris. No build/restore of the target project is needed.</Label.Text>
+                    </Label>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="1. Package and install" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Label Text="dotnet pack src/Iris.Extractor -c Release -o ./nupkg" FontSize="12" LineBreakMode="TailTruncation" />
+                            </Border>
+                            <Button Grid.Column="1" Text="Copy" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyCommand}" CommandParameter="dotnet pack src/Iris.Extractor -c Release -o ./nupkg" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Label Text="dotnet tool install --global Iris.Extractor --add-source ./nupkg" FontSize="12" LineBreakMode="TailTruncation" />
+                            </Border>
+                            <Button Grid.Column="1" Text="Copy" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyCommand}" CommandParameter="dotnet tool install --global Iris.Extractor --add-source ./nupkg" />
+                        </Grid>
+                        <Label Text="No public NuGet feed yet — pack it from the Iris repo and install from a local or internal feed."
+                               Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="2. Run it against your application" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Label Text="iris-extractor dotnet --root src/MyApp --output iris-package.json" FontSize="12" LineBreakMode="TailTruncation" />
+                            </Border>
+                            <Button Grid.Column="1" Text="Copy" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyCommand}" CommandParameter="iris-extractor dotnet --root src/MyApp --output iris-package.json" />
+                        </Grid>
+                        <Label Text="Always writes iris-package.json. Add --api, --application-id, --version-id and --token (or the IRIS_API/IRIS_APPLICATION_ID/IRIS_VERSION_ID/IRIS_TOKEN env vars below) to also upload it directly."
+                               Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="3. Wire it into your pipeline" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Style="{StaticResource FieldBorder}" Padding="12,10">
+                                <Label Text="{x:Static vm:ExtractorGuideViewModel.PipelineSnippet}" FontSize="12" />
+                            </Border>
+                            <Button Grid.Column="1" Text="Copy" Style="{StaticResource SecondaryButton}" VerticalOptions="Start"
+                                    Command="{Binding CopyCommand}" CommandParameter="{x:Static vm:ExtractorGuideViewModel.PipelineSnippet}" />
+                        </Grid>
+                        <Label Style="{StaticResource Caption}">
+                            <Label.Text>IRIS_APPLICATION_ID and IRIS_VERSION_ID come from an earlier, separate administrative step — an Iris operator creates the ApplicationDefinition and ApplicationVersion first (applications.write). The pipeline's token only needs the dedicated applications.import permission.</Label.Text>
+                        </Label>
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Other stacks — not built yet -->
+            <Border Style="{StaticResource SubtleCard}">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="Node / JavaScript" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalOptions="End">
+                            <Label Text="Coming soon" Style="{StaticResource Caption}" />
+                        </Border>
+                    </Grid>
+                    <Label Text="Will extract .env.example, process.env.* usage and framework config files (next.config, vite.config, ...). Not built yet."
+                           Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource SubtleCard}">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="Java" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalOptions="End">
+                            <Label Text="Coming soon" Style="{StaticResource Caption}" />
+                        </Border>
+                    </Grid>
+                    <Label Text="Will extract application.yml, Spring @Value/@ConfigurationProperties and server.port. Not built yet."
+                           Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource SubtleCard}">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="Docker" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
+                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalOptions="End">
+                            <Label Text="Coming soon" Style="{StaticResource Caption}" />
+                        </Border>
+                    </Grid>
+                    <Label Text="Will extract ENV, EXPOSE and healthcheck from Dockerfile/docker-compose.yml. Not built yet."
+                           Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

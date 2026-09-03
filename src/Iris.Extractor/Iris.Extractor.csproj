@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Iris.Extractor</RootNamespace>
+    <AssemblyName>Iris.Extractor</AssemblyName>
+    <Description>CLI that statically extracts configuration knowledge from an application's source tree and packages it for Iris's application-import contract.</Description>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>iris-extractor</ToolCommandName>
+    <PackageId>Iris.Extractor</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Iris.Contracts\Iris.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Iris.Extractor.Tests" />
+  </ItemGroup>
+
+</Project>

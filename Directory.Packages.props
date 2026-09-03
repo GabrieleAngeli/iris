@@ -1,38 +1,37 @@
 <Project>
-
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- ASP.NET Core / API -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.12" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="3.10.0" />
-
     <!-- Structured logging (Serilog: ILogger<T> stays the abstraction, this is just the provider) -->
     <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
-
     <!-- Persistence -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.8" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.8" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.8" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-
     <!-- Extensions (kept aligned with the EF Core 9.0.8 transitive graph) -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.8" />
-
     <!-- Mail (setup wizard's SMTP relay) -->
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <!-- Iris.Extractor CLI. Microsoft.CodeAnalysis.CSharp is pinned to 4.8.0, not a newer release,
+         because Microsoft.EntityFrameworkCore.Design 9.0.8 (used by Iris.Api/Iris.Infrastructure)
+         transitively depends on Microsoft.CodeAnalysis.CSharp.Workspaces 4.8.0, which requires
+         Microsoft.CodeAnalysis.CSharp exactly 4.8.0 — a higher central version breaks their restore. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageVersion Include="System.CommandLine" Version="3.0.0-preview.7.26381.103" />
   </ItemGroup>
-
   <ItemGroup>
     <!-- Test stack -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
@@ -41,5 +40,4 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
   </ItemGroup>
-
 </Project>
