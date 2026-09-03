@@ -12,8 +12,6 @@
 
     <Shell.FlyoutHeader>
         <VerticalStackLayout>
-
-            <!-- ===================== Brand ===================== -->
             <Grid Padding="20,28,20,20" ColumnDefinitions="Auto,*" ColumnSpacing="12"
                   BackgroundColor="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource LayerDark}}">
                 <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
@@ -25,12 +23,11 @@
                 <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                     <Label Text="Iris" FontFamily="{StaticResource FontSemibold}" FontSize="17"
                            TextColor="{AppThemeBinding Light=White, Dark={StaticResource TextPrimaryDark}}" />
-                    <Label Text="ICP · Infrastructure Control Plane" FontSize="12"
+                    <Label Text="ICP - Infrastructure Control Plane" FontSize="12"
                            TextColor="{AppThemeBinding Light=#DCEBFF, Dark={StaticResource TextSecondaryDark}}" />
                 </VerticalStackLayout>
             </Grid>
 
-            <!-- ===================== Account ===================== -->
             <Grid Padding="20,14" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8"
                   BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}">
                 <Border WidthRequest="36" HeightRequest="36" StrokeThickness="0"
@@ -52,24 +49,9 @@
                     <Button Text="Sign out" Style="{StaticResource LinkButton}" Clicked="OnSignOutClicked" />
                 </HorizontalStackLayout>
             </Grid>
-
         </VerticalStackLayout>
     </Shell.FlyoutHeader>
 
-    <!--
-        Shell.MenuItemTemplate turned out unreliable for section headers on the Windows
-        handler (the DataTemplate never received the MenuItem as its BindingContext, so
-        bound header/item text silently rendered blank) — so the flyout body is fully
-        custom instead. FlyoutHeader's binding (above) proved this pattern works; this
-        just extends it below the header. FlyoutItem/ShellContent further down still
-        register the routes GoToAsync navigates to — they just aren't auto-rendered.
-
-        Each row layers a real, borderless Button (FlyoutRowButtonStyle — transparent
-        background/text) over a plain Label: a Grid+TapGestureRecognizer alone has no
-        UIA Invoke pattern and isn't keyboard-focusable, so it's unreachable by keyboard
-        or a screen reader. The Button on top supplies the real click/keyboard/automation
-        target while the Label underneath supplies the visible, left-aligned text.
-    -->
     <Shell.Resources>
         <Style x:Key="FlyoutRowButtonStyle" TargetType="Button">
             <Setter Property="BackgroundColor" Value="Transparent" />
@@ -80,10 +62,10 @@
             <Setter Property="HorizontalOptions" Value="Fill" />
             <Setter Property="VerticalOptions" Value="Fill" />
         </Style>
-        <Style x:Key="FlyoutSectionHeaderStyle" TargetType="Label">
-            <Setter Property="Padding" Value="20,20,20,8" />
+        <Style x:Key="FlyoutSectionTextStyle" TargetType="Label">
             <Setter Property="FontFamily" Value="{StaticResource FontSemibold}" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalTextAlignment" Value="Center" />
             <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
         </Style>
         <Style x:Key="FlyoutRowIconStyle" TargetType="Label">
@@ -93,6 +75,14 @@
             <Setter Property="HorizontalTextAlignment" Value="Center" />
             <Setter Property="VerticalTextAlignment" Value="Center" />
             <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+        </Style>
+        <Style x:Key="FlyoutChevronStyle" TargetType="Label">
+            <Setter Property="FontFamily" Value="{StaticResource FontIcons}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="WidthRequest" Value="18" />
+            <Setter Property="HorizontalTextAlignment" Value="Center" />
+            <Setter Property="VerticalTextAlignment" Value="Center" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
         </Style>
         <Style x:Key="FlyoutRowTextStyle" TargetType="Label" BasedOn="{StaticResource Body}">
             <Setter Property="VerticalOptions" Value="Center" />
@@ -105,80 +95,251 @@
             <ScrollView>
                 <VerticalStackLayout Spacing="0" Padding="0,8">
 
-                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,12,20,12">
-                        <BoxView Grid.Column="0" WidthRequest="4"
-                                 Color="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
-                        <Label Grid.Column="1" Text="&#xE80F;" Style="{StaticResource FlyoutRowIconStyle}" />
-                        <Label Grid.Column="2" Text="Dashboard" Style="{StaticResource FlyoutRowTextStyle}" />
-                        <Button Grid.ColumnSpan="3" Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
-                                Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
-                    </Grid>
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="10,2,12,6" BackgroundColor="Transparent">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsDashboardActive}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,8,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                <BoxView.Triggers>
+                                    <DataTrigger TargetType="BoxView" Binding="{Binding IsDashboardActive}" Value="True">
+                                        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                    </DataTrigger>
+                                </BoxView.Triggers>
+                            </BoxView>
+                            <Label Grid.Column="1" Text="&#xE80F;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Dashboard" Style="{StaticResource FlyoutRowTextStyle}" />
+                            <Button Grid.ColumnSpan="3" Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
+                        </Grid>
+                    </Border>
 
-                    <Label Text="Workspace" Style="{StaticResource FlyoutSectionHeaderStyle}" />
-                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                        <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                        <Label Grid.Column="1" Text="&#xE72E;" Style="{StaticResource FlyoutRowIconStyle}" />
-                        <Label Grid.Column="2" Text="Access" Style="{StaticResource FlyoutRowTextStyle}" />
-                        <Button Grid.ColumnSpan="3" Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
-                                Command="{Binding NavigateCommand}" CommandParameter="//access" />
-                    </Grid>
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="8,6,8,2" BackgroundColor="Transparent">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsWorkspaceExpanded}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="10" Padding="0,10,12,10">
+                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                <BoxView.Triggers>
+                                    <DataTrigger TargetType="BoxView" Binding="{Binding IsWorkspaceActive}" Value="True">
+                                        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                    </DataTrigger>
+                                </BoxView.Triggers>
+                            </BoxView>
+                            <Label Grid.Column="1" Text="&#xE8F1;" Style="{StaticResource FlyoutRowIconStyle}" />
+                            <Label Grid.Column="2" Text="Workspace" Style="{StaticResource FlyoutSectionTextStyle}" />
+                            <Label Grid.Column="3" Text="{Binding WorkspaceChevron}" Style="{StaticResource FlyoutChevronStyle}" />
+                            <Button Grid.ColumnSpan="4" Text="Workspace" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    Command="{Binding ToggleSectionCommand}" CommandParameter="Workspace" />
+                        </Grid>
+                    </Border>
+                    <VerticalStackLayout IsVisible="{Binding IsWorkspaceExpanded}">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsAccessActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                <Label Grid.Column="1" Text="&#xE72E;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                <Label Grid.Column="2" Text="Access" Style="{StaticResource FlyoutRowTextStyle}" />
+                                <Button Grid.ColumnSpan="3" Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
+                                        Command="{Binding NavigateCommand}" CommandParameter="//access" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding CanManageUsers}">
-                        <Label Text="Governance" Style="{StaticResource FlyoutSectionHeaderStyle}" />
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Users" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//users" />
-                        </Grid>
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xE77B;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Customers" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//customers" />
-                        </Grid>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="8,6,8,2" BackgroundColor="Transparent">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsGovernanceExpanded}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="10" Padding="0,10,12,10">
+                                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                    <BoxView.Triggers>
+                                        <DataTrigger TargetType="BoxView" Binding="{Binding IsGovernanceActive}" Value="True">
+                                            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </DataTrigger>
+                                    </BoxView.Triggers>
+                                </BoxView>
+                                <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                <Label Grid.Column="2" Text="Governance" Style="{StaticResource FlyoutSectionTextStyle}" />
+                                <Label Grid.Column="3" Text="{Binding GovernanceChevron}" Style="{StaticResource FlyoutChevronStyle}" />
+                                <Button Grid.ColumnSpan="4" Text="Governance" Style="{StaticResource FlyoutRowButtonStyle}"
+                                        Command="{Binding ToggleSectionCommand}" CommandParameter="Governance" />
+                            </Grid>
+                        </Border>
+                        <VerticalStackLayout IsVisible="{Binding IsGovernanceExpanded}">
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsUsersActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Users" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//users" />
+                                </Grid>
+                            </Border>
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsCustomersActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xE77B;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Customers" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//customers" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding CanManageInfrastructure}">
-                        <Label Text="Infrastructure" Style="{StaticResource FlyoutSectionHeaderStyle}" />
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Servers" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//servers" />
-                        </Grid>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="8,6,8,2" BackgroundColor="Transparent">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsInfrastructureExpanded}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="10" Padding="0,10,12,10">
+                                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                    <BoxView.Triggers>
+                                        <DataTrigger TargetType="BoxView" Binding="{Binding IsInfrastructureActive}" Value="True">
+                                            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </DataTrigger>
+                                    </BoxView.Triggers>
+                                </BoxView>
+                                <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                <Label Grid.Column="2" Text="Infrastructure" Style="{StaticResource FlyoutSectionTextStyle}" />
+                                <Label Grid.Column="3" Text="{Binding InfrastructureChevron}" Style="{StaticResource FlyoutChevronStyle}" />
+                                <Button Grid.ColumnSpan="4" Text="Infrastructure" Style="{StaticResource FlyoutRowButtonStyle}"
+                                        Command="{Binding ToggleSectionCommand}" CommandParameter="Infrastructure" />
+                            </Grid>
+                        </Border>
+                        <VerticalStackLayout IsVisible="{Binding IsInfrastructureExpanded}">
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsServersActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Servers" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//servers" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding CanSeeApplications}">
-                        <Label Text="Applications" Style="{StaticResource FlyoutSectionHeaderStyle}" />
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Inventory" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//applications" />
-                        </Grid>
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xE736;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Extractor guide" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Extractor guide" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//extractor-guide" />
-                        </Grid>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="8,6,8,2" BackgroundColor="Transparent">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsApplicationsExpanded}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="10" Padding="0,10,12,10">
+                                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                    <BoxView.Triggers>
+                                        <DataTrigger TargetType="BoxView" Binding="{Binding IsApplicationsActive}" Value="True">
+                                            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </DataTrigger>
+                                    </BoxView.Triggers>
+                                </BoxView>
+                                <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                <Label Grid.Column="2" Text="Applications" Style="{StaticResource FlyoutSectionTextStyle}" />
+                                <Label Grid.Column="3" Text="{Binding ApplicationsChevron}" Style="{StaticResource FlyoutChevronStyle}" />
+                                <Button Grid.ColumnSpan="4" Text="Applications" Style="{StaticResource FlyoutRowButtonStyle}"
+                                        Command="{Binding ToggleSectionCommand}" CommandParameter="Applications" />
+                            </Grid>
+                        </Border>
+                        <VerticalStackLayout IsVisible="{Binding IsApplicationsExpanded}">
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsApplicationsInventoryActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Inventory" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//applications" />
+                                </Grid>
+                            </Border>
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsExtractorGuideActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xE736;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Extractor guide" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Extractor guide" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//extractor-guide" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout IsVisible="{Binding IsDevelopment}">
-                        <Label Text="Development" Style="{StaticResource FlyoutSectionHeaderStyle}" />
-                        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,20,10">
-                            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-                            <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
-                            <Label Grid.Column="2" Text="Components" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="//components" />
-                        </Grid>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="8,6,8,2" BackgroundColor="Transparent">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsDevelopmentExpanded}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="10" Padding="0,10,12,10">
+                                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                                    <BoxView.Triggers>
+                                        <DataTrigger TargetType="BoxView" Binding="{Binding IsDevelopmentActive}" Value="True">
+                                            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                        </DataTrigger>
+                                    </BoxView.Triggers>
+                                </BoxView>
+                                <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                <Label Grid.Column="2" Text="Development" Style="{StaticResource FlyoutSectionTextStyle}" />
+                                <Label Grid.Column="3" Text="{Binding DevelopmentChevron}" Style="{StaticResource FlyoutChevronStyle}" />
+                                <Button Grid.ColumnSpan="4" Text="Development" Style="{StaticResource FlyoutRowButtonStyle}"
+                                        Command="{Binding ToggleSectionCommand}" CommandParameter="Development" />
+                            </Grid>
+                        </Border>
+                        <VerticalStackLayout IsVisible="{Binding IsDevelopmentExpanded}">
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsComponentsActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Components" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//components" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                 </VerticalStackLayout>
@@ -187,16 +348,28 @@
     </Shell.FlyoutContentTemplate>
 
     <Shell.FlyoutFooter>
-        <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,12,20,12">
-            <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
-            <Label Grid.Column="1" Text="&#xE713;" Style="{StaticResource FlyoutRowIconStyle}" />
-            <Label Grid.Column="2" Text="System settings" Style="{StaticResource FlyoutRowTextStyle}" />
-            <Button Grid.ColumnSpan="3" Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
-                    Command="{Binding NavigateCommand}" CommandParameter="//system-settings" />
-        </Grid>
+        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="10,4,12,10" BackgroundColor="Transparent">
+            <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsSystemSettingsActive}" Value="True">
+                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                </DataTrigger>
+            </Border.Triggers>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,10,8,10">
+                <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent">
+                    <BoxView.Triggers>
+                        <DataTrigger TargetType="BoxView" Binding="{Binding IsSystemSettingsActive}" Value="True">
+                            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                        </DataTrigger>
+                    </BoxView.Triggers>
+                </BoxView>
+                <Label Grid.Column="1" Text="&#xE713;" Style="{StaticResource FlyoutRowIconStyle}" />
+                <Label Grid.Column="2" Text="System settings" Style="{StaticResource FlyoutRowTextStyle}" />
+                <Button Grid.ColumnSpan="3" Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
+                        Command="{Binding NavigateCommand}" CommandParameter="//system-settings" />
+            </Grid>
+        </Border>
     </Shell.FlyoutFooter>
 
-    <!-- Launch bootstrap lives outside the flyout navigation and keeps login hidden while restoring a remembered session. -->
     <ShellContent
         x:Name="StartupContent"
         Route="startup"
@@ -205,7 +378,6 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:StartupPage}" />
 
-    <!-- Login lives outside the flyout navigation -->
     <ShellContent
         x:Name="LoginContent"
         Route="login"
@@ -214,7 +386,6 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:LoginPage}" />
 
-    <!-- First-login "set a password / skip" step, also outside the flyout -->
     <ShellContent
         Route="first-login"
         FlyoutItemIsVisible="False"
@@ -222,7 +393,6 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:FirstLoginPasswordPage}" />
 
-    <!-- Invitation redemption (no SSO): reachable from the sign-in screen -->
     <ShellContent
         Route="accept-invitation"
         FlyoutItemIsVisible="False"
@@ -230,7 +400,6 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:AcceptInvitationPage}" />
 
-    <!-- First-run wizard (mail provider + super-admin): LoginPage redirects here while needed -->
     <ShellContent
         Route="setup"
         FlyoutItemIsVisible="False"
@@ -238,7 +407,6 @@
         Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate views:SetupWizardPage}" />
 
-    <!-- Registers routes for GoToAsync — the flyout's own visuals come from FlyoutContentTemplate above. -->
     <FlyoutItem Title="Users" Route="users" FlyoutItemIsVisible="False">
         <ShellContent Title="Users" ContentTemplate="{DataTemplate views:UsersPage}" />
     </FlyoutItem>

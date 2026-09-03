@@ -434,8 +434,114 @@ Il dialog `New resource` continua a scegliere tra `Server node` e `Managed data 
 con toggle discendente. I tag aggregano tipo, tecnologia, ambiente, capability, porte e
 size/storage per rendere filtrabili anche informazioni operative.
 
-**Verificato**: `dotnet test Iris.sln --no-restore` verde - 156/156 test. La build MAUI e'
+**Fix assorbito il 2026-09-03**: il form inline degli RDS compariva anche dentro una riga
+`Server node` per via del binding XAML annidato `DataService.IsEditMode` quando
+`DataService` era nullo. `InfrastructureResourceRowViewModel` ora espone wrapper espliciti
+(`IsEditingDataService`, `DataServiceError`, `HasDataServiceError`, lock notice server),
+e lo XAML li usa per mostrare i campi RDS solo sulle righe data service.
+
+**Verificato**: `dotnet test Iris.sln --no-restore` verde - 166/166 test. La build MAUI e'
 verde con output isolato:
 `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-build\`
 - 0 warning/0 errori. La build su output standard era bloccata da un processo `Iris.App`
 gia' in esecuzione.
+
+---
+
+## 2026-09-03 - Guida estrazione manuale configuration knowledge
+
+**Classificazione**: documentazione operativa Applications.
+
+**Cosa e' successo**: estesa `docs/application-assimilation.md` con una sezione
+`Estrazione manuale` per produrre a mano `iris-package.json` quando non esiste ancora un
+extractor automatico o quando si vuole validare una application senza toccare la pipeline.
+La guida copre flusso operativo, regole su segreti/placeholders/provider-consumer, import
+manuale via PowerShell e template JSON per `.NET`, Node/JavaScript, Java/Spring e
+Docker/container.
+
+**Verificato**: rilettura mirata del documento e controllo dei riferimenti. Nessuna build
+o test eseguiti perche' la modifica e' solo documentale.
+
+---
+
+## 2026-09-03 - Guida manuale nel FE Extractor guide
+
+**Classificazione**: feature UX/documentazione in-app Applications.
+
+**Cosa e' successo**: la guida di estrazione manuale non vive piu' solo nel documento
+markdown. `ExtractorGuidePage`, gia' presente nella sezione Applications del flyout, ora
+mostra nello stesso posto l'uso dell'extractor .NET automatico, il flusso di import
+manuale, il comando PowerShell copiabile e template JSON copiabili per `.NET`,
+Node/JavaScript, Java/Spring e Docker/container.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\artifacts\verify-build\` verde - 0 warning/0 errori;
+`dotnet test Iris.sln --no-restore` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Extractor guide per tecnologia e Jinja2 Ansible
+
+**Classificazione**: fix UX/documentazione in-app Applications.
+
+**Cosa e' successo**: `ExtractorGuidePage` e' stata riorganizzata verticalmente per
+tecnologia (`C# / .NET`, `Java / Spring`, `Node / JavaScript`, `Docker / container`,
+`Ansible Jinja2 template`). Dentro ogni tecnologia ci sono due aree orizzontali:
+`Automatic` per l'extractor disponibile o pianificato e `Manual manifest` per la
+composizione a mano di `iris-package.json`. Rimossa l'ambiguita' del termine "manual
+fallback": il concetto corretto e' estrazione manuale come scrittura controllata del
+manifest.
+
+**Decisione**: interpretare template Ansible `.j2` ha senso come passo futuro per
+standardizzare il manifest, perche' i template descrivono spesso la forma finale della
+configurazione runtime. La guida introduce `targetKind = "ansible:j2"` e un esempio di
+manifest derivato da variabili Jinja.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Flyout collassabile e route-aware
+
+**Classificazione**: feature UX navigazione client.
+
+**Cosa e' successo**: le macro categorie del flyout (`Workspace`, `Governance`,
+`Infrastructure`, `Applications`, `Development`) sono ora bottoni con chevron che aprono e
+chiudono le sotto-voci. La route corrente viene osservata da `AppShell` e propagata a
+`AppShellViewModel`, cosi' la categoria della pagina attiva resta aperta e il menu evidenzia
+sia header sia voce attiva. `Dashboard` resta una voce standalone in cima; `System settings`
+rimane nel footer ma ora viene evidenziato quando e' la pagina corrente.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Componente globale TabGroup
+
+**Classificazione**: feature UX/design system client.
+
+**Cosa e' successo**: aggiunto `src/Iris.App/Controls/TabGroup.cs`, un controllo MAUI
+riutilizzabile text-based con `Title`, `ItemsSource` e `SelectedIndex` two-way. Il
+componente mostra tab orizzontali, indicatore attivo in stile Fluent e contenuto della tab
+selezionata. `ComponentsPage` ora lo espone nella gallery globale con tre tab di esempio.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Extractor guide usa TabGroup
+
+**Classificazione**: refactor UX client.
+
+**Cosa e' successo**: `ExtractorGuidePage` ora usa il componente globale
+`controls:TabGroup` invece di disegnare manualmente due colonne per `Automatic` e
+`Manual manifest`. `ExtractorGuideViewModel` espone `SharedManifestTabs` e
+`TechnologyGuides`, una collezione verticale di tecnologie; ogni tecnologia contiene le
+due tab standard. `TabGroup` ora permette anche di copiare il contenuto della tab
+selezionata dall'icona code.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore` verde - 166/166 test.

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Iris.App.Controls;
 
 namespace Iris.App.ViewModels;
 
@@ -6,8 +7,15 @@ public partial class ComponentsViewModel : ObservableObject
 {
 	public ObservableCollection<PersonItem> People { get; } = [];
 	public ObservableCollection<string> Countries { get; } = [];
+	public ObservableCollection<TabGroupItem> GalleryTabs { get; } =
+	[
+		new() { Title = "First", Content = "Content 1" },
+		new() { Title = "Second", Content = "Content 2" },
+		new() { Title = "Third", Content = "Content 3" },
+	];
 
 	[ObservableProperty] private bool _isLoading = true;
+	[ObservableProperty] private int _selectedTabIndex;
 
 	[ObservableProperty] private bool _switchOn = true;
 	[ObservableProperty] private bool _checkboxChecked = true;

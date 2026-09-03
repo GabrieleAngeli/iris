@@ -9,8 +9,9 @@ L'obiettivo e' separare tre piani:
 
 **Stato dell'implementazione**: solo la sezione `.NET` qui sotto descrive uno strumento
 realmente costruito (`src/Iris.Extractor`, pacchettizzato come `dotnet tool` con comando
-`iris-extractor`). Le sezioni `Node/JavaScript`, `Java` e `Docker` restano una guida di
-intento per iterazioni future — nessun estrattore per quegli stack esiste ancora nel repo.
+`iris-extractor`). Le sezioni `Node/JavaScript`, `Java`, `Docker` e `Ansible Jinja2`
+restano una guida di intento per iterazioni future: nessun estrattore per quegli stack
+esiste ancora nel repo.
 
 ## Inventory applicazione
 
@@ -96,6 +97,364 @@ Payload minimo:
     }
   ],
   "warnings": []
+}
+```
+
+## Estrazione manuale
+
+Quando una tecnologia non ha ancora un extractor automatico, o quando si vuole validare una
+prima application senza toccare la pipeline, si puo' produrre a mano lo stesso
+`iris-package.json` e importarlo nell'endpoint sopra.
+
+Flusso consigliato:
+
+1. Creare o aggiornare l'application nel catalogo Iris con repository e coordinate artifact.
+2. Creare una `ApplicationVersion`, indicando runtime, OS preferito, CPU/RAM minime e porte
+   richieste note.
+3. Ispezionare sorgenti, file di configurazione e artifact deployabile.
+4. Scrivere `iris-package.json` con `schemaVersion = "1.0"`.
+5. Importare il file con un token che abbia `applications.import`.
+6. Conservare il JSON come artifact di build o allegato operativo, cosi' l'import e'
+   ripetibile.
+
+Campi da compilare:
+
+- `configurationKeys`: chiavi che l'app deve ricevere a deploy/runtime.
+- `dependencies`: servizi esterni richiesti dall'app, per esempio database, cache, HTTP API,
+  code, topic o filesystem.
+- `placeholders`: valori che l'app espone ad altre app o al deployment, per esempio base URL,
+  connection name, queue name o health endpoint.
+- `warnings`: dubbi o informazioni non ancora modellabili, per esempio porte trovate nel
+  sorgente ma non allineate alla versione Iris.
+
+Regole pratiche:
+
+- Non inserire segreti reali in `defaultValue`: se una chiave e' sensibile usare
+  `secret: true` e lasciare `defaultValue: null`.
+- Usare `placeholderKey` stabile, leggibile e namespaced, per esempio
+  `domain.orders.db.connectionString` o `domain.checkout.api.baseUrl`.
+- Se una dependency consuma un valore esposto da un'altra app, compilare anche
+  `providerApplicationSlug` e `providerPlaceholderKey`.
+- Usare `targetKind` per dire dove e' stata trovata la chiave: `appsettings.json`,
+  `.env.example`, `application.yml`, `dockerfile:ENV`, `helm:values.yaml`,
+  `ansible:j2`, `code:IConfiguration`, `code:process.env`, `code:spring`.
+
+Import manuale con PowerShell:
+
+```powershell
+$irisApi = "http://localhost:5000"
+$applicationId = "<application-id>"
+$versionId = "<version-id>"
+$token = "<iris-session-token>"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "$irisApi/applications/$applicationId/versions/$versionId/import" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -InFile ".\iris-package.json"
+```
+
+Template minimo:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [],
+  "dependencies": [],
+  "placeholders": [],
+  "warnings": []
+}
+```
+
+### Estrazione manuale .NET
+
+Usare `iris-extractor dotnet` quando possibile. Se si lavora a mano, controllare:
+
+- `appsettings.json` e `appsettings.<Environment>.json`.
+- `ConnectionStrings`.
+- `Properties/launchSettings.json`.
+- uso di `IConfiguration`, `GetValue`, `GetSection`, `GetConnectionString` e
+  `configuration["..."]`.
+- opzioni bindate con `services.Configure<TOptions>` o pattern options equivalenti.
+
+Esempio:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [
+    {
+      "key": "ConnectionStrings:Main",
+      "targetKind": "appsettings.json",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Primary application database",
+      "purpose": "database",
+      "placeholderKey": "domain.orders.db.connectionString"
+    },
+    {
+      "key": "Integrations:Payments:BaseUrl",
+      "targetKind": "code:IConfiguration",
+      "required": true,
+      "secret": false,
+      "defaultValue": null,
+      "description": "Payments API base URL",
+      "purpose": "http",
+      "placeholderKey": "domain.payments.api.baseUrl"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "main-db",
+      "category": "database",
+      "required": true,
+      "description": "Primary relational database",
+      "placeholderKey": "domain.orders.db",
+      "providerApplicationSlug": null,
+      "providerPlaceholderKey": null
+    }
+  ],
+  "placeholders": [
+    {
+      "key": "domain.orders.api.baseUrl",
+      "category": "http",
+      "description": "Base URL exposed by Orders API",
+      "required": true
+    }
+  ],
+  "warnings": [
+    "launchSettings.json exposes port 5080; set RequiredPorts on the Iris application version."
+  ]
+}
+```
+
+### Estrazione manuale Node / JavaScript
+
+Controllare:
+
+- `.env.example`, `.env.template`, README o documentazione deploy.
+- accessi `process.env.NAME`.
+- config di framework (`next.config.*`, `vite.config.*`, `nuxt.config.*`, `config/*.json`).
+- package manager e output build (`dist`, `.next`, `build`).
+- endpoint esposti dal servizio, healthcheck e porte (`PORT`, `HOST`, reverse proxy).
+
+Esempio:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [
+    {
+      "key": "DATABASE_URL",
+      "targetKind": ".env.example",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Database URL used by the Node service",
+      "purpose": "database",
+      "placeholderKey": "domain.catalog.db.url"
+    },
+    {
+      "key": "PUBLIC_API_BASE_URL",
+      "targetKind": "code:process.env",
+      "required": true,
+      "secret": false,
+      "defaultValue": null,
+      "description": "Backend API URL used by the frontend",
+      "purpose": "http",
+      "placeholderKey": "domain.catalog.api.baseUrl"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "redis-cache",
+      "category": "cache",
+      "required": false,
+      "description": "Optional Redis cache",
+      "placeholderKey": "domain.catalog.cache.redis",
+      "providerApplicationSlug": null,
+      "providerPlaceholderKey": null
+    }
+  ],
+  "placeholders": [],
+  "warnings": []
+}
+```
+
+### Estrazione manuale Java / Spring
+
+Controllare:
+
+- `application.yml`, `application.properties` e profili `application-*.yml`.
+- `spring.datasource.*`, `spring.data.redis.*`, `spring.kafka.*`.
+- annotazioni `@Value("${...}")`.
+- classi `@ConfigurationProperties`.
+- porta `server.port`, management port e health endpoint Actuator.
+
+Esempio:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [
+    {
+      "key": "spring.datasource.url",
+      "targetKind": "application.yml",
+      "required": true,
+      "secret": false,
+      "defaultValue": null,
+      "description": "JDBC database URL",
+      "purpose": "database",
+      "placeholderKey": "domain.billing.db.jdbcUrl"
+    },
+    {
+      "key": "spring.datasource.password",
+      "targetKind": "application.yml",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Database password",
+      "purpose": "database",
+      "placeholderKey": "domain.billing.db.password"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "billing-db",
+      "category": "database",
+      "required": true,
+      "description": "PostgreSQL database for Billing",
+      "placeholderKey": "domain.billing.db",
+      "providerApplicationSlug": null,
+      "providerPlaceholderKey": null
+    }
+  ],
+  "placeholders": [
+    {
+      "key": "domain.billing.api.baseUrl",
+      "category": "http",
+      "description": "Base URL exposed by Billing service",
+      "required": true
+    }
+  ],
+  "warnings": []
+}
+```
+
+### Estrazione manuale Docker / container
+
+Controllare:
+
+- `Dockerfile`: `ENV`, `ARG`, `EXPOSE`, `HEALTHCHECK`.
+- `docker-compose.yml`: `environment`, `env_file`, `ports`, `depends_on`, volumi.
+- Helm/Kubernetes se presenti: `values.yaml`, `ConfigMap`, `Secret`, `Deployment`.
+- registry, image name e tag immutabile usato davvero in deploy.
+
+Esempio:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [
+    {
+      "key": "APP_ENV",
+      "targetKind": "dockerfile:ENV",
+      "required": true,
+      "secret": false,
+      "defaultValue": "Production",
+      "description": "Runtime environment",
+      "purpose": "runtime",
+      "placeholderKey": null
+    },
+    {
+      "key": "OPENBAO_TOKEN",
+      "targetKind": "compose:environment",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Token or reference used to resolve secrets at runtime",
+      "purpose": "secret-bootstrap",
+      "placeholderKey": "platform.openbao.token"
+    }
+  ],
+  "dependencies": [],
+  "placeholders": [
+    {
+      "key": "domain.worker.health.url",
+      "category": "http",
+      "description": "Worker health endpoint exposed through the platform",
+      "required": false
+    }
+  ],
+  "warnings": [
+    "Dockerfile EXPOSE 8080 must be copied into RequiredPorts when creating the application version."
+  ]
+}
+```
+
+### Estrazione manuale Ansible Jinja2
+
+Ha senso trattare i template `.j2` come una sorgente primaria della configuration
+knowledge: spesso sono il punto in cui variabili Iris/OpenBao/Ansible diventano il file di
+configurazione runtime effettivo. Un parser automatico futuro puo' leggere i template e
+standardizzare il manifest senza dipendere dalla tecnologia interna dell'applicazione.
+
+Controllare:
+
+- `templates/*.j2`, per esempio `appsettings.json.j2`, `.env.j2`, `application.yml.j2`.
+- variabili `{{ variable_name }}` renderizzate nei file finali.
+- `defaults/main.yml`, `vars/*.yml`, inventory e group vars che valorizzano i template.
+- condizioni `{% if ... %}`, loop `{% for ... %}` e filtri Jinja che possono rendere una
+  chiave opzionale o ambigua.
+- mapping tra nome variabile Ansible e chiave runtime finale.
+
+Regola proposta: usare `targetKind = "ansible:j2"` e mettere nella `description` il
+riferimento alla variabile Jinja da cui nasce la chiave.
+
+Esempio:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "configurationKeys": [
+    {
+      "key": "ConnectionStrings:Main",
+      "targetKind": "ansible:j2",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Value rendered into appsettings.json.j2 from {{ iris_connectionstrings_main }}",
+      "purpose": "database",
+      "placeholderKey": "domain.orders.db.connectionString"
+    },
+    {
+      "key": "Integrations:Payments:BaseUrl",
+      "targetKind": "ansible:j2",
+      "required": true,
+      "secret": false,
+      "defaultValue": null,
+      "description": "Value rendered into appsettings.json.j2 from {{ iris_payments_base_url }}",
+      "purpose": "http",
+      "placeholderKey": "domain.payments.api.baseUrl"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "orders-db",
+      "category": "database",
+      "required": true,
+      "description": "Database reached through the rendered appsettings file",
+      "placeholderKey": "domain.orders.db",
+      "providerApplicationSlug": null,
+      "providerPlaceholderKey": null
+    }
+  ],
+  "placeholders": [],
+  "warnings": [
+    "Review Jinja variables used only in conditionals or loops; automatic interpretation should mark uncertain values as warnings."
+  ]
 }
 ```
 

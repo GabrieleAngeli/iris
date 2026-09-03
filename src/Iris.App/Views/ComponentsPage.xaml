@@ -168,6 +168,13 @@
 
                         <BoxView HeightRequest="1" />
 
+                        <controls:TabGroup
+                            Title="Basic use of the tab group"
+                            ItemsSource="{Binding GalleryTabs}"
+                            SelectedIndex="{Binding SelectedTabIndex}" />
+
+                        <BoxView HeightRequest="1" />
+
                         <VerticalStackLayout Spacing="6">
                             <Label Text="Tooltip &amp; gestures" Style="{StaticResource Caption}" />
                             <Button Text="Hover me" Style="{StaticResource SecondaryButton}" HorizontalOptions="Start"

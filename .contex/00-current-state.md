@@ -1,7 +1,7 @@
 # Stato corrente
 
-Aggiornato: 2026-09-02. Verificato in questa sessione con `dotnet test Iris.sln`
-(156/156 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+Aggiornato: 2026-09-03. Verificato in questa sessione con `dotnet test Iris.sln`
+(166/166 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
 -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-build\` (output standard
 bloccato se l'app e' gia' aperta).
 
@@ -66,7 +66,9 @@ creazione RDS passa dal dialog `New server` tramite select `Server node` /
 tipo/versione/size/storage. Endpoint `/data-services` e discovery manuale
 `POST /data-services/{id}/discover`. Nel client MAUI server node e data service sono
 presentati nella stessa lista `Resources`, con icone differenti e filtri/sort per tipo,
-OS, versione e tag.
+OS, versione e tag. L'edit inline RDS e' protetto da proprieta' wrapper
+(`IsEditingDataService`, `HasDataServiceError`) per evitare che i campi di input dei data
+service compaiano nelle righe `Server node`, dove `DataService` e' nullo.
 
 **Applications** (`Iris.Domain.Applications`) - catalogo applicazioni:
 `ApplicationDefinition` (nome, slug, `RuntimeType`, repository, branch, artifact provider,
@@ -81,7 +83,14 @@ esposto da un'altra application tramite `ProviderApplicationSlug` e
 `PUT /applications/{id}` per aggiornare l'inventory mantenendo lo slug stabile. Il client
 MAUI ha `ApplicationsPage` sotto Workspace: lista catalogo, create/edit via dialog modali,
 gating con `applications.read/write` e lock advisory `application`.
-La guida operativa e' in `docs/application-assimilation.md`.
+La guida operativa e' in `docs/application-assimilation.md` e nel client MAUI alla voce
+Applications -> `Extractor guide`: include pipeline/extractor .NET e una procedura di
+estrazione manuale per tecnologia (`.NET`, Node/JavaScript, Java/Spring,
+Docker/container, Ansible Jinja2) per produrre e importare `iris-package.json` anche prima
+di avere extractor automatici dedicati. La pagina FE e' organizzata verticalmente per
+tecnologia e usa `controls:TabGroup` per le due tab di ciascuna tecnologia: `Automatic` e
+`Manual manifest`. Jinja2 Ansible e' trattato come target sensato di standardizzazione
+futura tramite `targetKind = "ansible:j2"`.
 
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
@@ -96,9 +105,13 @@ MAUI ha `SetupWizardPage` e `AcceptInvitationPage`.
 
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
-9), Dashboard sempre prima voce, sezioni iconate/indentate e gating per permesso
-(`AppShellViewModel.CanManageX`). `Components` e' visibile solo in build DEBUG sotto la
-sezione Development. Flussi secondari tramite
+9), Dashboard sempre prima voce, macro categorie come bottoni collassabili/espandibili
+(`Workspace`, `Governance`, `Infrastructure`, `Applications`, `Development`) e gating per
+permesso (`AppShellViewModel.CanManageX`). `AppShellViewModel` traccia la route corrente:
+la categoria della pagina attiva resta aperta, header e voce attiva sono evidenziati.
+`Components` e' visibile solo in build DEBUG sotto la sezione Development e include la
+gallery dei controlli globali, incluso `controls:TabGroup`: tab orizzontali con indicatore
+attivo, header e contenuto bindati (`ItemsSource` + `SelectedIndex`). Flussi secondari tramite
 finestre modali OS vere (`IDialogService` -> `Window` MAUI owned + modale su Windows via
 Win32), non pannelli in-page. Setup wizard e accept invitation sono fuori dal flyout. Il
 flyout header contiene il profilo utente con link `Profile` e `Sign out`; il footer porta

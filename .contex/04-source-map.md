@@ -57,7 +57,9 @@ File da leggere prima di agire, per area.
 - `src/Iris.Api/Endpoints/InfrastructureEndpoints.cs`
 - `src/Iris.Contracts/Infrastructure/{InfrastructureRequests,ServerResponse}.cs`
 - `src/Iris.App/ViewModels/ServersViewModel.cs` - include `Resources`, la lista MAUI
-  aggregata di server node + data service, con filtri/sort per tipo, OS, versione e tag
+  aggregata di server node + data service, con filtri/sort per tipo, OS, versione e tag;
+  `InfrastructureResourceRowViewModel` espone wrapper safe per edit/error RDS cosi' lo
+  XAML non legge `DataService.*` sulle righe server
 - `src/Iris.App/Views/{ServersPage.xaml,Dialogs/NewServerDialog.xaml,Dialogs/EditServerDialog.xaml}` - UI capacity
   server inclusi dischi per applicazioni e backup, discovery, data services gestiti e lista
   infrastructure unificata con icone differenziate
@@ -75,12 +77,21 @@ File da leggere prima di agire, per area.
 - `tests/Iris.Api.Tests/ApplicationsApiTests.cs`
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs`
 - `src/Iris.App/Views/ApplicationsPage.xaml`
+- `src/Iris.App/ViewModels/ExtractorGuideViewModel.cs`
+- `src/Iris.App/Views/ExtractorGuidePage.xaml` - guida FE in Applications per extractor
+  .NET automatico, import manuale e template JSON manuali per tecnologia; layout verticale
+  per stack con `controls:TabGroup` (`Automatic` / `Manual manifest`)
 - `src/Iris.App/Views/Dialogs/{NewApplicationDialog,EditApplicationDialog}.xaml`
-- `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact e placeholder
+- `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact, placeholder e
+  procedura manuale per produrre/importare `iris-package.json` per `.NET`,
+  Node/JavaScript, Java/Spring, Docker/container e Ansible Jinja2 (`targetKind =
+  "ansible:j2"`)
 
 ## Client MAUI
 
-- `src/Iris.App/AppShell.xaml` + `ViewModels/AppShellViewModel.cs` - navigazione/gating
+- `src/Iris.App/AppShell.xaml` + `ViewModels/AppShellViewModel.cs` - navigazione/gating,
+  flyout custom con macro categorie collassabili e route corrente per evidenziare sezione
+  e voce attiva
 - `src/Iris.App/appsettings.Development.json`
 - `src/Iris.App/Services/{AppConfiguration,AppPreferenceService,IrisApiClient,AuthService,DialogService,WindowGeometry}.cs`
 - `src/Iris.App/Platforms/Windows/NativeWindowConfigurator.cs` - restore/persistenza
@@ -90,10 +101,15 @@ File da leggere prima di agire, per area.
   setup check + restore sessione ricordata prima della login
 - `src/Iris.App/Views/{LoginPage,SetupWizardPage,AcceptInvitationPage,ProfilePage,SystemSettingsPage}.xaml`
 - `src/Iris.App/ViewModels/{LoginViewModel,SetupWizardViewModel,AcceptInvitationViewModel,ProfileViewModel,SystemSettingsViewModel}.cs`
+- `src/Iris.App/Controls/TabGroup.cs` - componente tab globale text-based con
+  `ItemsSource`/`SelectedIndex`, header, azioni icona, copia del contenuto selezionato e
+  indicatore attivo
 - `src/Iris.App/Views/Dialogs/` - dialog esistenti come riferimento di pattern
 - `src/Iris.App/Resources/Styles/{Colors,Styles}.xaml` - token design system
 - `src/Iris.App/ViewModels/{UsersViewModel,CustomersViewModel,ServersViewModel}.cs` -
   pattern riga+form+eventi `...Requested`/`...Completed`
+- `src/Iris.App/ViewModels/ComponentsViewModel.cs` + `src/Iris.App/Views/ComponentsPage.xaml`
+  - gallery componenti globali, include esempio `TabGroup`
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs` - pattern inventory applicazioni
   con create/edit dialog e lock `application`
 
