@@ -14,12 +14,20 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
             new TabGroupItem
             {
                 Title = "Import",
-                Content = ManualImportPowerShell,
+                Blocks =
+                [
+                    Text("When to use it", "Use this request when the package has already been composed by the extractor or by hand."),
+                    Code("PowerShell import", ManualImportPowerShell, "powershell"),
+                ],
             },
             new TabGroupItem
             {
                 Title = "Empty manifest",
-                Content = ManualTemplate,
+                Blocks =
+                [
+                    Text("Minimum contract", "Start from this shape when a technology does not have an automatic extractor yet."),
+                    Code("iris-package.json", ManualTemplate, "json"),
+                ],
             },
         ];
 
@@ -31,32 +39,23 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
                     new TabGroupItem
                     {
                         Title = "Automatic",
-                        Content = $"""
-                            The .NET extractor is available today.
-
-                            It scans appsettings*.json, IConfiguration usage, ConnectionStrings and launchSettings.json without building the target project.
-
-                            Package:
-                            {PackCommand}
-
-                            Install:
-                            {InstallCommand}
-
-                            Run:
-                            {RunCommand}
-
-                            Pipeline:
-                            {PipelineSnippet}
-                            """,
+                        Blocks =
+                        [
+                            Text("Available today", "Scans appsettings*.json, IConfiguration usage, ConnectionStrings and launchSettings.json without building the target project."),
+                            Code("Package", PackCommand, "shell"),
+                            Code("Install", InstallCommand, "shell"),
+                            Code("Run", RunCommand, "shell"),
+                            Code("Azure DevOps pipeline", PipelineSnippet, "yaml"),
+                        ],
                     },
                     new TabGroupItem
                     {
                         Title = "Manual manifest",
-                        Content = $"""
-                            Compose the manifest by inspecting appsettings files, ConnectionStrings, launchSettings, IConfiguration usage and options binding.
-
-                            {DotNetManualSample}
-                            """,
+                        Blocks =
+                        [
+                            Text("How to compose it", "Inspect appsettings files, ConnectionStrings, launchSettings, IConfiguration usage and options binding."),
+                            Code("iris-package.json", DotNetManualSample, "json"),
+                        ],
                     },
                 ]),
             new ExtractorTechnologyGuide(
@@ -65,20 +64,20 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
                     new TabGroupItem
                     {
                         Title = "Automatic",
-                        Content = """
-                            Extractor not built yet.
-
-                            The planned scanner should read application.yml/properties, profile files, spring.datasource, spring.data.redis, spring.kafka, @Value, @ConfigurationProperties, server.port and Actuator endpoints.
-                            """,
+                        Blocks =
+                        [
+                            Note("Planned extractor", "The scanner is not built yet."),
+                            Text("Expected sources", "Read application.yml/properties, profile files, spring.datasource, spring.data.redis, spring.kafka, @Value, @ConfigurationProperties, server.port and Actuator endpoints."),
+                        ],
                     },
                     new TabGroupItem
                     {
                         Title = "Manual manifest",
-                        Content = $"""
-                            Compose the manifest from Spring config, datasource/cache/message broker settings and any value injected through code annotations.
-
-                            {JavaManualSample}
-                            """,
+                        Blocks =
+                        [
+                            Text("How to compose it", "Use Spring config, datasource/cache/message broker settings and values injected through code annotations."),
+                            Code("iris-package.json", JavaManualSample, "json"),
+                        ],
                     },
                 ]),
             new ExtractorTechnologyGuide(
@@ -87,20 +86,20 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
                     new TabGroupItem
                     {
                         Title = "Automatic",
-                        Content = """
-                            Extractor not built yet.
-
-                            The planned scanner should read .env.example, process.env usage, framework config files, package scripts, build output, health endpoints and PORT/HOST settings.
-                            """,
+                        Blocks =
+                        [
+                            Note("Planned extractor", "The scanner is not built yet."),
+                            Text("Expected sources", "Read .env.example, process.env usage, framework config files, package scripts, build output, health endpoints and PORT/HOST settings."),
+                        ],
                     },
                     new TabGroupItem
                     {
                         Title = "Manual manifest",
-                        Content = $"""
-                            Compose the manifest from .env templates, process.env references, next/vite/nuxt config, health endpoints and PORT/HOST settings.
-
-                            {NodeManualSample}
-                            """,
+                        Blocks =
+                        [
+                            Text("How to compose it", "Use .env templates, process.env references, next/vite/nuxt config, health endpoints and PORT/HOST settings."),
+                            Code("iris-package.json", NodeManualSample, "json"),
+                        ],
                     },
                 ]),
             new ExtractorTechnologyGuide(
@@ -109,20 +108,20 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
                     new TabGroupItem
                     {
                         Title = "Automatic",
-                        Content = """
-                            Extractor not built yet.
-
-                            The planned scanner should read Dockerfile ENV/ARG/EXPOSE/HEALTHCHECK, compose files, Helm values, ConfigMap, Secret and immutable image coordinates.
-                            """,
+                        Blocks =
+                        [
+                            Note("Planned extractor", "The scanner is not built yet."),
+                            Text("Expected sources", "Read Dockerfile ENV/ARG/EXPOSE/HEALTHCHECK, compose files, Helm values, ConfigMap, Secret and immutable image coordinates."),
+                        ],
                     },
                     new TabGroupItem
                     {
                         Title = "Manual manifest",
-                        Content = $"""
-                            Compose the manifest from container env vars, compose/Helm config, exposed ports, healthcheck and the registry image tag used in deploy.
-
-                            {DockerManualSample}
-                            """,
+                        Blocks =
+                        [
+                            Text("How to compose it", "Use container env vars, compose/Helm config, exposed ports, healthcheck and the registry image tag used in deploy."),
+                            Code("iris-package.json", DockerManualSample, "json"),
+                        ],
                     },
                 ]),
             new ExtractorTechnologyGuide(
@@ -131,22 +130,21 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
                     new TabGroupItem
                     {
                         Title = "Automatic",
-                        Content = """
-                            Good standardization target, not built yet.
-
-                            A future parser can read .j2 files and extract variables such as {{ app_db_url }} as configuration keys, while marking conditional or loop-generated values as warnings.
-
-                            This is useful because Ansible templates often show the final runtime config shape even when the source app does not contain production settings.
-                            """,
+                        Blocks =
+                        [
+                            Note("Good standardization target", "The parser is not built yet."),
+                            Text("Expected behavior", "Read .j2 files and extract variables such as {{ app_db_url }} as configuration keys, while marking conditional or loop-generated values as warnings."),
+                            Text("Why it matters", "Ansible templates often show the final runtime config shape even when the source app does not contain production settings."),
+                        ],
                     },
                     new TabGroupItem
                     {
                         Title = "Manual manifest",
-                        Content = $"""
-                            Compose the manifest from Jinja variables, rendered target files, Ansible defaults/vars and template conditions. Use targetKind ansible:j2.
-
-                            {AnsibleJinjaManualSample}
-                            """,
+                        Blocks =
+                        [
+                            Text("How to compose it", "Use Jinja variables, rendered target files, Ansible defaults/vars and template conditions. Set targetKind to ansible:j2."),
+                            Code("iris-package.json", AnsibleJinjaManualSample, "json"),
+                        ],
                     },
                 ]),
         ];
@@ -155,6 +153,31 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
     public ObservableCollection<TabGroupItem> SharedManifestTabs { get; }
 
     public ObservableCollection<ExtractorTechnologyGuide> TechnologyGuides { get; }
+
+    private static TabContentBlock Text(string title, string text) =>
+        new()
+        {
+            Kind = TabContentBlockKind.Text,
+            Title = title,
+            Text = text,
+        };
+
+    private static TabContentBlock Code(string title, string text, string language = "") =>
+        new()
+        {
+            Kind = TabContentBlockKind.Code,
+            Title = title,
+            Language = language,
+            Text = text,
+        };
+
+    private static TabContentBlock Note(string title, string text) =>
+        new()
+        {
+            Kind = TabContentBlockKind.Note,
+            Title = title,
+            Text = text,
+        };
 
     public const string PackCommand = "dotnet pack src/Iris.Extractor -c Release -o ./nupkg";
 

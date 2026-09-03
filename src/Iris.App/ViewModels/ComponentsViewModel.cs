@@ -13,6 +13,12 @@ public partial class ComponentsViewModel : ObservableObject
 		new() { Title = "Second", Content = "Content 2" },
 		new() { Title = "Third", Content = "Content 3" },
 	];
+	public string CodeBlockSample { get; } = """
+		const codeViewer = createCodeViewer(container, report);
+		codeViewer.on('cursor', (loc) => {
+		  // loc: { line, column, position, start?, end? }
+		});
+		""";
 
 	[ObservableProperty] private bool _isLoading = true;
 	[ObservableProperty] private int _selectedTabIndex;

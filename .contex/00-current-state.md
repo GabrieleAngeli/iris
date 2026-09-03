@@ -89,8 +89,10 @@ estrazione manuale per tecnologia (`.NET`, Node/JavaScript, Java/Spring,
 Docker/container, Ansible Jinja2) per produrre e importare `iris-package.json` anche prima
 di avere extractor automatici dedicati. La pagina FE e' organizzata verticalmente per
 tecnologia e usa `controls:TabGroup` per le due tab di ciascuna tecnologia: `Automatic` e
-`Manual manifest`. Jinja2 Ansible e' trattato come target sensato di standardizzazione
-futura tramite `targetKind = "ansible:j2"`.
+`Manual manifest`; il contenuto delle tab e' strutturato in blocchi testo, note operative
+e code block tramite il componente globale `controls:CodeBlock`, selezionabile e copiabile,
+per distinguere spiegazioni, comandi e manifest JSON. Jinja2 Ansible e' trattato come
+target sensato di standardizzazione futura tramite `targetKind = "ansible:j2"`.
 
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
@@ -111,7 +113,11 @@ permesso (`AppShellViewModel.CanManageX`). `AppShellViewModel` traccia la route 
 la categoria della pagina attiva resta aperta, header e voce attiva sono evidenziati.
 `Components` e' visibile solo in build DEBUG sotto la sezione Development e include la
 gallery dei controlli globali, incluso `controls:TabGroup`: tab orizzontali con indicatore
-attivo, header e contenuto bindati (`ItemsSource` + `SelectedIndex`). Flussi secondari tramite
+attivo, header e contenuto bindati (`ItemsSource` + `SelectedIndex`) e contenuto opzionale
+a blocchi (`Text`, `Note`, `Code`). La gallery include anche `controls:CodeBlock`, standard
+per snippet/comandi/manifest: usa un `Editor` read-only per rendere il codice selezionabile
+e un pulsante copy dedicato con feedback temporaneo tramite spunta verde e tooltip
+`Copied`. Flussi secondari tramite
 finestre modali OS vere (`IDialogService` -> `Window` MAUI owned + modale su Windows via
 Win32), non pannelli in-page. Setup wizard e accept invitation sono fuori dal flyout. Il
 flyout header contiene il profilo utente con link `Profile` e `Sign out`; il footer porta

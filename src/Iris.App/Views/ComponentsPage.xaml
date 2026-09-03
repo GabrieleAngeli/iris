@@ -173,6 +173,11 @@
                             ItemsSource="{Binding GalleryTabs}"
                             SelectedIndex="{Binding SelectedTabIndex}" />
 
+                        <controls:CodeBlock
+                            Title="Selectable code block"
+                            Language="javascript"
+                            Text="{Binding CodeBlockSample}" />
+
                         <BoxView HeightRequest="1" />
 
                         <VerticalStackLayout Spacing="6">

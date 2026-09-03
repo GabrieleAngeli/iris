@@ -1,14 +1,61 @@
 using System.Collections;
 using System.Collections.Specialized;
+using System.Text;
 using Microsoft.Maui.Controls.Shapes;
 
 namespace Iris.App.Controls;
+
+public enum TabContentBlockKind
+{
+	Text,
+	Code,
+	Note,
+}
+
+public sealed class TabContentBlock
+{
+	public TabContentBlockKind Kind { get; init; } = TabContentBlockKind.Text;
+
+	public string Title { get; init; } = string.Empty;
+
+	public string Language { get; init; } = string.Empty;
+
+	public string Text { get; init; } = string.Empty;
+}
 
 public sealed class TabGroupItem
 {
 	public string Title { get; init; } = string.Empty;
 
 	public string Content { get; init; } = string.Empty;
+
+	public IReadOnlyList<TabContentBlock> Blocks { get; init; } = [];
+
+	public string PlainText()
+	{
+		if (Blocks.Count == 0)
+		{
+			return Content;
+		}
+
+		var text = new StringBuilder();
+		foreach (var block in Blocks)
+		{
+			if (!string.IsNullOrWhiteSpace(block.Title))
+			{
+				text.AppendLine(block.Title);
+			}
+
+			if (!string.IsNullOrWhiteSpace(block.Text))
+			{
+				text.AppendLine(block.Text);
+			}
+
+			text.AppendLine();
+		}
+
+		return text.ToString().TrimEnd();
+	}
 }
 
 public sealed class TabGroup : ContentView
@@ -36,7 +83,7 @@ public sealed class TabGroup : ContentView
 
 	private readonly Border _container;
 	private readonly Grid _tabs = new() { RowDefinitions = new RowDefinitionCollection(new RowDefinition(GridLength.Auto), new RowDefinition(2)) };
-	private readonly Label _content = new() { FontSize = 14, LineBreakMode = LineBreakMode.WordWrap };
+	private readonly VerticalStackLayout _content = new() { Spacing = 14 };
 	private readonly List<(Label Label, BoxView Indicator)> _tabVisuals = [];
 	private INotifyCollectionChanged? _collectionChanged;
 
@@ -52,7 +99,6 @@ public sealed class TabGroup : ContentView
 
 		SetAppThemeColor(_container, Border.BackgroundColorProperty, "LayerLight", "LayerDark");
 		_container.Stroke = new SolidColorBrush(ThemeColor("ControlStrokeLight", "ControlStrokeDark"));
-		SetAppThemeColor(_content, Label.TextColorProperty, "TextPrimaryLight", "TextPrimaryDark");
 
 		Content = _container;
 	}
@@ -215,7 +261,7 @@ public sealed class TabGroup : ContentView
 		var items = Items().ToArray();
 		if (items.Length == 0)
 		{
-			_content.Text = string.Empty;
+			_content.Clear();
 			return;
 		}
 
@@ -238,7 +284,111 @@ public sealed class TabGroup : ContentView
 				: ThemeColor("StrokeLight", "StrokeDark");
 		}
 
-		_content.Text = items[selected].Content;
+		RenderContent(items[selected]);
+	}
+
+	private void RenderContent(TabGroupItem item)
+	{
+		_content.Clear();
+
+		if (item.Blocks.Count > 0)
+		{
+			foreach (var block in item.Blocks)
+			{
+				_content.Add(BuildContentBlock(block));
+			}
+
+			return;
+		}
+
+		_content.Add(BuildTextBlock(new TabContentBlock { Text = item.Content }));
+	}
+
+	private View BuildContentBlock(TabContentBlock block) =>
+		block.Kind switch
+		{
+			TabContentBlockKind.Code => BuildCodeBlock(block),
+			TabContentBlockKind.Note => BuildNoteBlock(block),
+			_ => BuildTextBlock(block),
+		};
+
+	private View BuildTextBlock(TabContentBlock block)
+	{
+		var stack = new VerticalStackLayout { Spacing = 6 };
+		if (!string.IsNullOrWhiteSpace(block.Title))
+		{
+			var title = new Label
+			{
+				Text = block.Title,
+				FontSize = 13,
+				FontFamily = "Segoe UI Variable Text Semibold, OpenSansSemibold",
+			};
+			SetAppThemeColor(title, Label.TextColorProperty, "TextPrimaryLight", "TextPrimaryDark");
+			stack.Add(title);
+		}
+
+		if (!string.IsNullOrWhiteSpace(block.Text))
+		{
+			var body = new Label
+			{
+				Text = block.Text.Trim(),
+				FontSize = 13,
+				LineBreakMode = LineBreakMode.WordWrap,
+			};
+			SetAppThemeColor(body, Label.TextColorProperty, "TextSecondaryLight", "TextSecondaryDark");
+			stack.Add(body);
+		}
+
+		return stack;
+	}
+
+	private View BuildCodeBlock(TabContentBlock block)
+	{
+		var stack = new VerticalStackLayout { Spacing = 8 };
+		stack.Add(new CodeBlock
+		{
+			Title = block.Title,
+			Text = block.Text,
+			Language = block.Language,
+		});
+		return stack;
+	}
+
+	private View BuildNoteBlock(TabContentBlock block)
+	{
+		var stack = new VerticalStackLayout { Spacing = 6 };
+		if (!string.IsNullOrWhiteSpace(block.Title))
+		{
+			var title = new Label
+			{
+				Text = block.Title,
+				FontSize = 12,
+				FontFamily = "Segoe UI Variable Text Semibold, OpenSansSemibold",
+			};
+			SetAppThemeColor(title, Label.TextColorProperty, "TextPrimaryLight", "TextPrimaryDark");
+			stack.Add(title);
+		}
+
+		var note = new Label
+		{
+			Text = block.Text.Trim(),
+			FontSize = 13,
+			LineBreakMode = LineBreakMode.WordWrap,
+		};
+		SetAppThemeColor(note, Label.TextColorProperty, "TextPrimaryLight", "TextPrimaryDark");
+		stack.Add(note);
+
+		var border = new Border
+		{
+			Padding = new Thickness(14, 12),
+			StrokeThickness = 1,
+			StrokeShape = new RoundRectangle { CornerRadius = 8 },
+			Content = stack,
+		};
+		SetAppThemeColor(border, Border.BackgroundColorProperty, "SubtleFillLight", "SubtleFillDark");
+		border.Stroke = new SolidColorBrush(ThemeColor("AccentLight", "AccentDark"));
+
+		return border;
 	}
 
 	private IEnumerable<TabGroupItem> Items()
@@ -260,9 +410,10 @@ public sealed class TabGroup : ContentView
 	private async void OnCopySelectedContent(object? sender, EventArgs e)
 	{
 		var item = Items().ElementAtOrDefault(Math.Max(0, SelectedIndex));
-		if (!string.IsNullOrEmpty(item?.Content))
+		var text = item?.PlainText();
+		if (!string.IsNullOrEmpty(text))
 		{
-			await Clipboard.Default.SetTextAsync(item.Content);
+			await Clipboard.Default.SetTextAsync(text);
 		}
 	}
 

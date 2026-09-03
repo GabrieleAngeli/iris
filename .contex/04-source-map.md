@@ -80,7 +80,9 @@ File da leggere prima di agire, per area.
 - `src/Iris.App/ViewModels/ExtractorGuideViewModel.cs`
 - `src/Iris.App/Views/ExtractorGuidePage.xaml` - guida FE in Applications per extractor
   .NET automatico, import manuale e template JSON manuali per tecnologia; layout verticale
-  per stack con `controls:TabGroup` (`Automatic` / `Manual manifest`)
+  per stack con `controls:TabGroup` (`Automatic` / `Manual manifest`) e contenuto a
+  blocchi leggibili (`Text`, `Note`, `Code`), con blocchi codice renderizzati da
+  `controls:CodeBlock`
 - `src/Iris.App/Views/Dialogs/{NewApplicationDialog,EditApplicationDialog}.xaml`
 - `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact, placeholder e
   procedura manuale per produrre/importare `iris-package.json` per `.NET`,
@@ -101,9 +103,12 @@ File da leggere prima di agire, per area.
   setup check + restore sessione ricordata prima della login
 - `src/Iris.App/Views/{LoginPage,SetupWizardPage,AcceptInvitationPage,ProfilePage,SystemSettingsPage}.xaml`
 - `src/Iris.App/ViewModels/{LoginViewModel,SetupWizardViewModel,AcceptInvitationViewModel,ProfileViewModel,SystemSettingsViewModel}.cs`
-- `src/Iris.App/Controls/TabGroup.cs` - componente tab globale text-based con
+- `src/Iris.App/Controls/TabGroup.cs` - componente tab globale con
   `ItemsSource`/`SelectedIndex`, header, azioni icona, copia del contenuto selezionato e
-  indicatore attivo
+  indicatore attivo; supporta contenuto semplice o blocchi strutturati testo/nota/codice
+- `src/Iris.App/Controls/CodeBlock.cs` - componente globale per snippet, comandi e JSON:
+  contenuto selezionabile tramite `Editor` read-only, copy button, label linguaggio e stile
+  coerente light/dark; dopo la copia mostra spunta verde temporanea e tooltip `Copied`
 - `src/Iris.App/Views/Dialogs/` - dialog esistenti come riferimento di pattern
 - `src/Iris.App/Resources/Styles/{Colors,Styles}.xaml` - token design system
 - `src/Iris.App/ViewModels/{UsersViewModel,CustomersViewModel,ServersViewModel}.cs` -

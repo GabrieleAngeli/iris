@@ -545,3 +545,46 @@ selezionata dall'icona code.
 
 **Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
 Iris.sln --no-restore` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - TabGroup con contenuto strutturato per Extractor guide
+
+**Classificazione**: fix UX/design system client.
+
+**Cosa e' successo**: `TabGroup` non renderizza piu' solo un unico blocco testuale piatto:
+`TabGroupItem` puo' esporre `Blocks` di tipo `Text`, `Note` e `Code`. Il contenuto codice
+usa font monospace, sfondo dedicato e scroll orizzontale, mentre testo e note hanno
+gerarchia visiva separata. `ExtractorGuideViewModel` usa questi blocchi per distinguere
+spiegazioni, stato dell'extractor, comandi, pipeline e manifest JSON.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - CodeBlock globale selezionabile/copiabile
+
+**Classificazione**: feature UX/design system client.
+
+**Cosa e' successo**: aggiunto `controls:CodeBlock`, componente globale per snippet,
+comandi e manifest. Usa un `Editor` read-only invece di una `Label`, quindi il codice puo'
+essere selezionato dall'utente; il copy button copia l'intero blocco. `TabGroup` ora delega
+i blocchi `Code` a `CodeBlock`, e `ComponentsPage` lo mostra nella gallery globale come
+standard di layout.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Feedback visivo copia CodeBlock
+
+**Classificazione**: fix UX/design system client.
+
+**Cosa e' successo**: il copy button di `controls:CodeBlock` ora, dopo una copia riuscita,
+cambia temporaneamente icona in una spunta verde e aggiorna il tooltip a `Copied`, poi
+torna allo stato normale `Copy code`.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
