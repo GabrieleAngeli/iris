@@ -32,7 +32,9 @@
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Runtime" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding NewApplicationRuntimeType}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding NewApplicationRuntimeType}" />
+                        </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
                         <Label Text="Default branch" Style="{StaticResource Caption}" />

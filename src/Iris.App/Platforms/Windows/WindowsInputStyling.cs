@@ -7,10 +7,10 @@ using WThickness = Microsoft.UI.Xaml.Thickness;
 namespace Iris.App;
 
 /// <summary>
-/// The design wraps every <c>Entry</c>/<c>Editor</c> in a styled MAUI <c>Border</c> (see the
-/// <c>FieldBorder</c> style). On WinUI the underlying <c>TextBox</c> still paints its own border,
-/// corner radius and focus underline, which reads as a box nested inside the field. Flatten it so
-/// only the outer <c>Border</c> shows.
+/// The design wraps every <c>Entry</c>/<c>Editor</c>/<c>Picker</c> in a styled MAUI <c>Border</c>
+/// (see the <c>FieldBorder</c> style). On WinUI the underlying <c>TextBox</c>/<c>ComboBox</c> still
+/// paints its own border, corner radius and focus underline, which reads as a box nested inside the
+/// field. Flatten it so only the outer <c>Border</c> shows.
 /// </summary>
 internal static class WindowsInputStyling
 {
@@ -18,6 +18,7 @@ internal static class WindowsInputStyling
 	{
 		EntryHandler.Mapper.AppendToMapping("IrisFlatField", (handler, _) => Flatten(handler.PlatformView));
 		EditorHandler.Mapper.AppendToMapping("IrisFlatField", (handler, _) => Flatten(handler.PlatformView));
+		PickerHandler.Mapper.AppendToMapping("IrisFlatField", (handler, _) => Flatten(handler.PlatformView));
 	}
 
 	private static void Flatten(TextBox textBox)
@@ -40,5 +41,25 @@ internal static class WindowsInputStyling
 		textBox.Resources["TextControlBorderBrush"] = transparent;
 		textBox.Resources["TextControlBorderBrushPointerOver"] = transparent;
 		textBox.Resources["TextControlBorderBrushFocused"] = transparent;
+	}
+
+	private static void Flatten(ComboBox comboBox)
+	{
+		comboBox.BorderThickness = new WThickness(0);
+		comboBox.Padding = new WThickness(0);
+		comboBox.MinHeight = 0;
+		comboBox.CornerRadius = new Microsoft.UI.Xaml.CornerRadius(0);
+		comboBox.Background = new WBrush(WColors.Transparent);
+		comboBox.BorderBrush = new WBrush(WColors.Transparent);
+
+		var transparent = new WBrush(WColors.Transparent);
+		comboBox.Resources["ComboBoxBackground"] = transparent;
+		comboBox.Resources["ComboBoxBackgroundPointerOver"] = transparent;
+		comboBox.Resources["ComboBoxBackgroundPressed"] = transparent;
+		comboBox.Resources["ComboBoxBackgroundFocused"] = transparent;
+		comboBox.Resources["ComboBoxBorderBrush"] = transparent;
+		comboBox.Resources["ComboBoxBorderBrushPointerOver"] = transparent;
+		comboBox.Resources["ComboBoxBorderBrushPressed"] = transparent;
+		comboBox.Resources["ComboBoxBorderBrushFocused"] = transparent;
 	}
 }

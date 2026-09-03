@@ -19,12 +19,16 @@
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Role" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding Roles}" ItemDisplayBinding="{Binding Name, x:DataType=access:RoleResponse}"
-                                SelectedItem="{Binding SelectedRole}" Title="Choose a role" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding Roles}" ItemDisplayBinding="{Binding Name, x:DataType=access:RoleResponse}"
+                                    SelectedItem="{Binding SelectedRole}" Title="Choose a role" />
+                        </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
                         <Label Text="Scope" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding ScopeTypes}" SelectedItem="{Binding SelectedScopeType}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding ScopeTypes}" SelectedItem="{Binding SelectedScopeType}" />
+                        </Border>
                     </VerticalStackLayout>
                 </Grid>
 
@@ -33,13 +37,17 @@
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding NeedsCustomer}">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Customer" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding Customers}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:CustomerSummaryResponse}"
-                                SelectedItem="{Binding SelectedCustomer}" Title="Choose a customer" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding Customers}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:CustomerSummaryResponse}"
+                                    SelectedItem="{Binding SelectedCustomer}" Title="Choose a customer" />
+                        </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4" IsVisible="{Binding NeedsContext}">
                         <Label Text="Context" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding AvailableContexts}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:ContextSummaryResponse}"
-                                SelectedItem="{Binding SelectedContext}" Title="Choose a context" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding AvailableContexts}" ItemDisplayBinding="{Binding Name, x:DataType=tenancy:ContextSummaryResponse}"
+                                    SelectedItem="{Binding SelectedContext}" Title="Choose a context" />
+                        </Border>
                     </VerticalStackLayout>
                 </Grid>
 

@@ -31,15 +31,21 @@
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="OS" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding OsOptions}" SelectedItem="{Binding EditOs}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding OsOptions}" SelectedItem="{Binding EditOs}" />
+                        </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
                         <Label Text="Hosting" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding HostingTypeOptions}" SelectedItem="{Binding EditHostingType}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding HostingTypeOptions}" SelectedItem="{Binding EditHostingType}" />
+                        </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="2" Spacing="4">
                         <Label Text="Environment" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding EnvironmentOptions}" SelectedItem="{Binding EditEnvironment}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding EnvironmentOptions}" SelectedItem="{Binding EditEnvironment}" />
+                        </Border>
                     </VerticalStackLayout>
                 </Grid>
 

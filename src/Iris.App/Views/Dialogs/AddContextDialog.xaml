@@ -23,7 +23,9 @@
 
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Kind" Style="{StaticResource Caption}" />
-                    <Picker ItemsSource="{Binding ContextKinds}" SelectedItem="{Binding NewContextKind}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Picker ItemsSource="{Binding ContextKinds}" SelectedItem="{Binding NewContextKind}" />
+                    </Border>
                 </VerticalStackLayout>
 
                 <Label Text="{Binding ContextError}" IsVisible="{Binding HasContextError}" FontSize="12"

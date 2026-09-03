@@ -29,7 +29,9 @@
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
                         <Label Text="Runtime" Style="{StaticResource Caption}" />
-                        <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding EditRuntimeType}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding RuntimeTypes}" SelectedItem="{Binding EditRuntimeType}" />
+                        </Border>
                     </VerticalStackLayout>
                 </Grid>
 

@@ -31,14 +31,18 @@
                 </Border>
 
                 <Border Style="{StaticResource SubtleCard}">
-                    <Grid ColumnDefinitions="1.1*,.9*,1.1*,1.1*,.9*,Auto" ColumnSpacing="10" RowSpacing="8">
+                    <Grid ColumnDefinitions="*,*,*,*,*,Auto" ColumnSpacing="10" RowSpacing="8">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="Type" Style="{StaticResource Caption}" />
-                            <Picker ItemsSource="{Binding ResourceTypeFilterOptions}" SelectedItem="{Binding ResourceTypeFilter}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding ResourceTypeFilterOptions}" SelectedItem="{Binding ResourceTypeFilter}" />
+                            </Border>
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="1" Spacing="4">
                             <Label Text="OS" Style="{StaticResource Caption}" />
-                            <Picker ItemsSource="{Binding ResourceOsFilterOptions}" SelectedItem="{Binding ResourceOsFilter}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding ResourceOsFilterOptions}" SelectedItem="{Binding ResourceOsFilter}" />
+                            </Border>
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="2" Spacing="4">
                             <Label Text="Version" Style="{StaticResource Caption}" />
@@ -54,7 +58,9 @@
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="4" Spacing="4">
                             <Label Text="Sort" Style="{StaticResource Caption}" />
-                            <Picker ItemsSource="{Binding ResourceSortOptions}" SelectedItem="{Binding ResourceSortBy}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding ResourceSortOptions}" SelectedItem="{Binding ResourceSortBy}" />
+                            </Border>
                         </VerticalStackLayout>
                         <HorizontalStackLayout Grid.Column="5" Spacing="6" VerticalOptions="End" Padding="0,0,0,8">
                             <CheckBox IsChecked="{Binding ResourceSortDescending}" VerticalOptions="Center" />
@@ -117,13 +123,17 @@
                                     <Grid ColumnDefinitions="1.1*,Auto,1.3*,.6*,.8*,.8*,.7*,Auto,Auto,Auto"
                                           ColumnSpacing="8" IsVisible="{Binding IsEditingDataService}">
                                         <Border Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditName}" /></Border>
-                                        <Picker Grid.Column="1" ItemsSource="{Binding DataService.KindOptions}" SelectedItem="{Binding DataService.EditKind}" WidthRequest="120" />
+                                        <Border Grid.Column="1" Style="{StaticResource FieldBorder}" WidthRequest="120">
+                                            <Picker ItemsSource="{Binding DataService.KindOptions}" SelectedItem="{Binding DataService.EditKind}" />
+                                        </Border>
                                         <Border Grid.Column="2" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditEndpoint}" /></Border>
                                         <Border Grid.Column="3" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditPort}" Keyboard="Numeric" /></Border>
                                         <Border Grid.Column="4" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditUsername}" Placeholder="username" /></Border>
                                         <Border Grid.Column="5" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditPassword}" IsPassword="True" Placeholder="new password" /></Border>
                                         <Border Grid.Column="6" Style="{StaticResource FieldBorder}"><Entry Text="{Binding DataService.EditStorageGb}" Keyboard="Numeric" /></Border>
-                                        <Picker Grid.Column="7" ItemsSource="{Binding DataService.EnvironmentOptions}" SelectedItem="{Binding DataService.EditEnvironment}" WidthRequest="130" />
+                                        <Border Grid.Column="7" Style="{StaticResource FieldBorder}" WidthRequest="130">
+                                            <Picker ItemsSource="{Binding DataService.EnvironmentOptions}" SelectedItem="{Binding DataService.EditEnvironment}" />
+                                        </Border>
                                         <Button Grid.Column="8" Text="Cancel" Style="{StaticResource SecondaryButton}" Command="{Binding DataService.CancelEditCommand}" />
                                         <Button Grid.Column="9" Text="Save" Command="{Binding DataService.SaveCommand}"
                                                 IsEnabled="{Binding DataService.IsBusy, Converter={StaticResource InvertBoolConverter}}" />

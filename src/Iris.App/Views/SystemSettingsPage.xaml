@@ -30,8 +30,10 @@
                             <Label Text="Appearance" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
                             <Label Text="Theme preference is stored locally on this device." Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
-                        <Picker Grid.Column="1" ItemsSource="{Binding ThemeModes}"
-                                SelectedItem="{Binding SelectedThemeMode}" />
+                        <Border Grid.Column="1" Style="{StaticResource FieldBorder}">
+                            <Picker ItemsSource="{Binding ThemeModes}"
+                                    SelectedItem="{Binding SelectedThemeMode}" />
+                        </Border>
                     </Grid>
                 </Border>
 
@@ -92,8 +94,10 @@
                             <Grid ColumnDefinitions="*,180,Auto" ColumnSpacing="12">
                                 <Label Text="Activity" FontFamily="{StaticResource FontSemibold}" FontSize="15"
                                        VerticalOptions="Center" />
-                                <Picker Grid.Column="1" ItemsSource="{Binding ActivityAreas}"
-                                        SelectedItem="{Binding SelectedActivityArea}" />
+                                <Border Grid.Column="1" Style="{StaticResource FieldBorder}">
+                                    <Picker ItemsSource="{Binding ActivityAreas}"
+                                            SelectedItem="{Binding SelectedActivityArea}" />
+                                </Border>
                                 <Button Grid.Column="2" Text="Refresh" Style="{StaticResource SecondaryButton}"
                                         Command="{Binding RefreshActivityCommand}" />
                             </Grid>
