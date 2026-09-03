@@ -22,10 +22,10 @@
     </Style>
 
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}" />
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource PageTitleBarLight}, Dark={StaticResource PageTitleBarDark}}" />
         <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-        <Setter Property="Shell.NavBarHasShadow" Value="True" />
+        <Setter Property="Shell.NavBarHasShadow" Value="False" />
         <Setter Property="Shell.FlyoutBackgroundColor" Value="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}" />
     </Style>
 

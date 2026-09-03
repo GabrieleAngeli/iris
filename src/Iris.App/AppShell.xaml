@@ -92,7 +92,7 @@
 
     <Shell.FlyoutContentTemplate>
         <DataTemplate x:DataType="vm:AppShellViewModel">
-            <ScrollView>
+            <ScrollView BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}">
                 <VerticalStackLayout Spacing="0" Padding="0,8">
 
                     <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="10,2,12,6" BackgroundColor="Transparent">

@@ -15,7 +15,7 @@ public interface IAppPreferenceService
 	void ClearRememberedSessionToken();
 }
 
-public sealed class AppPreferenceService : IAppPreferenceService
+public sealed class AppPreferenceService(INativeWindowConfigurator nativeWindowConfigurator) : IAppPreferenceService
 {
 	private const string ThemeKey = "ui.theme";
 	private const string SessionTokenKey = "auth.sessionToken";
@@ -44,6 +44,9 @@ public sealed class AppPreferenceService : IAppPreferenceService
 			"Dark" => AppTheme.Dark,
 			_ => AppTheme.Unspecified,
 		};
+
+		AppChromeTheme.ApplyToOpenShells();
+		nativeWindowConfigurator.RefreshThemeChrome();
 	}
 
 	public async Task<string?> GetRememberedSessionTokenAsync()

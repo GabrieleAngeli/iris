@@ -23,6 +23,15 @@
     <Color x:Key="Tertiary">#2B0B98</Color>
 
     <!-- Neutral backgrounds -->
+    <Color x:Key="WindowTitleBarLight">#EDEDED</Color>
+    <Color x:Key="WindowTitleBarDark">#000000</Color>
+    <Color x:Key="AppChromeLight">#F3F3F3</Color>
+    <Color x:Key="AppChromeInactiveLight">#E5E5E5</Color>
+    <Color x:Key="AppChromeDark">#000000</Color>
+    <Color x:Key="AppChromeInactiveDark">#202020</Color>
+    <Color x:Key="PageTitleBarLight">#FFFFFF</Color>
+    <Color x:Key="PageTitleBarDark">#101010</Color>
+
     <Color x:Key="AppBackgroundLight">#F3F3F3</Color>
     <Color x:Key="AppBackgroundDark">#202020</Color>
 

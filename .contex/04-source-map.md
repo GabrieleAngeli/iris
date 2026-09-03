@@ -93,11 +93,26 @@ File da leggere prima di agire, per area.
 
 - `src/Iris.App/AppShell.xaml` + `ViewModels/AppShellViewModel.cs` - navigazione/gating,
   flyout custom con macro categorie collassabili e route corrente per evidenziare sezione
-  e voce attiva
+  e voce attiva; il flyout template imposta esplicitamente lo sfondo light/dark del menu
 - `src/Iris.App/appsettings.Development.json`
 - `src/Iris.App/Services/{AppConfiguration,AppPreferenceService,IrisApiClient,AuthService,DialogService,WindowGeometry}.cs`
+- `src/Iris.App/Services/AppChromeTheme.cs` - applica i colori della barra Shell in base
+  al tema effettivo (`UserAppTheme` quando impostato, altrimenti tema sistema), usando
+  `PageTitleBar*` per tenere la barra titolo pagina distinta dal corpo pagina e dalla
+  titlebar nativa
 - `src/Iris.App/Platforms/Windows/NativeWindowConfigurator.cs` - restore/persistenza
-  geometria e stato maximized delle finestre Windows
+  geometria e stato maximized delle finestre Windows; configura anche i colori della
+  title bar nativa e dei caption button in base al tema tramite `AppWindowTitleBar`,
+  risorse tema WinUI (`SolidBackgroundFillColorBase`, `TextFillColorPrimary`,
+  `SubtleFillColor*`), resource `WindowCaption*`/`WindowCaptionButton*`,
+  `NavigationViewTopPaneBackground` e `TitleBar*`, override diretto del top pane Shell
+  (`TopNavArea`, hamburger/titolo app) e delle parti `PART_*` del controllo WinUI TitleBar;
+  overlay `IrisTitleBarChromeBackground` in `RootGrid` dietro ai controlli reali per la
+  zona centrale della titlebar, foreground titolo dark forzato a `#FFFFFF` via
+  `AppWindowTitleBar`, DWM, resource brush e TextBlock nella fascia titlebar, poi ripassato
+  dopo il lazy-load del visual tree, colori attivo/inattivo tracciati da `WindowActivationState`,
+  `RequestedTheme` del root WinUI, refresh su `Loaded`/
+  `ActualThemeChanged`/attivazione finestra e attributi DWM
 - `src/Iris.App/Views/StartupPage.xaml` +
   `src/Iris.App/ViewModels/StartupViewModel.cs` - splash interno di bootstrap:
   setup check + restore sessione ricordata prima della login
@@ -110,7 +125,10 @@ File da leggere prima di agire, per area.
   contenuto selezionabile tramite `Editor` read-only, copy button, label linguaggio e stile
   coerente light/dark; dopo la copia mostra spunta verde temporanea e tooltip `Copied`
 - `src/Iris.App/Views/Dialogs/` - dialog esistenti come riferimento di pattern
-- `src/Iris.App/Resources/Styles/{Colors,Styles}.xaml` - token design system
+- `src/Iris.App/Resources/Styles/{Colors,Styles}.xaml` - token design system, inclusi
+  `AppChrome*`/`AppChromeInactive*` per titlebar applicativa/nativa in focus/unfocus,
+  `PageTitleBar*` per la barra MAUI con il titolo pagina e `AppBackground*` per il corpo
+  pagina
 - `src/Iris.App/ViewModels/{UsersViewModel,CustomersViewModel,ServersViewModel}.cs` -
   pattern riga+form+eventi `...Requested`/`...Completed`
 - `src/Iris.App/ViewModels/ComponentsViewModel.cs` + `src/Iris.App/Views/ComponentsPage.xaml`

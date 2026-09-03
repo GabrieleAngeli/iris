@@ -111,6 +111,32 @@ Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md
 (`Workspace`, `Governance`, `Infrastructure`, `Applications`, `Development`) e gating per
 permesso (`AppShellViewModel.CanManageX`). `AppShellViewModel` traccia la route corrente:
 la categoria della pagina attiva resta aperta, header e voce attiva sono evidenziati.
+La barra superiore distingue tre layer: la titlebar applicativa/nativa (hamburger, titolo
+app, zona centrale e caption button Windows) usa `AppChromeLight`/`AppChromeDark` quando
+la finestra ha focus e `AppChromeInactiveLight`/`AppChromeInactiveDark` quando lo perde;
+la barra MAUI con il titolo pagina (`Dashboard`, `System settings`, ecc.) usa
+`PageTitleBarLight`/`PageTitleBarDark`; il corpo pagina usa `AppBackgroundLight`/
+`AppBackgroundDark`.
+`AppChromeTheme` riapplica il colore Shell/page title bar via codice quando cambia
+`UserAppTheme`, evitando che venga sovrascritto con il background del corpo pagina. Su
+Windows il refresh della titlebar nativa passa da `AppWindowTitleBar`, resource WinUI
+`WindowCaption*`/`WindowCaptionButton*`, `NavigationViewTopPaneBackground` e `TitleBar*`
+(pane toggle/hamburger, foreground, deactivated opacity), con risorse background impostate
+come `SolidColorBrush` quando il template WinUI le consuma come brush. Include override
+diretto del visual tree del top pane Shell (`TopNavArea`, `PaneToggleButtonGrid`,
+`ButtonHolderGrid`, `TogglePaneButton`, `PaneTitleTextBlock`) e del template moderno
+WinUI TitleBar (`PART_LayoutRoot`, `PART_PaneToggleButton`, `PART_TitleText`). L'overlay
+`IrisTitleBarChromeBackground` resta dentro `RootGrid` per coprire la zona centrale della
+fascia nativa, ma viene mantenuto dietro ai controlli reali cosi' non nasconde hamburger
+e titolo app. Il titolo app in dark mode viene forzato a bianco pieno (`#FFFFFF`) tramite
+`AppWindowTitleBar`, DWM `DWMWA_TEXT_COLOR`, resource brush
+`WindowCaptionForeground`/`TitleBarForegroundBrush`, passata sui `TextBlock` nella fascia
+fisica della titlebar e refresh lazy sul visual tree, perche' `PART_TitleText` puo'
+essere creato dopo il primo render. Lo stato focus e'
+tracciato da `WindowActivationState`; include
+`RequestedTheme` del root WinUI, refresh su `Loaded`/`ActualThemeChanged`/attivazione
+finestra e
+`DwmSetWindowAttribute` (`caption`, `text`, `border`, `immersive dark mode`).
 `Components` e' visibile solo in build DEBUG sotto la sezione Development e include la
 gallery dei controlli globali, incluso `controls:TabGroup`: tab orizzontali con indicatore
 attivo, header e contenuto bindati (`ItemsSource` + `SelectedIndex`) e contenuto opzionale

@@ -563,6 +563,38 @@ Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/
 
 ---
 
+## 2026-09-03 - Titlebar: titolo app bianco in dark mode
+
+**Classificazione**: fix UX/theme client Windows.
+
+**Cosa e' successo**: il titolo app `Iris` in dark mode restava grigio/scuro come la
+barra nativa. Il foreground della titlebar ora usa un valore esplicito bianco
+(`#FFFFFF`) in dark mode su tutti i canali coinvolti: `AppWindowTitleBar`, DWM
+`DWMWA_TEXT_COLOR`, resource brush WinUI e TextBlock rilevati nella fascia fisica della
+titlebar. Il passaggio resta ripetuto dopo il layout iniziale per intercettare il
+lazy-load della titlebar WinUI.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Titlebar: foreground titolo dark mode
+
+**Classificazione**: fix UX/theme client Windows.
+
+**Cosa e' successo**: il titolo app in dark mode poteva restare dello stesso colore della
+barra perche' alcune parti WinUI consumano `WindowCaptionForeground` come brush, non come
+color, e `PART_TitleText` puo' essere creato in lazy-load dopo il primo passaggio. Il
+configuratore ora imposta `WindowCaptionForeground`/disabled come `SolidColorBrush`,
+propaga il foreground ai discendenti testuali dei pezzi titlebar e ripassa dopo il layout
+iniziale.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
 ## 2026-09-03 - CodeBlock globale selezionabile/copiabile
 
 **Classificazione**: feature UX/design system client.
@@ -585,6 +617,62 @@ Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/
 **Cosa e' successo**: il copy button di `controls:CodeBlock` ora, dopo una copia riuscita,
 cambia temporaneamente icona in una spunta verde e aggiorna il tooltip a `Copied`, poi
 torna allo stato normale `Copy code`.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Titlebar: hamburger e titolo app nuovamente visibili
+
+**Classificazione**: fix UX/theme client Windows.
+
+**Cosa e' successo**: dopo l'allineamento focus/unfocus l'overlay della titlebar poteva
+restare davanti al contenuto WinUI reale, nascondendo hamburger e titolo app. L'overlay
+`IrisTitleBarChromeBackground` ora resta dietro ai controlli, mentre il configuratore
+aggancia anche le parti del template moderno `controls:TitleBar`
+(`PART_LayoutRoot`, `PART_PaneToggleButton`, `PART_TitleText`, ecc.) oltre ai nomi
+storici del `NavigationView`. Aggiunto anche il resource key corretto
+`TitleBarPaneToggleButtonForegroundDisabled`, mantenendo quello legacy senza `Button` per
+compatibilita' col dizionario WinUI.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Chrome superiore stratificato light/dark focus/unfocus
+
+**Classificazione**: fix UX/theme client Windows.
+
+**Cosa e' successo**: consolidati i livelli cromatici del chrome Windows/MAUI in tre
+token espliciti. La titlebar applicativa/nativa (hamburger, titolo app, zona centrale e
+caption button Windows) usa `AppChrome*` quando la finestra ha focus e
+`AppChromeInactive*` quando lo perde; la barra MAUI sotto con il titolo pagina usa
+`PageTitleBar*`; il corpo pagina usa `AppBackground*`. Questo evita sia che il page header venga
+sovrascritto a runtime con il background della pagina, sia che la titlebar applicativa
+resti separata dai bottoni nativi.
+`AppChromeTheme` applica il colore Shell/page title bar via codice e usa il tema effettivo
+(`UserAppTheme` se impostato, altrimenti tema sistema); `AppPreferenceService` forza anche
+il refresh della titlebar nativa quando l'utente cambia Light/Dark. Il configuratore
+Windows usa `AppWindowTitleBar`, resource WinUI `WindowCaption*`/`WindowCaptionButton*`,
+`NavigationViewTopPaneBackground`, resource WinUI `TitleBar*` (pane toggle/hamburger,
+foreground e stato deactivated), `RequestedTheme` del root WinUI, refresh su
+`Loaded`/`ActualThemeChanged`/attivazione finestra e `DwmSetWindowAttribute` per caption,
+testo, bordo e immersive dark mode. Lo stato attivo/inattivo della finestra viene tracciato
+da `WindowActivationState` e applicato a tutti e tre i pezzi del chrome superiore. Il
+foreground della titlebar e' ora esplicito dai token Iris (`TextPrimaryLight/Dark`) per
+evitare testo nero in dark mode. Le risorse background del template `WindowCaption*` e del
+top pane `NavigationView` sono impostate come `SolidColorBrush`
+quando WinUI le consuma come brush. In piu' viene applicato un override diretto al visual
+tree del top pane Shell (`TopNavArea`, `PaneToggleButtonGrid`, `ButtonHolderGrid`,
+`TogglePaneButton`, `PaneTitleTextBlock`) e viene inserito/aggiornato l'overlay
+`IrisTitleBarChromeBackground` dentro `RootGrid`, alto quanto la titlebar nativa, per
+coprire la zona centrale tra hamburger/titolo e caption button. Cosi' hamburger/titolo
+app, zona centrale e pulsanti nativi leggono lo stesso valore reale e cambiano insieme tra
+focus/unfocus.
+Rimossa anche l'ombra Shell dalla NavBar per non introdurre una fascia intermedia che
+sembri un quarto colore.
 
 **Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
 Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.

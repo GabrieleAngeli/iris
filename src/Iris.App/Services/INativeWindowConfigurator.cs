@@ -11,6 +11,9 @@ public interface INativeWindowConfigurator
 	/// <summary>Restore the primary window's saved geometry and keep persisting it as it moves/resizes.</summary>
 	void ConfigureMainWindow(Window window, string persistKey);
 
+	/// <summary>Re-apply native chrome colors to already opened windows after a theme preference change.</summary>
+	void RefreshThemeChrome();
+
 	/// <summary>
 	/// Make <paramref name="window"/> a modal dialog owned by the primary window: restore its saved
 	/// geometry (or centre it over the owner), block the owner, drop its minimise/maximise, and keep
@@ -24,6 +27,10 @@ public interface INativeWindowConfigurator
 public sealed class NullNativeWindowConfigurator : INativeWindowConfigurator
 {
 	public void ConfigureMainWindow(Window window, string persistKey)
+	{
+	}
+
+	public void RefreshThemeChrome()
 	{
 	}
 

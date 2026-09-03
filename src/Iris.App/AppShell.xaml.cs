@@ -1,4 +1,5 @@
 using Iris.App.ViewModels;
+using Iris.App.Services;
 
 namespace Iris.App;
 
@@ -14,6 +15,8 @@ public partial class AppShell : Shell
 		_vm = vm;
 		_auth = auth;
 		Navigated += OnShellNavigated;
+		AppChromeTheme.ApplyTo(this);
+		Application.Current!.RequestedThemeChanged += (_, _) => AppChromeTheme.ApplyTo(this);
 
 		// Detail routes reachable via GoToAsync.
 		Routing.RegisterRoute("activitydetail", typeof(Views.ActivityDetailPage));
