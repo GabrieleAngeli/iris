@@ -93,7 +93,9 @@ File da leggere prima di agire, per area.
 
 - `src/Iris.App/AppShell.xaml` + `ViewModels/AppShellViewModel.cs` - navigazione/gating,
   flyout custom con macro categorie collassabili e route corrente per evidenziare sezione
-  e voce attiva; il flyout template imposta esplicitamente lo sfondo light/dark del menu
+  e voce attiva; il flyout template imposta esplicitamente lo sfondo light/dark del menu.
+  I `Button` overlay delle righe hanno `Text=""` e descrizione semantica; il testo visibile
+  resta sulle `Label`, evitando duplicati sopra `System settings`
 - `src/Iris.App/appsettings.Development.json`
 - `src/Iris.App/Services/{AppConfiguration,AppPreferenceService,IrisApiClient,AuthService,DialogService,WindowGeometry}.cs`
 - `src/Iris.App/Services/AppChromeTheme.cs` - applica i colori della barra Shell in base

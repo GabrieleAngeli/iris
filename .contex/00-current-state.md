@@ -110,7 +110,10 @@ Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md
 9), Dashboard sempre prima voce, macro categorie come bottoni collassabili/espandibili
 (`Workspace`, `Governance`, `Infrastructure`, `Applications`, `Development`) e gating per
 permesso (`AppShellViewModel.CanManageX`). `AppShellViewModel` traccia la route corrente:
-la categoria della pagina attiva resta aperta, header e voce attiva sono evidenziati.
+la categoria della pagina attiva resta aperta, header e voce attiva sono evidenziati. Le
+righe del flyout mostrano testo solo tramite `Label`; i `Button` overlay cliccabili hanno
+`Text=""` e `SemanticProperties.Description`, cosi' MAUI/Windows non puo' renderizzare un
+secondo testo sopra la voce e non blocca il click del footer `System settings`.
 La barra superiore distingue tre layer: la titlebar applicativa/nativa (hamburger, titolo
 app, zona centrale e caption button Windows) usa `AppChromeLight`/`AppChromeDark` quando
 la finestra ha focus e `AppChromeInactiveLight`/`AppChromeInactiveDark` quando lo perde;

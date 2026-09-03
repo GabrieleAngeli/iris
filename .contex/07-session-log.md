@@ -563,6 +563,20 @@ Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/
 
 ---
 
+## 2026-09-03 - Flyout: rimosso testo dai bottoni overlay
+
+**Classificazione**: fix UX client MAUI.
+
+**Cosa e' successo**: il footer `System settings` mostrava un secondo testo sopra la label
+e non era cliccabile in modo affidabile perche' il `Button` overlay della riga aveva
+ancora `Text="System settings"`. Tutti i bottoni overlay del flyout ora hanno `Text=""`
+e `SemanticProperties.Description`; il testo visibile resta sulle label della riga.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
 ## 2026-09-03 - Titlebar: titolo app bianco in dark mode
 
 **Classificazione**: fix UX/theme client Windows.

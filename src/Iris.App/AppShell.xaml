@@ -111,7 +111,7 @@
                             </BoxView>
                             <Label Grid.Column="1" Text="&#xE80F;" Style="{StaticResource FlyoutRowIconStyle}" />
                             <Label Grid.Column="2" Text="Dashboard" Style="{StaticResource FlyoutRowTextStyle}" />
-                            <Button Grid.ColumnSpan="3" Text="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
+                            <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Dashboard" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding NavigateCommand}" CommandParameter="//dashboard" />
                         </Grid>
                     </Border>
@@ -133,7 +133,7 @@
                             <Label Grid.Column="1" Text="&#xE8F1;" Style="{StaticResource FlyoutRowIconStyle}" />
                             <Label Grid.Column="2" Text="Workspace" Style="{StaticResource FlyoutSectionTextStyle}" />
                             <Label Grid.Column="3" Text="{Binding WorkspaceChevron}" Style="{StaticResource FlyoutChevronStyle}" />
-                            <Button Grid.ColumnSpan="4" Text="Workspace" Style="{StaticResource FlyoutRowButtonStyle}"
+                            <Button Grid.ColumnSpan="4" Text="" SemanticProperties.Description="Workspace" Style="{StaticResource FlyoutRowButtonStyle}"
                                     Command="{Binding ToggleSectionCommand}" CommandParameter="Workspace" />
                         </Grid>
                     </Border>
@@ -148,7 +148,7 @@
                                 <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                 <Label Grid.Column="1" Text="&#xE72E;" Style="{StaticResource FlyoutRowIconStyle}" />
                                 <Label Grid.Column="2" Text="Access" Style="{StaticResource FlyoutRowTextStyle}" />
-                                <Button Grid.ColumnSpan="3" Text="Access" Style="{StaticResource FlyoutRowButtonStyle}"
+                                <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Access" Style="{StaticResource FlyoutRowButtonStyle}"
                                         Command="{Binding NavigateCommand}" CommandParameter="//access" />
                             </Grid>
                         </Border>
@@ -172,7 +172,7 @@
                                 <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
                                 <Label Grid.Column="2" Text="Governance" Style="{StaticResource FlyoutSectionTextStyle}" />
                                 <Label Grid.Column="3" Text="{Binding GovernanceChevron}" Style="{StaticResource FlyoutChevronStyle}" />
-                                <Button Grid.ColumnSpan="4" Text="Governance" Style="{StaticResource FlyoutRowButtonStyle}"
+                                <Button Grid.ColumnSpan="4" Text="" SemanticProperties.Description="Governance" Style="{StaticResource FlyoutRowButtonStyle}"
                                         Command="{Binding ToggleSectionCommand}" CommandParameter="Governance" />
                             </Grid>
                         </Border>
@@ -187,7 +187,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xE716;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Users" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Users" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Users" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//users" />
                                 </Grid>
                             </Border>
@@ -201,7 +201,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xE77B;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Customers" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Customers" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//customers" />
                                 </Grid>
                             </Border>
@@ -226,7 +226,7 @@
                                 <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
                                 <Label Grid.Column="2" Text="Infrastructure" Style="{StaticResource FlyoutSectionTextStyle}" />
                                 <Label Grid.Column="3" Text="{Binding InfrastructureChevron}" Style="{StaticResource FlyoutChevronStyle}" />
-                                <Button Grid.ColumnSpan="4" Text="Infrastructure" Style="{StaticResource FlyoutRowButtonStyle}"
+                                <Button Grid.ColumnSpan="4" Text="" SemanticProperties.Description="Infrastructure" Style="{StaticResource FlyoutRowButtonStyle}"
                                         Command="{Binding ToggleSectionCommand}" CommandParameter="Infrastructure" />
                             </Grid>
                         </Border>
@@ -241,7 +241,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xE7F4;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Servers" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Servers" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//servers" />
                                 </Grid>
                             </Border>
@@ -266,7 +266,7 @@
                                 <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
                                 <Label Grid.Column="2" Text="Applications" Style="{StaticResource FlyoutSectionTextStyle}" />
                                 <Label Grid.Column="3" Text="{Binding ApplicationsChevron}" Style="{StaticResource FlyoutChevronStyle}" />
-                                <Button Grid.ColumnSpan="4" Text="Applications" Style="{StaticResource FlyoutRowButtonStyle}"
+                                <Button Grid.ColumnSpan="4" Text="" SemanticProperties.Description="Applications" Style="{StaticResource FlyoutRowButtonStyle}"
                                         Command="{Binding ToggleSectionCommand}" CommandParameter="Applications" />
                             </Grid>
                         </Border>
@@ -281,7 +281,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xECAA;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Inventory" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Applications inventory" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//applications" />
                                 </Grid>
                             </Border>
@@ -295,7 +295,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xE736;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Extractor guide" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Extractor guide" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Extractor guide" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//extractor-guide" />
                                 </Grid>
                             </Border>
@@ -320,7 +320,7 @@
                                 <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
                                 <Label Grid.Column="2" Text="Development" Style="{StaticResource FlyoutSectionTextStyle}" />
                                 <Label Grid.Column="3" Text="{Binding DevelopmentChevron}" Style="{StaticResource FlyoutChevronStyle}" />
-                                <Button Grid.ColumnSpan="4" Text="Development" Style="{StaticResource FlyoutRowButtonStyle}"
+                                <Button Grid.ColumnSpan="4" Text="" SemanticProperties.Description="Development" Style="{StaticResource FlyoutRowButtonStyle}"
                                         Command="{Binding ToggleSectionCommand}" CommandParameter="Development" />
                             </Grid>
                         </Border>
@@ -335,7 +335,7 @@
                                     <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
                                     <Label Grid.Column="1" Text="&#xECAD;" Style="{StaticResource FlyoutRowIconStyle}" />
                                     <Label Grid.Column="2" Text="Components" Style="{StaticResource FlyoutRowTextStyle}" />
-                                    <Button Grid.ColumnSpan="3" Text="Components" Style="{StaticResource FlyoutRowButtonStyle}"
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Components" Style="{StaticResource FlyoutRowButtonStyle}"
                                             Command="{Binding NavigateCommand}" CommandParameter="//components" />
                                 </Grid>
                             </Border>
@@ -364,7 +364,7 @@
                 </BoxView>
                 <Label Grid.Column="1" Text="&#xE713;" Style="{StaticResource FlyoutRowIconStyle}" />
                 <Label Grid.Column="2" Text="System settings" Style="{StaticResource FlyoutRowTextStyle}" />
-                <Button Grid.ColumnSpan="3" Text="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
+                <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="System settings" Style="{StaticResource FlyoutRowButtonStyle}"
                         Command="{Binding NavigateCommand}" CommandParameter="//system-settings" />
             </Grid>
         </Border>
