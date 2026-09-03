@@ -119,11 +119,20 @@ Flusso consigliato:
 
 Campi da compilare:
 
-- `configurationKeys`: chiavi che l'app deve ricevere a deploy/runtime.
-- `dependencies`: servizi esterni richiesti dall'app, per esempio database, cache, HTTP API,
-  code, topic o filesystem.
-- `placeholders`: valori che l'app espone ad altre app o al deployment, per esempio base URL,
-  connection name, queue name o health endpoint.
+- `configurationKeys`: valori che l'app deve ricevere a deploy/runtime. `key` e' la chiave
+  esatta vista dalla tecnologia (`ConnectionStrings:Main`, `DATABASE_URL`,
+  `spring.datasource.url`); `targetKind` dice dove e' stata trovata; `required` blocca il
+  deploy se manca; `secret` indica che il valore deve arrivare da OpenBao, data service,
+  pipeline variable group o resolver equivalente; `defaultValue` va usato solo per default
+  non sensibili; `purpose` classifica l'intento; `placeholderKey` stabilizza il binding
+  logico Iris.
+- `dependencies`: risorse consumate dall'app, per esempio PostgreSQL, SQL Server, Redis,
+  HTTP API, queue, topic, object storage, filesystem, OpenBao, Ansible/AWX o un'altra
+  application Iris. Se la dependency e' soddisfatta da un'altra app, compilare anche
+  `providerApplicationSlug` e `providerPlaceholderKey`.
+- `placeholders`: valori che l'app o il deployment espongono ad altre app/automazioni, per
+  esempio base URL pubblica, URL interna, health URL, nome coda/topic, connection name o
+  endpoint generato.
 - `warnings`: dubbi o informazioni non ancora modellabili, per esempio porte trovate nel
   sorgente ma non allineate alla versione Iris.
 
@@ -138,6 +147,47 @@ Regole pratiche:
 - Usare `targetKind` per dire dove e' stata trovata la chiave: `appsettings.json`,
   `.env.example`, `application.yml`, `dockerfile:ENV`, `helm:values.yaml`,
   `ansible:j2`, `code:IConfiguration`, `code:process.env`, `code:spring`.
+
+Esempio PostgreSQL gestito da Iris Infrastructure:
+
+```json
+{
+  "configurationKeys": [
+    {
+      "key": "ConnectionStrings:Main",
+      "targetKind": "appsettings.json",
+      "required": true,
+      "secret": true,
+      "defaultValue": null,
+      "description": "Npgsql connection string for the primary PostgreSQL database",
+      "purpose": "database:postgresql:connection-string",
+      "placeholderKey": "domain.orders.db.postgresql.connectionString"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "orders-postgres",
+      "category": "database:postgresql",
+      "required": true,
+      "description": "Managed PostgreSQL instance configured in Iris Infrastructure",
+      "placeholderKey": "domain.orders.db.postgresql",
+      "providerApplicationSlug": null,
+      "providerPlaceholderKey": null
+    }
+  ]
+}
+```
+
+Convenzione consigliata per i placeholder:
+
+```text
+domain.<bounded-context>.<resource>.<technology>.<value>
+domain.orders.db.postgresql.connectionString
+domain.orders.cache.redis.connectionString
+domain.payments.api.baseUrl
+platform.openbao.secretPath
+platform.ansible.inventoryGroup
+```
 
 Import manuale con PowerShell:
 

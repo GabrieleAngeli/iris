@@ -563,6 +563,22 @@ Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/
 
 ---
 
+## 2026-09-03 - Extractor guide: tab Fields per compilazione manifest
+
+**Classificazione**: feature documentazione FE/applications.
+
+**Cosa e' successo**: il tab group condiviso in testa a `Extractor guide` ora apre con
+`Fields`, una guida operativa su come compilare e interpretare `configurationKeys`,
+`dependencies`, `placeholders` e `warnings`. Include regole per non inserire segreti reali
+nel manifest, esempi copiabili per connection string PostgreSQL gestita, Redis opzionale,
+HTTP API provider/consumer e convenzione dei `placeholderKey`. Allineato anche
+`docs/application-assimilation.md`.
+
+**Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
 ## 2026-09-03 - Flyout: rimosso testo dai bottoni overlay
 
 **Classificazione**: fix UX client MAUI.
@@ -690,3 +706,52 @@ sembri un quarto colore.
 
 **Verificato**: build MAUI verde su output isolato - 0 warning/0 errori; `dotnet test
 Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-03 - Assimilazione manifest AugeG4 GrpcFlow
+
+**Classificazione**: prova dati Applications / import reale da manifest esterni.
+
+**Cosa e' successo**: assimilati i manifest di prova
+`iris-application.inventory.json` e `iris-package.json` dell'applicativo AugeG4 GrpcFlow.
+L'import e' passato dagli endpoint reali Applications, non da scrittura diretta sul DB:
+creata application `algorab-augeg4-grpcflow`
+(`01a067ae-ba15-7559-af21-bf01a4948938`) e versione
+`net8.0-Windows-win-x64-self-contained`
+(`01a067ae-bb10-7da7-8278-3c10c8cfe127`), poi importato il package con 41
+configuration key, 5 dependency, 3 placeholder e 5 warning.
+
+**Note emerse**: il file `iris-package.json` conteneva `defaultValue` numerici e booleani
+validi semanticamente, ma il contratto API oggi usa `ConfigurationKeyInput.DefaultValue`
+come `string?`; per completare l'import sono stati normalizzati a stringa (`587`,
+`true`, `false`, ecc.). Per usare le permission admin senza password locale e senza
+alterare il DB e' stata avviata un'istanza API dev dedicata mappando `admin@iris.local`
+sull'`ExternalId` dell'admin reale `gabriele.angeli@algorab.com`; questo conferma che il
+dev header con `AllowAnyEmail` da solo non basta quando serve ereditare grant gia'
+presenti su un `ExternalId` specifico.
+
+**Verificato**: `GET /applications/{applicationId}/versions/{versionId}` su API locale ha
+restituito il dettaglio completo con configuration knowledge e warning importati.
+
+---
+
+## 2026-09-03 - Analisi modello configuration compiler
+
+**Classificazione**: documento di riferimento / analisi da completare.
+
+**Cosa e' successo**: aggiunto `docs/application-configuration-model-analysis.md` per
+fissare l'analisi emersa dai manifest AugeG4.Engine/AugeG4.Web e dai file reali
+`application.properties`/`AppSettings.config`, inclusi gli esempi master/slave. Il
+documento chiarisce che il manifest descrive il contratto configurativo, mentre il valore
+finale nasce in fase di installazione/deployment quando Iris conosce server, data service,
+application collegate, profilo installativo e topologia.
+
+**Casi marcati come incompleti**: firewall, nginx/apache, IIS binding avanzati, TLS/DNS,
+porte interne/esterne, target multi-file/template Ansible, valori tipizzati, liste,
+dependency application-to-application, profili master/slave, vincoli di compatibilita'
+tra versioni applicative e versioni servizio (`MongoDB == 6`, Redis con range min/max,
+PostgreSQL oppure MSSQL a seconda della configurazione).
+
+**Verificato**: rilettura mirata del documento. Nessuna build/test eseguiti perche' la
+modifica e' solo documentale.

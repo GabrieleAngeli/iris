@@ -13,6 +13,21 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
         [
             new TabGroupItem
             {
+                Title = "Fields",
+                Blocks =
+                [
+                    Text("What the manifest describes", "iris-package.json is not a secrets file and is not the final environment file. It is the contract Iris imports for one application version: what the application needs, what external resources it depends on, and what values it exposes to other applications or deployment automation."),
+                    Text("configurationKeys", "Use configurationKeys for values the application must receive at runtime or deploy time. key is the exact key as the technology sees it, targetKind says where it was found, required marks whether deploy must block without it, secret marks values that must be resolved from a secret store, defaultValue is allowed only for non-sensitive safe defaults, purpose groups the intent, and placeholderKey gives Iris a stable logical binding."),
+                    Text("dependencies", "Use dependencies for resources consumed by the application: PostgreSQL, SQL Server, Redis, HTTP APIs, queues, topics, object storage, filesystem paths, OpenBao, Ansible/AWX, or another Iris application. When the dependency is satisfied by another application, set providerApplicationSlug and providerPlaceholderKey."),
+                    Text("placeholders", "Use placeholders for values this application or its deployment exposes for others to consume. Examples: public base URL, internal service URL, health URL, queue name, topic name, exported connection name, or a generated endpoint."),
+                    Note("Sensitive values", "Never put real passwords, tokens, private keys or production connection strings in defaultValue. Mark the key as secret and let Iris bind placeholderKey to OpenBao, a managed data service, a pipeline variable group, or a deployment-time resolver."),
+                    Code("PostgreSQL connection string", PostgresConnectionStringExample, "json"),
+                    Code("Redis endpoint and HTTP provider", RedisAndHttpExample, "json"),
+                    Code("Naming convention", PlaceholderNamingExamples, "text"),
+                ],
+            },
+            new TabGroupItem
+            {
                 Title = "Import",
                 Blocks =
                 [
@@ -184,6 +199,90 @@ public sealed partial class ExtractorGuideViewModel : ObservableObject
     public const string InstallCommand = "dotnet tool install --global Iris.Extractor --add-source ./nupkg";
 
     public const string RunCommand = "iris-extractor dotnet --root src/MyApp --output iris-package.json";
+
+    public const string PostgresConnectionStringExample = """
+        {
+          "configurationKeys": [
+            {
+              "key": "ConnectionStrings:Main",
+              "targetKind": "appsettings.json",
+              "required": true,
+              "secret": true,
+              "defaultValue": null,
+              "description": "Npgsql connection string for the primary PostgreSQL database",
+              "purpose": "database:postgresql:connection-string",
+              "placeholderKey": "domain.orders.db.postgresql.connectionString"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "orders-postgres",
+              "category": "database:postgresql",
+              "required": true,
+              "description": "Managed PostgreSQL instance configured in Iris Infrastructure",
+              "placeholderKey": "domain.orders.db.postgresql",
+              "providerApplicationSlug": null,
+              "providerPlaceholderKey": null
+            }
+          ]
+        }
+        """;
+
+    public const string RedisAndHttpExample = """
+        {
+          "configurationKeys": [
+            {
+              "key": "Redis:ConnectionString",
+              "targetKind": "appsettings.json",
+              "required": false,
+              "secret": true,
+              "defaultValue": null,
+              "description": "Redis cache endpoint, enabled only when cache is provisioned",
+              "purpose": "cache:redis:connection-string",
+              "placeholderKey": "domain.orders.cache.redis.connectionString"
+            },
+            {
+              "key": "Payments:BaseUrl",
+              "targetKind": "code:IConfiguration",
+              "required": true,
+              "secret": false,
+              "defaultValue": null,
+              "description": "Base URL of the Payments API consumed by this service",
+              "purpose": "http:client:base-url",
+              "placeholderKey": "domain.payments.api.baseUrl"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "payments-api",
+              "category": "application:http",
+              "required": true,
+              "description": "Another Iris application exposing the Payments HTTP API",
+              "placeholderKey": "domain.payments.api",
+              "providerApplicationSlug": "payments-api",
+              "providerPlaceholderKey": "domain.payments.api.baseUrl"
+            }
+          ],
+          "placeholders": [
+            {
+              "key": "domain.orders.api.baseUrl",
+              "category": "http:server:base-url",
+              "description": "Base URL exposed by this application after deployment",
+              "required": true
+            }
+          ]
+        }
+        """;
+
+    public const string PlaceholderNamingExamples = """
+        domain.<bounded-context>.<resource>.<technology>.<value>
+        domain.orders.db.postgresql.connectionString
+        domain.orders.cache.redis.connectionString
+        domain.payments.api.baseUrl
+        domain.billing.queue.invoiceCreated.name
+        platform.openbao.secretPath
+        platform.ansible.inventoryGroup
+        """;
 
     public const string PipelineSnippet = """
         - script: iris-extractor dotnet --root src/MyApp --output iris-package.json

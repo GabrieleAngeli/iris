@@ -83,16 +83,27 @@ esposto da un'altra application tramite `ProviderApplicationSlug` e
 `PUT /applications/{id}` per aggiornare l'inventory mantenendo lo slug stabile. Il client
 MAUI ha `ApplicationsPage` sotto Workspace: lista catalogo, create/edit via dialog modali,
 gating con `applications.read/write` e lock advisory `application`.
+Nel database dev locale e' stata assimilata come prova l'application
+`algorab-augeg4-grpcflow` da manifest esterni AugeG4 GrpcFlow: versione
+`net8.0-Windows-win-x64-self-contained`, artifact Nexus
+`algorab-raw/augeg4.web.$(PACKAGE_VERSION).7z!/GrpcFlow`, 41 configuration key, 5
+dependency, 3 placeholder e 5 warning. Durante l'import i `defaultValue` numerici e
+booleani sono stati normalizzati a stringa per aderire al contratto API attuale
+(`ConfigurationKeyInput.DefaultValue` e' `string?`).
 La guida operativa e' in `docs/application-assimilation.md` e nel client MAUI alla voce
 Applications -> `Extractor guide`: include pipeline/extractor .NET e una procedura di
 estrazione manuale per tecnologia (`.NET`, Node/JavaScript, Java/Spring,
 Docker/container, Ansible Jinja2) per produrre e importare `iris-package.json` anche prima
 di avere extractor automatici dedicati. La pagina FE e' organizzata verticalmente per
 tecnologia e usa `controls:TabGroup` per le due tab di ciascuna tecnologia: `Automatic` e
-`Manual manifest`; il contenuto delle tab e' strutturato in blocchi testo, note operative
-e code block tramite il componente globale `controls:CodeBlock`, selezionabile e copiabile,
-per distinguere spiegazioni, comandi e manifest JSON. Jinja2 Ansible e' trattato come
-target sensato di standardizzazione futura tramite `targetKind = "ansible:j2"`.
+`Manual manifest`; in testa il tab group condiviso parte da `Fields`, che spiega come
+compilare `configurationKeys`, `dependencies`, `placeholders` e `warnings`, come
+rappresentare connection string PostgreSQL, endpoint Redis, HTTP API, secret esterni e
+placeholder provider/consumer. Il contenuto delle tab e' strutturato in blocchi testo,
+note operative e code block tramite il componente globale `controls:CodeBlock`,
+selezionabile e copiabile, per distinguere spiegazioni, comandi e manifest JSON. Jinja2
+Ansible e' trattato come target sensato di standardizzazione futura tramite
+`targetKind = "ansible:j2"`.
 
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
