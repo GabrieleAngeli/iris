@@ -24,9 +24,9 @@ internal sealed class OpenBaoSecretStore(OpenBaoOptions options) : ISecretStore,
 
         using var request = new HttpRequestMessage(HttpMethod.Post, DataUri(logicalPath));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.Token);
-        request.Content = JsonContent.Create(options.UseKvV2
-            ? new { data = new Dictionary<string, string> { ["value"] = secretValue } }
-            : new Dictionary<string, string> { ["value"] = secretValue });
+        request.Content = options.UseKvV2
+            ? JsonContent.Create(new { data = new Dictionary<string, string> { ["value"] = secretValue } })
+            : JsonContent.Create(new Dictionary<string, string> { ["value"] = secretValue });
 
         using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
