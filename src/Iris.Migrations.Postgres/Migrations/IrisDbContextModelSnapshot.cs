@@ -362,10 +362,8 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Environment")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                    b.Property<Guid>("CustomerContextId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("InstallationProfileKey")
                         .HasMaxLength(200)
@@ -394,6 +392,8 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.HasIndex("ApplicationId");
 
                     b.HasIndex("ApplicationVersionId");
+
+                    b.HasIndex("CustomerContextId");
 
                     b.HasIndex("ServerNodeId");
 

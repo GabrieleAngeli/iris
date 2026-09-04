@@ -1,5 +1,4 @@
 using Iris.Domain.Common;
-using Iris.Domain.Tenancy;
 
 namespace Iris.Domain.Applications;
 
@@ -21,7 +20,7 @@ public sealed class ApplicationInstallation : Entity<Guid>, IAggregateRoot, IAud
         string? applicationUnitKey,
         string? installationProfileKey,
         Guid serverNodeId,
-        ContextKind environment,
+        Guid customerContextId,
         string? notes)
         : base(id)
     {
@@ -33,7 +32,7 @@ public sealed class ApplicationInstallation : Entity<Guid>, IAggregateRoot, IAud
         ApplicationUnitKey = string.IsNullOrWhiteSpace(applicationUnitKey) ? null : applicationUnitKey.Trim();
         InstallationProfileKey = string.IsNullOrWhiteSpace(installationProfileKey) ? null : installationProfileKey.Trim();
         ServerNodeId = serverNodeId;
-        Environment = environment;
+        CustomerContextId = customerContextId;
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         IsActive = true;
     }
@@ -50,7 +49,13 @@ public sealed class ApplicationInstallation : Entity<Guid>, IAggregateRoot, IAud
 
     public Guid ServerNodeId { get; private set; }
 
-    public ContextKind Environment { get; private set; }
+    /// <summary>
+    /// The customer environment this installation belongs to — a real FK to
+    /// <see cref="Iris.Domain.Tenancy.CustomerContext"/>, not a free-standing
+    /// <c>ContextKind</c>. A deployment is always "this application, for this
+    /// customer's context, on this server".
+    /// </summary>
+    public Guid CustomerContextId { get; private set; }
 
     public string? Notes { get; private set; }
 

@@ -289,12 +289,23 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
             environment = "Production",
         })).Content.ReadFromJsonAsync<IdOnlyDto>();
 
+        var customer = await (await admin.PostAsJsonAsync("/customers", new
+        {
+            key = "cust-" + Guid.NewGuid().ToString("N")[..8],
+            name = "Test Customer",
+        })).Content.ReadFromJsonAsync<IdOnlyDto>();
+        var context = await (await admin.PostAsJsonAsync($"/customers/{customer!.Id}/contexts", new
+        {
+            name = "Production",
+            kind = "Production",
+        })).Content.ReadFromJsonAsync<IdOnlyDto>();
+
         var installation = await (await admin.PostAsJsonAsync($"/applications/{application.Id}/installations", new
         {
             name = $"{name}-prd",
             applicationVersionId = version!.Id,
             serverNodeId = server!.Id,
-            environment = "Production",
+            customerContextId = context!.Id,
         })).Content.ReadFromJsonAsync<IdOnlyDto>();
 
         // AWX is not configured in the test host: the launch is rejected...

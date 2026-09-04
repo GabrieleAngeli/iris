@@ -12,7 +12,7 @@ public sealed record CreateApplicationInstallationRequest(
     string Name,
     Guid ApplicationVersionId,
     Guid ServerNodeId,
-    string Environment,
+    Guid CustomerContextId,
     string? ApplicationUnitKey = null,
     string? InstallationProfileKey = null,
     string? Notes = null,

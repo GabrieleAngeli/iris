@@ -8,7 +8,8 @@ public sealed record ListApplicationInstallationsQuery;
 public sealed class ListApplicationInstallationsHandler(
     IApplicationInstallationRepository installations,
     IApplicationRepository applications,
-    IServerRepository servers)
+    IServerRepository servers,
+    ICustomerRepository customers)
 {
     public async Task<IReadOnlyList<ApplicationInstallationResponse>> HandleAsync(
         ListApplicationInstallationsQuery query,
@@ -19,6 +20,10 @@ public sealed class ListApplicationInstallationsHandler(
         var allInstallations = await installations.GetAllAsync(cancellationToken).ConfigureAwait(false);
         var allApplications = await applications.GetAllAsync(cancellationToken).ConfigureAwait(false);
         var allServers = await servers.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        var allCustomers = await customers.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        var contextsById = allCustomers
+            .SelectMany(customer => customer.Contexts, (customer, context) => (Customer: customer, Context: context))
+            .ToDictionary(pair => pair.Context.Id);
 
         return allInstallations
             .Select(installation =>
@@ -26,9 +31,12 @@ public sealed class ListApplicationInstallationsHandler(
                 var application = allApplications.Single(a => a.Id == installation.ApplicationId);
                 var version = application.Versions.Single(v => v.Id == installation.ApplicationVersionId);
                 var server = allServers.Single(s => s.Id == installation.ServerNodeId);
-                return installation.ToResponse(application, version, server);
+                var (customer, context) = contextsById[installation.CustomerContextId];
+                return installation.ToResponse(application, version, server, customer, context);
             })
-            .OrderBy(response => response.ApplicationName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(response => response.CustomerName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(response => response.CustomerContextName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(response => response.ApplicationName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(response => response.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

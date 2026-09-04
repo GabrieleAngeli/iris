@@ -18,7 +18,7 @@ internal sealed class ApplicationInstallationConfiguration : IEntityTypeConfigur
         builder.Property(i => i.ApplicationUnitKey).HasMaxLength(200);
         builder.Property(i => i.InstallationProfileKey).HasMaxLength(200);
         builder.Property(i => i.ServerNodeId).IsRequired();
-        builder.Property(i => i.Environment).HasConversion<string>().HasMaxLength(40);
+        builder.Property(i => i.CustomerContextId).IsRequired();
         builder.Property(i => i.Notes).HasMaxLength(1000);
         builder.Property(i => i.IsActive);
         builder.Property(i => i.CreatedAtUtc);
@@ -27,6 +27,7 @@ internal sealed class ApplicationInstallationConfiguration : IEntityTypeConfigur
         builder.HasIndex(i => i.ApplicationId);
         builder.HasIndex(i => i.ApplicationVersionId);
         builder.HasIndex(i => i.ServerNodeId);
+        builder.HasIndex(i => i.CustomerContextId);
 
         builder.HasMany(i => i.Bindings)
             .WithOne()

@@ -12,7 +12,8 @@ public sealed record GetApplicationInstallationAnsiblePlanQuery(Guid Installatio
 public sealed class GetApplicationInstallationAnsiblePlanHandler(
     IApplicationInstallationRepository installations,
     IApplicationRepository applications,
-    IServerRepository servers)
+    IServerRepository servers,
+    ICustomerRepository customers)
 {
     public async Task<ApplicationInstallationAnsiblePlanResponse> HandleAsync(
         GetApplicationInstallationAnsiblePlanQuery query,
@@ -28,6 +29,7 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
             ?? throw new NotFoundException("Application version", installation.ApplicationVersionId);
         var server = await servers.GetAsync(installation.ServerNodeId, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("Server", installation.ServerNodeId);
+        var (_, context) = await customers.ResolveCustomerContextAsync(installation.CustomerContextId, cancellationToken).ConfigureAwait(false);
 
         var selectedProfile = installation.InstallationProfileKey;
         var bindings = installation.Bindings
@@ -104,7 +106,7 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
             version.Version,
             installation.ApplicationUnitKey,
             installation.InstallationProfileKey,
-            installation.Environment.ToString(),
+            context.Kind.ToString(),
             server.Name,
             targets,
             artifact,

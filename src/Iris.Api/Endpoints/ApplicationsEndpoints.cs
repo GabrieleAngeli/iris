@@ -87,7 +87,7 @@ public static class ApplicationsEndpoints
                         body.Name,
                         body.ApplicationVersionId,
                         body.ServerNodeId,
-                        body.Environment,
+                        body.CustomerContextId,
                         body.ApplicationUnitKey,
                         body.InstallationProfileKey,
                         body.Notes,

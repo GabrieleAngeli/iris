@@ -26,13 +26,22 @@ public sealed class ApplicationsHandlersTests
         new(store.ApplicationRepository, new FakeClock(Now), store.UnitOfWork);
 
     private static CreateApplicationInstallationHandler CreateInstallationHandler(FakeStore store) =>
-        new(store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.ApplicationInstallationRepository, store.UnitOfWork);
+        new(store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.CustomerRepository, store.ApplicationInstallationRepository, store.UnitOfWork);
 
     private static GetApplicationInstallationAnsiblePlanHandler AnsiblePlanHandler(FakeStore store) =>
-        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository);
+        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.CustomerRepository);
 
     private static RuntimeMetadataRequest Runtime(string name = "dotnet9", string? os = "Linux") =>
         new(name, os, 2, 1024, [8080, 8443]);
+
+    /// <summary>Seeds a customer with one context and returns the context id, for tests that need a real <c>CustomerContextId</c>.</summary>
+    private static Guid SeedCustomerContext(FakeStore store, ContextKind kind = ContextKind.Production, string contextName = "Production")
+    {
+        var customer = new Customer(Guid.CreateVersion7(), $"cust-{Guid.NewGuid():N}"[..12], "Test Customer");
+        var context = customer.AddContext(Guid.CreateVersion7(), contextName, kind);
+        store.WithCustomer(customer);
+        return context.Id;
+    }
 
     [Fact]
     public async Task CreateApplication_auto_generates_slug_from_name()
@@ -373,12 +382,13 @@ public sealed class ApplicationsHandlersTests
             []));
 
         var savesBeforeInstallation = store.SaveChangesCalls;
+        var contextId = SeedCustomerContext(store);
         var created = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
             app.Id,
             "augeg4-engine-master-prd",
             version.Id,
             server.Id,
-            "Production",
+            contextId,
             "augeg4.engine.master",
             "master",
             "primary installation",
@@ -449,7 +459,7 @@ public sealed class ApplicationsHandlersTests
                 "bad-installation",
                 version.Id,
                 server.Id,
-                "Production",
+                Guid.NewGuid(),
                 "augeg4.engine.slave",
                 null,
                 null,
@@ -557,7 +567,7 @@ public sealed class ApplicationsHandlersTests
             "augeg4-engine-master-prd",
             version.Id,
             server.Id,
-            "Production",
+            SeedCustomerContext(store),
             "augeg4.engine.master",
             "master",
             null,
@@ -603,7 +613,7 @@ public sealed class ApplicationsHandlersTests
     }
 
     private static ValidateApplicationInstallationHandler ValidateHandler(FakeStore store) =>
-        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository);
+        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.CustomerRepository);
 
     private static async Task<(Guid AppId, Guid VersionId)> SeedEngineVersion(
         FakeStore store,
@@ -690,7 +700,7 @@ public sealed class ApplicationsHandlersTests
             "augeg4-engine-master-prd",
             versionId,
             server.Id,
-            "Production",
+            SeedCustomerContext(store),
             "augeg4.engine.master",
             null,
             null,
@@ -740,7 +750,7 @@ public sealed class ApplicationsHandlersTests
             "augeg4-engine-master-prd",
             versionId,
             server.Id,
-            "Production",
+            SeedCustomerContext(store),
             "augeg4.engine.master",
             null,
             null,
@@ -807,7 +817,7 @@ public sealed class ApplicationsHandlersTests
             "augeg4-engine-master-prd",
             versionId,
             server.Id,
-            "Production",
+            SeedCustomerContext(store),
             "augeg4.engine.master",
             null,
             null,
@@ -866,7 +876,7 @@ public sealed class ApplicationsHandlersTests
             []);
 
         var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
-            appId, "augeg4-engine-master-prd", versionId, server.Id, "Production",
+            appId, "augeg4-engine-master-prd", versionId, server.Id, SeedCustomerContext(store),
             "augeg4.engine.master", null, null, []));
         return installation.Id;
     }

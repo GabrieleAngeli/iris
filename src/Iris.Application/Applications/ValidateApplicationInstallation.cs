@@ -24,7 +24,8 @@ public sealed class ValidateApplicationInstallationHandler(
     IApplicationInstallationRepository installations,
     IApplicationRepository applications,
     IServerRepository servers,
-    IDataServiceRepository dataServices)
+    IDataServiceRepository dataServices,
+    ICustomerRepository customers)
 {
     public async Task<ApplicationInstallationValidationResponse> HandleAsync(
         ValidateApplicationInstallationQuery query,
@@ -42,6 +43,7 @@ public sealed class ValidateApplicationInstallationHandler(
             ?? throw new NotFoundException("Server", installation.ServerNodeId);
         var catalog = await applications.GetAllAsync(cancellationToken).ConfigureAwait(false);
         var allDataServices = await dataServices.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        var (_, context) = await customers.ResolveCustomerContextAsync(installation.CustomerContextId, cancellationToken).ConfigureAwait(false);
 
         var checks = new List<ApplicationInstallationValidationCheckResponse>();
         var profile = installation.InstallationProfileKey;
@@ -75,7 +77,7 @@ public sealed class ValidateApplicationInstallationHandler(
             installation.ApplicationUnitKey,
             installation.InstallationProfileKey,
             server.Name,
-            installation.Environment.ToString(),
+            context.Kind.ToString(),
             errors == 0,
             errors,
             warnings,

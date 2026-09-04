@@ -2,7 +2,6 @@ using Iris.Application.Abstractions;
 using Iris.Application.Common;
 using Iris.Contracts.Applications;
 using Iris.Domain.Applications;
-using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Applications;
 
@@ -11,7 +10,7 @@ public sealed record CreateApplicationInstallationCommand(
     string Name,
     Guid ApplicationVersionId,
     Guid ServerNodeId,
-    string Environment,
+    Guid CustomerContextId,
     string? ApplicationUnitKey,
     string? InstallationProfileKey,
     string? Notes,
@@ -21,6 +20,7 @@ public sealed class CreateApplicationInstallationHandler(
     IApplicationRepository applications,
     IServerRepository servers,
     IDataServiceRepository dataServices,
+    ICustomerRepository customers,
     IApplicationInstallationRepository installations,
     IUnitOfWork unitOfWork)
 {
@@ -33,11 +33,6 @@ public sealed class CreateApplicationInstallationHandler(
         if (string.IsNullOrWhiteSpace(command.Name))
         {
             throw new ValidationException("Installation name is required.");
-        }
-
-        if (!Enum.TryParse<ContextKind>(command.Environment, ignoreCase: true, out var environment))
-        {
-            throw new ValidationException($"Unknown environment '{command.Environment}'. Expected Test, Staging or Production.");
         }
 
         var application = await applications.GetAsync(command.ApplicationId, cancellationToken).ConfigureAwait(false)
@@ -59,6 +54,7 @@ public sealed class CreateApplicationInstallationHandler(
 
         var server = await servers.GetAsync(command.ServerNodeId, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException("Server", command.ServerNodeId);
+        var (customer, context) = await customers.ResolveCustomerContextAsync(command.CustomerContextId, cancellationToken).ConfigureAwait(false);
 
         var dataServiceBindings = (command.Bindings ?? [])
             .Where(binding => string.Equals(binding.TargetKind, ApplicationInstallationTargetKinds.DataService, StringComparison.OrdinalIgnoreCase))
@@ -84,7 +80,7 @@ public sealed class CreateApplicationInstallationHandler(
             command.ApplicationUnitKey,
             command.InstallationProfileKey,
             server.Id,
-            environment,
+            context.Id,
             command.Notes);
 
         installation.ReplaceBindings((command.Bindings ?? []).Select(binding => new NewApplicationInstallationBinding(
@@ -99,7 +95,7 @@ public sealed class CreateApplicationInstallationHandler(
         await installations.AddAsync(installation, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return installation.ToResponse(application, version, server);
+        return installation.ToResponse(application, version, server, customer, context);
     }
 }
 
