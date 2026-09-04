@@ -69,10 +69,18 @@
                                             </Grid>
                                         </VerticalStackLayout>
 
-                                        <Button Grid.Column="2" Text="&#xE70F;" Style="{StaticResource IconButton}"
-                                                Command="{Binding OpenEditCommand}"
-                                                IsVisible="{Binding CanManageApplications}"
-                                                ToolTipProperties.Text="Edit application" />
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Start">
+                                            <Button Text="&#xE898;" FontFamily="{StaticResource FontIcons}"
+                                                    Style="{StaticResource IconButton}"
+                                                    Command="{Binding UploadManifestCommand}"
+                                                    IsEnabled="{Binding IsManifestUploadBusy, Converter={StaticResource InvertBoolConverter}}"
+                                                    IsVisible="{Binding CanManageApplications}"
+                                                    ToolTipProperties.Text="Upload manifest for this application" />
+                                            <Button Text="&#xE70F;" Style="{StaticResource IconButton}"
+                                                    Command="{Binding OpenEditCommand}"
+                                                    IsVisible="{Binding CanManageApplications}"
+                                                    ToolTipProperties.Text="Edit application" />
+                                        </HorizontalStackLayout>
                                     </Grid>
 
                                     <Label Text="{Binding Description}" IsVisible="{Binding HasDescription}" Style="{StaticResource Body}" />
@@ -83,6 +91,101 @@
                                     <BoxView HeightRequest="1" />
 
                                     <Label Text="{Binding KnowledgeSummary}" Style="{StaticResource Caption}" />
+
+                                    <VerticalStackLayout Spacing="12" IsVisible="{Binding HasManifestValidation}">
+                                        <BoxView HeightRequest="1" />
+
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <VerticalStackLayout Spacing="4">
+                                                <HorizontalStackLayout Spacing="8">
+                                                    <Label Text="Manifest validation" Style="{StaticResource Subtitle}" />
+                                                    <Border Style="{StaticResource Badge}"
+                                                            BackgroundColor="{AppThemeBinding Light=#DFF6DD, Dark=#24442B}"
+                                                            IsVisible="{Binding ManifestValidation.IsValid}">
+                                                        <Label Text="{Binding ManifestValidation.StatusText}" Style="{StaticResource Caption}"
+                                                               TextColor="{AppThemeBinding Light=#107C10, Dark=#6CCB5F}" />
+                                                    </Border>
+                                                    <Border Style="{StaticResource Badge}"
+                                                            BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                                                            IsVisible="{Binding ManifestValidation.IsInvalid}">
+                                                        <Label Text="{Binding ManifestValidation.StatusText}" Style="{StaticResource Caption}"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                                    </Border>
+                                                </HorizontalStackLayout>
+                                                <Label Text="{Binding ManifestValidation.TargetText}" Style="{StaticResource Caption}" />
+                                                <Label Text="{Binding ManifestValidation.FileName}" Style="{StaticResource Body}" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding ManifestValidation.SchemaVersion, StringFormat='Schema version: {0}'}" Style="{StaticResource Caption}" />
+                                            </VerticalStackLayout>
+
+                                            <Button Grid.Column="1" Text="&#xE711;" FontFamily="{StaticResource FontIcons}"
+                                                    Style="{StaticResource IconButton}" Command="{Binding ClearManifestValidationCommand}"
+                                                    ToolTipProperties.Text="Clear validation" />
+                                        </Grid>
+
+                                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                    Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                    StrokeThickness="1" Padding="10" StrokeShape="RoundRectangle 6">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Contract" Style="{StaticResource Caption}" />
+                                                    <Label Text="{Binding ManifestValidation.Summary}" Style="{StaticResource Body}" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                            <Border Grid.Column="1"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                    Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                    StrokeThickness="1" Padding="10" StrokeShape="RoundRectangle 6">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Types" Style="{StaticResource Caption}" />
+                                                    <Label Text="{Binding ManifestValidation.TypeSummary}" Style="{StaticResource Body}" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                            <Border Grid.Column="2"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                    Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                    StrokeThickness="1" Padding="10" StrokeShape="RoundRectangle 6">
+                                                <VerticalStackLayout Spacing="4">
+                                                    <Label Text="Application links" Style="{StaticResource Caption}" />
+                                                    <Label Text="{Binding ManifestValidation.LinkSummary}" Style="{StaticResource Body}" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                        </Grid>
+
+                                        <Border IsVisible="{Binding ManifestValidation.HasIssues}"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                StrokeThickness="1"
+                                                Padding="12"
+                                                StrokeShape="RoundRectangle 6">
+                                            <VerticalStackLayout Spacing="8"
+                                                                 BindableLayout.ItemsSource="{Binding ManifestValidation.Issues}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ManifestValidationIssueViewModel">
+                                                        <Grid ColumnDefinitions="88,*" ColumnSpacing="10">
+                                                            <Border Style="{StaticResource Badge}"
+                                                                    BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                                                                    IsVisible="{Binding IsError}">
+                                                                <Label Text="Error" Style="{StaticResource Caption}"
+                                                                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                                            </Border>
+                                                            <Border Style="{StaticResource Badge}"
+                                                                    BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}"
+                                                                    IsVisible="{Binding IsWarning}">
+                                                                <Label Text="Warning" Style="{StaticResource Caption}"
+                                                                       TextColor="{StaticResource Warning}" />
+                                                            </Border>
+                                                            <Border Style="{StaticResource Badge}"
+                                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}"
+                                                                    IsVisible="{Binding IsInfo}">
+                                                                <Label Text="Info" Style="{StaticResource Caption}" />
+                                                            </Border>
+                                                            <Label Grid.Column="1" Text="{Binding Message}" Style="{StaticResource Body}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </VerticalStackLayout>
 
                                 </VerticalStackLayout>
                             </Border>

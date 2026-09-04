@@ -76,7 +76,11 @@ File da leggere prima di agire, per area.
 - `tests/Iris.Application.Tests/Applications/ApplicationsHandlersTests.cs`
 - `tests/Iris.Api.Tests/ApplicationsApiTests.cs`
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs`
-- `src/Iris.App/Views/ApplicationsPage.xaml`
+- `src/Iris.App/Views/ApplicationsPage.xaml` - inventory Applications; include upload
+  manifest JSON per singola application tile e validazione client-side iniziale
+  (`schemaVersion`, `configurationKeys`, `dependencies`, `placeholders`, warning su
+  secret/default, default tipizzati e dependency provider application presenti/mancanti
+  nel catalogo)
 - `src/Iris.App/ViewModels/ExtractorGuideViewModel.cs`
 - `src/Iris.App/Views/ExtractorGuidePage.xaml` - guida FE in Applications per extractor
   .NET automatico, import manuale e template JSON manuali per tecnologia; layout verticale

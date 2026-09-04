@@ -755,3 +755,28 @@ PostgreSQL oppure MSSQL a seconda della configurazione).
 
 **Verificato**: rilettura mirata del documento. Nessuna build/test eseguiti perche' la
 modifica e' solo documentale.
+
+---
+
+## 2026-09-04 - Applications: upload e validazione manifest da UI
+
+**Classificazione**: primo step UX verso manifest 1.1 / import guidato.
+
+**Cosa e' successo**: nella pagina MAUI `Applications` e' stato aggiunto il comando
+`Upload manifest` direttamente nella tile della singola application, visibile agli utenti
+con gestione Applications. Il file picker accetta JSON e legge il manifest localmente
+senza importarlo automaticamente. Al caricamento viene eseguita una validazione
+client-side associata all'application scelta: `schemaVersion`, array
+`configurationKeys`/`dependencies`/`placeholders`, campi obbligatori, booleani
+`required`/`secret`, duplicati, default valorizzati su chiavi secret, default tipizzati
+non-stringa, coerenza base tra `valueType` e `defaultValue`, `scope`, `serialization`,
+`resolution` e dependency che puntano a `providerApplicationSlug`.
+
+**Decisione di flusso**: questa iterazione si ferma alla validazione e al report visivo
+dei problemi. Non chiama ancora `/applications/{id}/versions/{id}/import` e non crea
+binding: il prossimo step sara' decidere come trasformare un manifest valido in wizard di
+import, risoluzione link application-to-application e poi binding fisico in deployment.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\artifacts\verify-build\` verde - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.

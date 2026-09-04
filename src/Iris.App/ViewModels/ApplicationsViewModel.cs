@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Text.Json;
 using Iris.Contracts.Applications;
 
 namespace Iris.App.ViewModels;
@@ -164,6 +166,465 @@ public partial class ApplicationsViewModel : ObservableObject
 		string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
+public sealed class ManifestValidationViewModel
+{
+	public ManifestValidationViewModel(
+		string fileName,
+		string targetApplicationName,
+		string targetApplicationSlug,
+		string schemaVersion,
+		int configurationKeyCount,
+		int dependencyCount,
+		int placeholderCount,
+		int warningCount,
+		int typedDefaultValueCount,
+		int applicationDependencyCount,
+		IEnumerable<ManifestValidationIssueViewModel> issues)
+	{
+		FileName = fileName;
+		TargetApplicationName = targetApplicationName;
+		TargetApplicationSlug = targetApplicationSlug;
+		SchemaVersion = schemaVersion;
+		ConfigurationKeyCount = configurationKeyCount;
+		DependencyCount = dependencyCount;
+		PlaceholderCount = placeholderCount;
+		WarningCount = warningCount;
+		TypedDefaultValueCount = typedDefaultValueCount;
+		ApplicationDependencyCount = applicationDependencyCount;
+		Issues = new ObservableCollection<ManifestValidationIssueViewModel>(issues);
+		ErrorCount = Issues.Count(i => i.Severity == ManifestIssueSeverity.Error);
+		ManifestWarningCount = Issues.Count(i => i.Severity == ManifestIssueSeverity.Warning);
+	}
+
+	public string FileName { get; }
+
+	public string TargetApplicationName { get; }
+
+	public string TargetApplicationSlug { get; }
+
+	public string TargetText => string.IsNullOrWhiteSpace(TargetApplicationSlug)
+		? "No target application selected"
+		: $"Target application: {TargetApplicationName} ({TargetApplicationSlug})";
+
+	public string SchemaVersion { get; }
+
+	public int ConfigurationKeyCount { get; }
+
+	public int DependencyCount { get; }
+
+	public int PlaceholderCount { get; }
+
+	public int WarningCount { get; }
+
+	public int TypedDefaultValueCount { get; }
+
+	public int ApplicationDependencyCount { get; }
+
+	public int ErrorCount { get; }
+
+	public int ManifestWarningCount { get; }
+
+	public ObservableCollection<ManifestValidationIssueViewModel> Issues { get; }
+
+	public bool HasIssues => Issues.Count > 0;
+
+	public bool IsValid => ErrorCount == 0;
+
+	public bool IsInvalid => !IsValid;
+
+	public bool HasWarnings => ManifestWarningCount > 0;
+
+	public string StatusText => IsValid ? "Valid manifest" : "Manifest needs fixes";
+
+	public string Summary =>
+		$"{ConfigurationKeyCount} keys | {DependencyCount} dependencies | {PlaceholderCount} placeholders | {WarningCount} import warnings";
+
+	public string TypeSummary => TypedDefaultValueCount == 0
+		? "No typed default values detected yet"
+		: $"{TypedDefaultValueCount} typed default values detected";
+
+	public string LinkSummary => ApplicationDependencyCount == 0
+		? "No application-to-application links declared"
+		: $"{ApplicationDependencyCount} application-to-application links declared";
+
+	public static ManifestValidationViewModel FromFailure(string fileName, string message, string targetApplicationName = "", string targetApplicationSlug = "") =>
+		new(
+			fileName,
+			targetApplicationName,
+			targetApplicationSlug,
+			"unknown",
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			[new ManifestValidationIssueViewModel(ManifestIssueSeverity.Error, message)]);
+}
+
+public sealed class ManifestValidationIssueViewModel(ManifestIssueSeverity severity, string message)
+{
+	public ManifestIssueSeverity Severity { get; } = severity;
+
+	public string Message { get; } = message;
+
+	public string SeverityText => Severity.ToString();
+
+	public bool IsError => Severity == ManifestIssueSeverity.Error;
+
+	public bool IsWarning => Severity == ManifestIssueSeverity.Warning;
+
+	public bool IsInfo => Severity == ManifestIssueSeverity.Info;
+}
+
+public enum ManifestIssueSeverity
+{
+	Info,
+	Warning,
+	Error
+}
+
+internal static class ManifestValidator
+{
+	private static readonly StringComparer KeyComparer = StringComparer.OrdinalIgnoreCase;
+
+	public static ManifestValidationViewModel Validate(
+		string fileName,
+		string json,
+		IEnumerable<ApplicationRowViewModel> applications,
+		string targetApplicationName,
+		string targetApplicationSlug)
+	{
+		try
+		{
+			using var document = JsonDocument.Parse(json, new JsonDocumentOptions
+			{
+				AllowTrailingCommas = true,
+				CommentHandling = JsonCommentHandling.Skip
+			});
+
+			if (document.RootElement.ValueKind != JsonValueKind.Object)
+			{
+				return ManifestValidationViewModel.FromFailure(fileName, "The manifest root must be a JSON object.", targetApplicationName, targetApplicationSlug);
+			}
+
+			var root = document.RootElement;
+			var issues = new List<ManifestValidationIssueViewModel>();
+			var schemaVersion = ReadString(root, "schemaVersion");
+			if (string.IsNullOrWhiteSpace(schemaVersion))
+			{
+				issues.Add(Error("schemaVersion is required."));
+				schemaVersion = "unknown";
+			}
+			else if (schemaVersion != "1.0" && schemaVersion != "1.1")
+			{
+				issues.Add(Warning($"schemaVersion '{schemaVersion}' is not explicitly supported yet; validating with the known manifest shape."));
+			}
+
+			var configurationKeys = ReadArray(root, "configurationKeys", issues);
+			var dependencies = ReadArray(root, "dependencies", issues);
+			var placeholders = ReadArray(root, "placeholders", issues);
+			var warnings = ReadArray(root, "warnings", issues, required: false);
+			issues.Add(Info($"Manifest will be associated with Iris application '{targetApplicationSlug}'."));
+
+			var typedDefaultValueCount = ValidateConfigurationKeys(configurationKeys, schemaVersion, issues);
+			var applicationDependencyCount = ValidateDependencies(dependencies, applications, issues);
+			ValidatePlaceholders(placeholders, issues);
+
+			if (configurationKeys.Count == 0)
+			{
+				issues.Add(Warning("No configurationKeys were found; Iris will have nothing to compile for this application version."));
+			}
+
+			return new ManifestValidationViewModel(
+				fileName,
+				targetApplicationName,
+				targetApplicationSlug,
+				schemaVersion,
+				configurationKeys.Count,
+				dependencies.Count,
+				placeholders.Count,
+				warnings.Count,
+				typedDefaultValueCount,
+				applicationDependencyCount,
+				issues);
+		}
+		catch (JsonException ex)
+		{
+			var message = string.IsNullOrWhiteSpace(ex.Message)
+				? "The selected file is not valid JSON."
+				: ex.Message;
+			return ManifestValidationViewModel.FromFailure(fileName, message, targetApplicationName, targetApplicationSlug);
+		}
+	}
+
+	private static int ValidateConfigurationKeys(
+		IReadOnlyList<JsonElement> configurationKeys,
+		string schemaVersion,
+		List<ManifestValidationIssueViewModel> issues)
+	{
+		var seen = new HashSet<string>(KeyComparer);
+		var typedDefaultValueCount = 0;
+
+		for (var index = 0; index < configurationKeys.Count; index++)
+		{
+			var item = configurationKeys[index];
+			if (item.ValueKind != JsonValueKind.Object)
+			{
+				issues.Add(Error($"configurationKeys[{index}] must be an object."));
+				continue;
+			}
+
+			var key = ReadString(item, "key");
+			var targetKind = ReadString(item, "targetKind");
+			var path = string.IsNullOrWhiteSpace(key) ? $"configurationKeys[{index}]" : $"configurationKeys['{key}']";
+
+			if (string.IsNullOrWhiteSpace(key))
+			{
+				issues.Add(Error($"{path}.key is required."));
+			}
+			else if (!seen.Add($"{targetKind}|{key}"))
+			{
+				issues.Add(Warning($"{path} is duplicated for target '{targetKind}'."));
+			}
+
+			if (string.IsNullOrWhiteSpace(targetKind))
+			{
+				issues.Add(Error($"{path}.targetKind is required."));
+			}
+
+			RequireBoolean(item, "required", path, issues);
+			var secret = RequireBoolean(item, "secret", path, issues);
+			var valueType = ReadString(item, "valueType");
+			var hasDefault = item.TryGetProperty("defaultValue", out var defaultValue) &&
+				defaultValue.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined;
+
+			if (hasDefault)
+			{
+				var detectedType = DetectValueType(defaultValue);
+				if (detectedType != "string")
+				{
+					typedDefaultValueCount++;
+				}
+
+				if (secret == true)
+				{
+					issues.Add(Warning($"{path} is secret but carries a defaultValue; secrets should be resolved by the secret store, not stored in the manifest."));
+				}
+
+				if (!string.IsNullOrWhiteSpace(valueType) && !DefaultMatchesValueType(defaultValue, valueType))
+				{
+					issues.Add(Warning($"{path}.defaultValue looks like {detectedType}, but valueType is '{valueType}'."));
+				}
+			}
+
+			if (schemaVersion == "1.1" && string.IsNullOrWhiteSpace(valueType))
+			{
+				issues.Add(Warning($"{path}.valueType is recommended for manifest 1.1."));
+			}
+
+			var scope = ReadString(item, "scope");
+			if (!string.IsNullOrWhiteSpace(scope) &&
+				scope is not "applicationVersion" and not "deployment" and not "installationInstance" and not "topology" and not "serviceReference" and not "secretStore" and not "manual")
+			{
+				issues.Add(Warning($"{path}.scope '{scope}' is not a known resolution scope."));
+			}
+
+			if (item.TryGetProperty("serialization", out var serialization) && serialization.ValueKind != JsonValueKind.Object)
+			{
+				issues.Add(Warning($"{path}.serialization should be an object."));
+			}
+
+			if (item.TryGetProperty("resolution", out var resolution) && resolution.ValueKind != JsonValueKind.Object)
+			{
+				issues.Add(Warning($"{path}.resolution should be an object."));
+			}
+		}
+
+		return typedDefaultValueCount;
+	}
+
+	private static int ValidateDependencies(
+		IReadOnlyList<JsonElement> dependencies,
+		IEnumerable<ApplicationRowViewModel> applications,
+		List<ManifestValidationIssueViewModel> issues)
+	{
+		var applicationSlugs = applications.Select(a => a.Slug).ToHashSet(KeyComparer);
+		var applicationDependencyCount = 0;
+
+		for (var index = 0; index < dependencies.Count; index++)
+		{
+			var item = dependencies[index];
+			if (item.ValueKind != JsonValueKind.Object)
+			{
+				issues.Add(Error($"dependencies[{index}] must be an object."));
+				continue;
+			}
+
+			var name = ReadString(item, "name");
+			var path = string.IsNullOrWhiteSpace(name) ? $"dependencies[{index}]" : $"dependencies['{name}']";
+			if (string.IsNullOrWhiteSpace(name))
+			{
+				issues.Add(Error($"{path}.name is required."));
+			}
+
+			if (string.IsNullOrWhiteSpace(ReadString(item, "category")))
+			{
+				issues.Add(Error($"{path}.category is required."));
+			}
+
+			RequireBoolean(item, "required", path, issues);
+
+			var providerApplicationSlug = ReadString(item, "providerApplicationSlug");
+			var providerPlaceholderKey = ReadString(item, "providerPlaceholderKey");
+			if (!string.IsNullOrWhiteSpace(providerApplicationSlug))
+			{
+				applicationDependencyCount++;
+				if (applicationSlugs.Contains(providerApplicationSlug))
+				{
+					issues.Add(Info($"{path} can be linked to Iris application '{providerApplicationSlug}'. Provider placeholder verification comes in the next step."));
+				}
+				else
+				{
+					issues.Add(Warning($"{path} references provider application '{providerApplicationSlug}', but it is not in the current Iris catalog."));
+				}
+
+				if (string.IsNullOrWhiteSpace(providerPlaceholderKey))
+				{
+					issues.Add(Warning($"{path} references a provider application but no providerPlaceholderKey."));
+				}
+			}
+		}
+
+		return applicationDependencyCount;
+	}
+
+	private static void ValidatePlaceholders(
+		IReadOnlyList<JsonElement> placeholders,
+		List<ManifestValidationIssueViewModel> issues)
+	{
+		var seen = new HashSet<string>(KeyComparer);
+		for (var index = 0; index < placeholders.Count; index++)
+		{
+			var item = placeholders[index];
+			if (item.ValueKind != JsonValueKind.Object)
+			{
+				issues.Add(Error($"placeholders[{index}] must be an object."));
+				continue;
+			}
+
+			var key = ReadString(item, "key");
+			var path = string.IsNullOrWhiteSpace(key) ? $"placeholders[{index}]" : $"placeholders['{key}']";
+			if (string.IsNullOrWhiteSpace(key))
+			{
+				issues.Add(Error($"{path}.key is required."));
+			}
+			else if (!seen.Add(key))
+			{
+				issues.Add(Warning($"{path} is duplicated."));
+			}
+
+			RequireBoolean(item, "required", path, issues);
+		}
+	}
+
+	private static IReadOnlyList<JsonElement> ReadArray(
+		JsonElement root,
+		string name,
+		List<ManifestValidationIssueViewModel> issues,
+		bool required = true)
+	{
+		if (!root.TryGetProperty(name, out var value))
+		{
+			if (required)
+			{
+				issues.Add(Error($"{name} is required."));
+			}
+
+			return [];
+		}
+
+		if (value.ValueKind != JsonValueKind.Array)
+		{
+			issues.Add(Error($"{name} must be an array."));
+			return [];
+		}
+
+		return value.EnumerateArray().ToArray();
+	}
+
+	private static string? ReadString(JsonElement item, string name)
+	{
+		if (!item.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
+		{
+			return null;
+		}
+
+		return value.ValueKind == JsonValueKind.String
+			? value.GetString()
+			: value.ToString();
+	}
+
+	private static bool? RequireBoolean(
+		JsonElement item,
+		string name,
+		string path,
+		List<ManifestValidationIssueViewModel> issues)
+	{
+		if (!item.TryGetProperty(name, out var value))
+		{
+			issues.Add(Error($"{path}.{name} is required."));
+			return null;
+		}
+
+		if (value.ValueKind == JsonValueKind.True)
+		{
+			return true;
+		}
+
+		if (value.ValueKind == JsonValueKind.False)
+		{
+			return false;
+		}
+
+		issues.Add(Error($"{path}.{name} must be boolean."));
+		return null;
+	}
+
+	private static bool DefaultMatchesValueType(JsonElement value, string valueType)
+	{
+		var normalized = valueType.Trim().ToLowerInvariant();
+		return normalized switch
+		{
+			"string" or "uri" or "connectionstring" => value.ValueKind == JsonValueKind.String,
+			"integer" or "int" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+			"decimal" or "number" => value.ValueKind == JsonValueKind.Number,
+			"boolean" or "bool" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+			"json" => value.ValueKind is JsonValueKind.Object or JsonValueKind.Array,
+			"array" or "list" or "stringlist" or "integerlist" or "booleanlist" => value.ValueKind == JsonValueKind.Array,
+			_ => true
+		};
+	}
+
+	private static string DetectValueType(JsonElement value) =>
+		value.ValueKind switch
+		{
+			JsonValueKind.String => "string",
+			JsonValueKind.Number => value.TryGetInt64(out _) ? "integer" : "decimal",
+			JsonValueKind.True or JsonValueKind.False => "boolean",
+			JsonValueKind.Array => "array",
+			JsonValueKind.Object => "json",
+			JsonValueKind.Null => "null",
+			_ => value.ValueKind.ToString().ToLower(CultureInfo.InvariantCulture)
+		};
+
+	private static ManifestValidationIssueViewModel Error(string message) => new(ManifestIssueSeverity.Error, message);
+
+	private static ManifestValidationIssueViewModel Warning(string message) => new(ManifestIssueSeverity.Warning, message);
+
+	private static ManifestValidationIssueViewModel Info(string message) => new(ManifestIssueSeverity.Info, message);
+}
+
 public sealed partial class ApplicationRowViewModel : ObservableObject
 {
 	private const string LockResource = "application";
@@ -205,6 +666,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private int _dependencyCount;
 	[ObservableProperty] private int _placeholderCount;
 	[ObservableProperty] private DateTimeOffset? _lastImportedAtUtc;
+	[ObservableProperty] private bool _isManifestUploadBusy;
+	[ObservableProperty] private ManifestValidationViewModel? _manifestValidation;
 
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
@@ -215,6 +678,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		: "No imported knowledge yet";
 
 	public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+	public bool HasManifestValidation => ManifestValidation is not null;
 
 	public bool HasArtifact => !string.IsNullOrWhiteSpace(ArtifactProvider) ||
 		!string.IsNullOrWhiteSpace(ArtifactFeed) ||
@@ -235,6 +700,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	}
 
 	partial void OnDescriptionChanged(string? value) => OnPropertyChanged(nameof(HasDescription));
+
+	partial void OnManifestValidationChanged(ManifestValidationViewModel? value) => OnPropertyChanged(nameof(HasManifestValidation));
 
 	private void ApplyFrom(ApplicationResponse application)
 	{
@@ -263,6 +730,52 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		OnPropertyChanged(nameof(LastImportText));
 		OnPropertyChanged(nameof(HasArtifact));
 		OnPropertyChanged(nameof(ArtifactSummary));
+	}
+
+	[RelayCommand]
+	private async Task UploadManifestAsync()
+	{
+		IsManifestUploadBusy = true;
+		_parent.Error = null;
+
+		try
+		{
+			var result = await FilePicker.Default.PickAsync(new PickOptions
+			{
+				PickerTitle = $"Select Iris manifest for {Name}",
+				FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+				{
+					[DevicePlatform.WinUI] = [".json"],
+					[DevicePlatform.macOS] = ["json"],
+					[DevicePlatform.iOS] = ["public.json"],
+					[DevicePlatform.Android] = ["application/json"]
+				})
+			});
+
+			if (result is null)
+			{
+				return;
+			}
+
+			await using var stream = await result.OpenReadAsync();
+			using var reader = new StreamReader(stream);
+			var json = await reader.ReadToEndAsync();
+			ManifestValidation = ManifestValidator.Validate(result.FileName, json, _parent.Applications, Name, Slug);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+		{
+			ManifestValidation = ManifestValidationViewModel.FromFailure("Manifest upload", ex.Message, Name, Slug);
+		}
+		finally
+		{
+			IsManifestUploadBusy = false;
+		}
+	}
+
+	[RelayCommand]
+	private void ClearManifestValidation()
+	{
+		ManifestValidation = null;
 	}
 
 	[ObservableProperty] private string _editName = string.Empty;

@@ -82,7 +82,12 @@ esposto da un'altra application tramite `ProviderApplicationSlug` e
 `ProviderPlaceholderKey`. Endpoint in `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`, incluso
 `PUT /applications/{id}` per aggiornare l'inventory mantenendo lo slug stabile. Il client
 MAUI ha `ApplicationsPage` sotto Workspace: lista catalogo, create/edit via dialog modali,
-gating con `applications.read/write` e lock advisory `application`.
+gating con `applications.read/write` e lock advisory `application`. Ogni tile application
+include ora il primo step di upload manifest: selezione file JSON via FilePicker,
+validazione client-side senza import automatico, associazione immediata del report alla
+application scelta, riepilogo schema/conteggi/tipi default rilevati e issue list per
+errori, warning e link application-to-application presenti o mancanti nel catalogo Iris
+corrente.
 Nel database dev locale e' stata assimilata come prova l'application
 `algorab-augeg4-grpcflow` da manifest esterni AugeG4 GrpcFlow: versione
 `net8.0-Windows-win-x64-self-contained`, artifact Nexus
