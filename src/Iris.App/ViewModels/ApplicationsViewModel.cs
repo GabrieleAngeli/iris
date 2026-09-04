@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 using Iris.Contracts.Applications;
 using Iris.Contracts.Infrastructure;
+using Iris.Contracts.Tenancy;
 
 namespace Iris.App.ViewModels;
 
@@ -71,15 +72,6 @@ public partial class ApplicationsViewModel : ObservableObject
 			{
 				Applications.Add(new ApplicationRowViewModel(application, _api, this));
 			}
-
-			var installations = await _api.GetApplicationInstallationsAsync();
-			foreach (var row in Applications)
-			{
-				foreach (var installation in installations.Where(i => i.ApplicationId == row.Id))
-				{
-					row.Installations.Add(new ApplicationInstallationRowViewModel(installation, _api, row));
-				}
-			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -106,10 +98,6 @@ public partial class ApplicationsViewModel : ObservableObject
 	public event EventHandler<ApplicationRowViewModel>? NewApplicationInstallationRequested;
 
 	public void RaiseNewApplicationInstallationRequested(ApplicationRowViewModel row) => NewApplicationInstallationRequested?.Invoke(this, row);
-
-	public event EventHandler<ApplicationInstallationRowViewModel>? InstallationOpsRequested;
-
-	public void RaiseInstallationOpsRequested(ApplicationInstallationRowViewModel row) => InstallationOpsRequested?.Invoke(this, row);
 
 	internal Task ReloadAsync() => RefreshAsync();
 
@@ -516,6 +504,26 @@ public sealed class ServerOptionViewModel(ServerResponse server)
 			return $"{server.HostingType} | {os} | {resources}";
 		}
 	}
+}
+
+/// <summary>
+/// One (customer, context) pair a deployment can target — a real FK, not a free-standing
+/// environment string. Flattened from <see cref="IIrisApiClient.GetCustomersAsync"/> for the
+/// installation draft's customer/environment picker.
+/// </summary>
+public sealed class CustomerContextOptionViewModel(CustomerSummaryResponse customer, ContextSummaryResponse context)
+{
+	public Guid CustomerId { get; } = customer.Id;
+
+	public string CustomerName { get; } = customer.Name;
+
+	public Guid ContextId { get; } = context.Id;
+
+	public string ContextName { get; } = context.Name;
+
+	public string Kind { get; } = context.Kind;
+
+	public string DisplayName => $"{customer.Name} - {context.Name} ({context.Kind})";
 }
 
 public sealed class DataServiceOptionViewModel(DataServiceResponse service)
@@ -2044,7 +2052,6 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		_api = api;
 		_parent = parent;
 		ApplyFrom(application);
-		Installations.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasInstallations));
 	}
 
 	public Guid Id => _applicationId;
@@ -2103,11 +2110,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	public ObservableCollection<InstallationBindingViewModel> InstallationBindings { get; } = [];
 
-	public ObservableCollection<ApplicationInstallationRowViewModel> Installations { get; } = [];
+	public ObservableCollection<CustomerContextOptionViewModel> InstallCustomerContextOptions { get; } = [];
 
-	public bool HasInstallations => Installations.Count > 0;
-
-	public void RaiseInstallationOpsRequested(ApplicationInstallationRowViewModel row) => _parent.RaiseInstallationOpsRequested(row);
+	[ObservableProperty] private CustomerContextOptionViewModel? _selectedInstallCustomerContext;
 
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
@@ -2243,10 +2248,12 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		SelectedInstallUnit = null;
 		SelectedInstallProfile = null;
 		SelectedInstallServer = null;
+		SelectedInstallCustomerContext = null;
 		InstallUnitOptions.Clear();
 		InstallProfileOptions.Clear();
 		InstallServerOptions.Clear();
 		InstallDataServiceOptions.Clear();
+		InstallCustomerContextOptions.Clear();
 		InstallationBindings.Clear();
 		NotifyInstallationCollectionsChanged();
 		SelectedInstallVersion = VersionOptions.FirstOrDefault();
@@ -2261,8 +2268,10 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		{
 			var serversTask = _api.GetServersAsync();
 			var dataServicesTask = _api.GetDataServicesAsync();
+			var customersTask = _api.GetCustomersAsync();
 			var servers = await serversTask;
 			var dataServices = await dataServicesTask;
+			var customers = await customersTask;
 
 			InstallServerOptions.Clear();
 			foreach (var server in servers.Where(s => s.IsActive).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
@@ -2276,7 +2285,17 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				InstallDataServiceOptions.Add(new DataServiceOptionViewModel(service));
 			}
 
+			InstallCustomerContextOptions.Clear();
+			foreach (var customer in customers.Where(c => c.IsActive).OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+			{
+				foreach (var context in customer.Contexts.Where(c => c.IsActive))
+				{
+					InstallCustomerContextOptions.Add(new CustomerContextOptionViewModel(customer, context));
+				}
+			}
+
 			SelectedInstallServer = InstallServerOptions.FirstOrDefault();
+			SelectedInstallCustomerContext = InstallCustomerContextOptions.FirstOrDefault();
 
 			if (SelectedInstallVersion is { } version)
 			{
@@ -2452,6 +2471,12 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 			return;
 		}
 
+		if (SelectedInstallCustomerContext is null)
+		{
+			InstallError = "Select the customer and environment this deployment belongs to.";
+			return;
+		}
+
 		var name = InstallName.Trim();
 		if (name.Length == 0)
 		{
@@ -2477,17 +2502,16 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				.Cast<ApplicationInstallationBindingInput>()
 				.ToArray();
 
-			var created = await _api.CreateApplicationInstallationAsync(_applicationId, new CreateApplicationInstallationRequest(
+			await _api.CreateApplicationInstallationAsync(_applicationId, new CreateApplicationInstallationRequest(
 				name,
 				SelectedInstallVersion.Id,
 				SelectedInstallServer.Id,
-				SelectedInstallServer.Environment,
+				SelectedInstallCustomerContext.ContextId,
 				SelectedInstallUnit?.Key,
 				SelectedInstallProfile?.Key,
 				ApplicationsViewModel.Clean(InstallNotes),
 				bindings));
 
-			Installations.Insert(0, new ApplicationInstallationRowViewModel(created, _api, this));
 			ApplicationInstallationCompleted?.Invoke(this, EventArgs.Empty);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -2847,18 +2871,24 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 public sealed partial class ApplicationInstallationRowViewModel : ObservableObject
 {
 	private readonly IIrisApiClient _api;
-	private readonly ApplicationRowViewModel _parent;
+	private readonly Action<ApplicationInstallationRowViewModel> _openOps;
 
-	public ApplicationInstallationRowViewModel(ApplicationInstallationResponse installation, IIrisApiClient api, ApplicationRowViewModel parent)
+	public ApplicationInstallationRowViewModel(
+		ApplicationInstallationResponse installation,
+		IIrisApiClient api,
+		bool canManageDeployments,
+		Action<ApplicationInstallationRowViewModel> openOps)
 	{
 		_api = api;
-		_parent = parent;
+		_openOps = openOps;
+		CanManageDeployments = canManageDeployments;
 		ApplyFrom(installation);
 	}
 
 	public Guid Id { get; private set; }
 
 	[ObservableProperty] private string _name = string.Empty;
+	[ObservableProperty] private string _applicationName = string.Empty;
 	[ObservableProperty] private string _environment = string.Empty;
 	[ObservableProperty] private string _serverName = string.Empty;
 	[ObservableProperty] private string _version = string.Empty;
@@ -2866,7 +2896,7 @@ public sealed partial class ApplicationInstallationRowViewModel : ObservableObje
 	[ObservableProperty] private string? _installationProfileKey;
 	[ObservableProperty] private bool _isActive;
 
-	public bool CanManageDeployments => _parent.CanManageDeployments;
+	public bool CanManageDeployments { get; }
 
 	public string DetailText
 	{
@@ -2874,7 +2904,7 @@ public sealed partial class ApplicationInstallationRowViewModel : ObservableObje
 		{
 			var parts = new[] { Version, ApplicationUnitKey, InstallationProfileKey }
 				.Where(part => !string.IsNullOrWhiteSpace(part));
-			return $"{string.Join(" | ", parts)} on {ServerName}";
+			return $"{ApplicationName} - {string.Join(" | ", parts)} on {ServerName}";
 		}
 	}
 
@@ -2882,6 +2912,7 @@ public sealed partial class ApplicationInstallationRowViewModel : ObservableObje
 	{
 		Id = installation.Id;
 		Name = installation.Name;
+		ApplicationName = installation.ApplicationName;
 		Environment = installation.Environment;
 		ServerName = installation.ServerName;
 		Version = installation.Version;
@@ -2892,7 +2923,7 @@ public sealed partial class ApplicationInstallationRowViewModel : ObservableObje
 	}
 
 	[RelayCommand]
-	private void OpenOps() => _parent.RaiseInstallationOpsRequested(this);
+	private void OpenOps() => _openOps(this);
 
 	// ---- Validation Engine ----
 

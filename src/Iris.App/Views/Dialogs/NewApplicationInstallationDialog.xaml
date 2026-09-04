@@ -14,7 +14,7 @@
             <VerticalStackLayout Padding="22" Spacing="14">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="{Binding Name, StringFormat='Install {0}'}" Style="{StaticResource Subtitle}" />
-                    <Label Text="Choose the release, launch unit and target server. Then bind the manifest placeholders to concrete Iris resources." Style="{StaticResource Caption}" />
+                    <Label Text="Choose the customer/environment, release, launch unit and target server. Then bind the manifest placeholders to concrete Iris resources." Style="{StaticResource Caption}" />
                 </VerticalStackLayout>
 
                 <Border IsVisible="{Binding HasInstallError}"
@@ -31,7 +31,19 @@
                         Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
                         StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
                     <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
-                        <VerticalStackLayout Spacing="5">
+                        <VerticalStackLayout Grid.ColumnSpan="2" Spacing="5">
+                            <Label Text="Customer &amp; environment" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding InstallCustomerContextOptions}"
+                                        SelectedItem="{Binding SelectedInstallCustomerContext}">
+                                    <Picker.ItemDisplayBinding>
+                                        <Binding Path="DisplayName" x:DataType="vm:CustomerContextOptionViewModel" />
+                                    </Picker.ItemDisplayBinding>
+                                </Picker>
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Spacing="5">
                             <Label Text="Release" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Picker ItemsSource="{Binding VersionOptions}"
@@ -44,7 +56,7 @@
                             <Label Text="{Binding SelectedInstallVersion.Detail}" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Column="1" Spacing="5">
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="5">
                             <Label Text="Target server" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Picker ItemsSource="{Binding InstallServerOptions}"
@@ -57,7 +69,7 @@
                             <Label Text="{Binding SelectedInstallServer.Detail}" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding HasInstallUnitOptions}">
+                        <VerticalStackLayout Grid.Row="2" Spacing="5" IsVisible="{Binding HasInstallUnitOptions}">
                             <Label Text="Application unit" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Picker ItemsSource="{Binding InstallUnitOptions}"
@@ -70,7 +82,7 @@
                             <Label Text="{Binding SelectedInstallUnit.Detail}" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="5" IsVisible="{Binding HasInstallProfileOptions}">
+                        <VerticalStackLayout Grid.Row="2" Grid.Column="1" Spacing="5" IsVisible="{Binding HasInstallProfileOptions}">
                             <Label Text="Install profile" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Picker ItemsSource="{Binding InstallProfileOptions}"
@@ -83,14 +95,14 @@
                             <Label Text="{Binding SelectedInstallProfile.Detail}" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="2" Spacing="5">
+                        <VerticalStackLayout Grid.Row="3" Spacing="5">
                             <Label Text="Installation name" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Entry Text="{Binding InstallName}" />
                             </Border>
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="2" Grid.Column="1" Spacing="5">
+                        <VerticalStackLayout Grid.Row="3" Grid.Column="1" Spacing="5">
                             <Label Text="Notes" Style="{StaticResource Caption}" />
                             <Border Style="{StaticResource FieldBorder}">
                                 <Entry Text="{Binding InstallNotes}" />

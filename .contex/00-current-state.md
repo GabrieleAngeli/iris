@@ -1,7 +1,7 @@
 # Stato corrente
 
 Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
-(192/192 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+(192/192 verdi, invariati dopo il rework FK) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
 -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
 bloccato se l'app e' gia' aperta).
 
@@ -133,20 +133,59 @@ selezionabile e copiabile, per distinguere spiegazioni, comandi e manifest JSON.
 Ansible e' trattato come target sensato di standardizzazione futura tramite
 `targetKind = "ansible:j2"`.
 
-**Application installation / deployment (primo strato)** (`Iris.Domain.Applications`) -
+**Application installation / deployment** (`Iris.Domain.Applications`) -
 `ApplicationInstallation` (aggregate root) lega `ApplicationId` + `ApplicationVersionId` +
-`ApplicationUnitKey?` + `InstallationProfileKey?` + `ServerNodeId` + `Environment`
-(`ContextKind`) + `Notes`. Porta `ApplicationInstallationBinding` figlie
-(`ReplaceBindings`, replace-whole): ogni binding lega un `PlaceholderKey` a un target
-concreto tipizzato (`ApplicationInstallationTargetKinds`: `data-service`, `application`,
-ecc.) via `TargetId`/`TargetSlug` + `ValuePreview`. NB: le FK sono `Guid` semplici, non
-navigation EF verso `ApplicationVersion`/`ServerNode`/`CustomerContext`; non c'e' ancora
-un legame con `Customer`/`CustomerContext`. Endpoint in `ApplicationsEndpoints.cs`:
-`GET/POST /applications/installations` (perm `deployments.read`/`deployments.write`),
-handler `ListApplicationInstallations`/`CreateApplicationInstallation`. Client MAUI:
-`NewApplicationInstallationDialog` + metodi in `ApplicationsViewModel`. Migrazione
-`AddApplicationInstallations` per SQLite e Postgres. Mappato in
-`TransactionLogInterceptor.AreaFor` come `Applications`.
+`ApplicationUnitKey?` + `InstallationProfileKey?` + `ServerNodeId` + **`CustomerContextId`**
+(FK reale a `Iris.Domain.Tenancy.CustomerContext`, non piu' un `ContextKind` libero: un
+deployment e' sempre "questa applicazione, per questo ambiente di questo cliente, su
+questo server", vedi `01-decisions.md`) + `Notes`. Porta `ApplicationInstallationBinding`
+figlie (`ReplaceBindings`, replace-whole): ogni binding lega un `PlaceholderKey` a un
+target concreto tipizzato (`ApplicationInstallationTargetKinds`: `data-service`,
+`application`, ecc.) via `TargetId`/`TargetSlug` + `ValuePreview`. `ICustomerRepository`
+non ha un lookup diretto by-context (i context sono owned entity, non un aggregato a se');
+`ApplicationInstallationMapping.ResolveCustomerContextAsync` (extension) carica tutti i
+customer accessibili e correla in memoria - usato da create/list/validate/ansible-plan.
+`ApplicationInstallationResponse` porta ora `CustomerId`/`CustomerName`/`CustomerContextId`/
+`CustomerContextName`/`Environment` (quest'ultimo derivato da `context.Kind`, sola
+visualizzazione). Endpoint in `ApplicationsEndpoints.cs`:
+`GET/POST /applications/installations` (perm `deployments.read`/`deployments.write`,
+`CreateApplicationInstallationRequest.CustomerContextId` sostituisce il vecchio
+`Environment` string), handler `ListApplicationInstallations`/`CreateApplicationInstallation`.
+Migrazioni `AddApplicationInstallations` -> `AddApplicationInstallationCustomerContext`
+(drop colonna `Environment`, add `CustomerContextId`) per SQLite e Postgres. Mappato in
+`TransactionLogInterceptor.AreaFor` come `Deployments`.
+
+**Client MAUI - sezione Deployments** (nuova, sostituisce la lista installazioni sotto
+Applications di una iterazione precedente, spostata su richiesta esplicita dell'utente:
+"non ha senso che l'installation sia sotto le application"): voce flyout standalone
+`Deployments` (route `//deployments`, icona rocket, gate `CanSeeDeployments` =
+`deployments.read` su `AppShellViewModel`), pagina `DeploymentsPage` +
+`DeploymentsViewModel`. Organizzata Customer -> Context -> installazioni
+(`GetCustomersAsync()` + `GetApplicationInstallationsAsync()` raggruppate per
+`CustomerContextId`), ogni installazione mostra `ApplicationName` (aggiunto a
+`ApplicationInstallationRowViewModel`, decoupled da `ApplicationRowViewModel`: ora prende
+`canManageDeployments`/`openOps` come parametri invece di un parent tipizzato, cosi'
+riusabile sia da Deployments sia in futuro altrove) e apre lo stesso `InstallationOpsDialog`
+(Validate/Deploy/Run history, invariato). Il comando `New deployment` riusa
+`ApplicationsViewModel` (iniettata come sorgente dati, istanza transient separata da quella
+di `ApplicationsPage`) per il picker applicazione e per l'intero wizard
+`NewApplicationInstallationDialog` gia' esistente (release/unit/profilo/server/binding),
+a cui e' stato aggiunto un campo obbligatorio `Customer & environment`
+(`InstallCustomerContextOptions`/`SelectedInstallCustomerContext`,
+`CustomerContextOptionViewModel`). Dopo la creazione, `DeploymentsViewModel` si iscrive a
+`ApplicationRowViewModel.ApplicationInstallationCompleted` per ricaricare la lista.
+`ApplicationsPage` e' tornata a essere solo il catalogo applicazioni: rimossi il bottone
+"New installation" e la sezione "Installations" che una iterazione precedente aveva
+aggiunto li'.
+**Non ancora verificata manualmente nell'app Windows in esecuzione** in questa sessione
+(solo `dotnet build Iris.App.sln` verde) - da fare prima di considerare il flusso chiuso.
+Nota di rischio: `NewApplicationInstallationDialog` chiude se stessa con
+`Navigation.PopModalAsync()` (codice preesistente, non toccato) invece del pattern
+`Application.Current.CloseWindow(Window)` usato dagli altri dialog aperti via
+`IDialogService`/`native.MakeModalDialog` (incl. `InstallationOpsDialog`); se questo non
+chiude davvero la `Window` del dialog, verificarlo durante il test manuale - il refresh di
+`DeploymentsViewModel` non dipende comunque da quella chiusura (si aggancia all'evento
+`ApplicationInstallationCompleted`, non al completamento di `ShowAsync`).
 
 **Ansible plan + connettori integrazione (mock-first, non collegati a esecuzione)** -
 decisione architetturale (in `docs/application-configuration-model-analysis.md`): Iris
@@ -293,31 +332,30 @@ contro file segreti locali.
 
 ## Cosa NON è costruito
 
-**Deployments - associazione completa**: `ApplicationInstallation` esiste (vedi sopra) ma
-e' parziale: nessun legame con `Customer`/`CustomerContext`, FK come `Guid` non navigation,
-nessuno stato di ciclo di vita, nessuna UI oltre al dialog di creazione, nessun update dei
-binding dopo la creazione.
+**Deployments - associazione completa**: `ApplicationInstallation` ora referenzia un vero
+`CustomerContextId` (vedi sopra) e ha una sezione MAUI dedicata organizzata per
+customer/context. Resta parziale: FK come `Guid` non navigation EF (stesso stile di
+`ApplicationId`/`ServerNodeId`, coerente col resto del modulo ma non navigabile via
+`Include`), nessuno stato di ciclo di vita, nessuna UI per modificare i binding dopo la
+creazione, nessun vincolo che impedisca di legare un `ServerNode` con `Environment`
+diverso dal `Kind` del `CustomerContext` scelto (nessun check, ne' in Validation Engine ne'
+lato create).
 
-**Validation Engine**: prima versione presente (vedi sopra), ma senza UI MAUI e senza
-legame con `Customer`/`CustomerContext`; alcune regole sono euristiche (capability =
-sempre `ServiceHost`, nessun check disco) e il parser di versioni copre solo espressioni
-semplici. Da estendere insieme all'associazione completa dei Deployments.
+**Validation Engine**: prima versione presente (vedi sopra) con UI MAUI in
+`InstallationOpsDialog`; alcune regole restano euristiche (capability = sempre
+`ServiceHost`, nessun check disco) e il parser di versioni copre solo espressioni
+semplici. Nessuna regola oggi confronta `CustomerContext.Kind` con `ServerNode.Environment`
+(vedi sopra) — candidato naturale per un prossimo check.
 
 **Actions / run history**: `InstallationRun` + `GET .../runs` esistono (vedi sopra). Manca:
 `PreparedAction` per la fase di preparazione (draft prima del launch), log completo della
 run oltre a `job_explanation`, polling di background (oggi si aggiorna solo quando qualcuno
 apre il dettaglio).
 
-**UI MAUI Validation Engine/run history/Deploy**: `ApplicationsPage` ora mostra, sotto ogni
-application tile, la lista delle sue `Installations` (`ApplicationInstallationRowViewModel`,
-badge ambiente, `DetailText` versione/unit/profilo/server, bottone `Manage`). Il bottone apre
-`InstallationOpsDialog` (`dlg.installation-ops`), console read-mostly non a edit-lock con tre
-sezioni indipendenti: Validation (`ValidateCommand` -> report con badge severità
-error/warning/info per check), Deploy (`DeployCommand` -> `LaunchApplicationInstallationAwxJobAsync`,
-poi ricarica lo storico), Run history (`LoadRunsCommand`, badge stato). Auto-eseguiti
-all'apertura: validate + load runs. **Non ancora verificata manualmente nell'app Windows in
-esecuzione** (solo `dotnet build Iris.App.sln` verde) — vedi evidence gate in
-`03-iteration-guardrails.md`.
+**UI MAUI Validation Engine/run history/Deploy**: vive nella sezione **Deployments**, non
+sotto Applications — vedi il blocco "Client MAUI - sezione Deployments" sopra per i
+dettagli di `InstallationOpsDialog` (Validate/Deploy/Run history) e dello stato di verifica
+manuale.
 
 OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
 `OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di
@@ -332,7 +370,8 @@ andrebbe coperto). Grafana resta del tutto assente.
 `AddUserLocalPassword` -> `AddApplications` -> `AddServerCapacity` -> `AddUserSessions` ->
 `AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
 `AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery` ->
-`PersistApplicationManifestSemantics` -> `AddApplicationInstallations` -> `AddInstallationRuns`.
+`PersistApplicationManifestSemantics` -> `AddApplicationInstallations` -> `AddInstallationRuns` ->
+`AddApplicationInstallationCustomerContext` (drop `Environment`, add `CustomerContextId`).
 Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.DeploymentsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    x:DataType="vm:DeploymentsViewModel"
+    Title="Deployments">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
+
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Deployments" Style="{StaticResource TitleLarge}" />
+                        <Label Text="This application, for this customer's environment, on this server — grouped by customer." Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+
+                    <Border Grid.Column="1" Style="{StaticResource FieldBorder}" IsVisible="{Binding CanManageDeployments}"
+                            VerticalOptions="Start" WidthRequest="220">
+                        <Picker ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedNewDeploymentApplication}" Title="Application">
+                            <Picker.ItemDisplayBinding>
+                                <Binding Path="Name" x:DataType="vm:ApplicationRowViewModel" />
+                            </Picker.ItemDisplayBinding>
+                        </Picker>
+                    </Border>
+
+                    <Button Grid.Column="2" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
+                    <Button Grid.Column="3" Text="New deployment" Command="{Binding RequestNewDeploymentCommand}"
+                            IsVisible="{Binding CanManageDeployments}" VerticalOptions="Start" />
+                </Grid>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding CustomerGroups}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeploymentCustomerGroupViewModel">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="14">
+
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
+                                        <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                            <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                        </Border>
+                                    </HorizontalStackLayout>
+
+                                    <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Contexts}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:DeploymentContextGroupViewModel">
+                                                <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <HorizontalStackLayout Spacing="8">
+                                                            <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                            <Border Style="{StaticResource Badge}">
+                                                                <Label Text="{Binding Kind}" Style="{StaticResource Caption}" />
+                                                            </Border>
+                                                            <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                                <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                            </Border>
+                                                        </HorizontalStackLayout>
+
+                                                        <Label Text="No deployments in this context yet." Style="{StaticResource Caption}"
+                                                               IsVisible="{Binding HasInstallations, Converter={StaticResource InvertBoolConverter}}" />
+
+                                                        <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Installations}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ApplicationInstallationRowViewModel">
+                                                                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}"
+                                                                            Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                                            StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                                            <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                                                                                <HorizontalStackLayout Spacing="8">
+                                                                                    <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="13"
+                                                                                           LineBreakMode="TailTruncation" />
+                                                                                    <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                                                        <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                                                    </Border>
+                                                                                </HorizontalStackLayout>
+                                                                                <Label Text="{Binding DetailText}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                                                                            </VerticalStackLayout>
+                                                                            <Button Grid.Column="1" Text="Manage" Style="{StaticResource SecondaryButton}"
+                                                                                    Command="{Binding OpenOpsCommand}" VerticalOptions="Center" />
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <controls:LoadingView IsActive="{Binding IsLoading}" Message="Loading deployments..." />
+    </Grid>
+
+</ContentPage>

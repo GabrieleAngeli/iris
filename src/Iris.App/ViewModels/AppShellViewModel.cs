@@ -40,6 +40,9 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 	/// <summary>The application inventory is a workspace surface, gated by Global <c>applications.read</c>.</summary>
 	public bool CanSeeApplications => _auth.Me?.EffectivePermissions.Contains("applications.read") == true;
 
+	/// <summary>Same reasoning as <see cref="CanManageUsers"/>: <c>/applications/installations</c> has no scope route parameter.</summary>
+	public bool CanSeeDeployments => _auth.Me?.EffectivePermissions.Contains("deployments.read") == true;
+
 	[ObservableProperty] private string _currentRoute = "startup";
 	[ObservableProperty] private bool _isWorkspaceExpanded;
 	[ObservableProperty] private bool _isGovernanceExpanded;
@@ -60,6 +63,8 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 	public bool IsApplicationsInventoryActive => CurrentRoute == "applications";
 
 	public bool IsExtractorGuideActive => CurrentRoute == "extractor-guide";
+
+	public bool IsDeploymentsActive => CurrentRoute == "deployments";
 
 	public bool IsComponentsActive => CurrentRoute == "components";
 
@@ -155,6 +160,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(CanManageUsers));
 		OnPropertyChanged(nameof(CanManageInfrastructure));
 		OnPropertyChanged(nameof(CanSeeApplications));
+		OnPropertyChanged(nameof(CanSeeDeployments));
 	}
 
 	partial void OnCurrentRouteChanged(string value)
@@ -166,6 +172,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(IsServersActive));
 		OnPropertyChanged(nameof(IsApplicationsInventoryActive));
 		OnPropertyChanged(nameof(IsExtractorGuideActive));
+		OnPropertyChanged(nameof(IsDeploymentsActive));
 		OnPropertyChanged(nameof(IsComponentsActive));
 		OnPropertyChanged(nameof(IsProfileActive));
 		OnPropertyChanged(nameof(IsSystemSettingsActive));

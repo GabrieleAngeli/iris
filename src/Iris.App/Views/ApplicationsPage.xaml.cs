@@ -24,11 +24,9 @@ public partial class ApplicationsPage : ContentPage
 		_vm.ImportManifestRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new ImportManifestDialog(row), "dlg.import-manifest", 720, 640);
 
-		_vm.NewApplicationInstallationRequested += async (_, row) =>
-			await _dialogs.ShowAsync(new NewApplicationInstallationDialog(row), "dlg.new-application-installation", 820, 720);
-
-		_vm.InstallationOpsRequested += async (_, row) =>
-			await _dialogs.ShowAsync(new InstallationOpsDialog(row), "dlg.installation-ops", 720, 680);
+		// Composing a deployment (application + customer/context + version + server) now
+		// starts from the Deployments page, not from an application tile — see
+		// DeploymentsPage, which owns the NewApplicationInstallationRequested subscription.
 	}
 
 	protected override void OnAppearing()

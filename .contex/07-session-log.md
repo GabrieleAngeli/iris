@@ -1103,3 +1103,100 @@ oggi); nessuna conferma prima del Deploy (nessun dialog di conferma - discutibil
 un'azione che lancia un job reale); nessuna UI per gestire/rimuovere binding dopo la
 creazione dell'installazione; nessuna UI per `PreparedAction` (non esiste ancora lato
 backend).
+
+---
+
+## 2026-09-04 - CustomerContext FK reale + sezione Deployments standalone
+
+**Classificazione**: rework architetturale su feedback diretto dell'utente, sia backend
+(dominio/persistenza/contratti) sia client MAUI (nuova sezione di navigazione).
+
+**Cosa e' successo**: dopo aver visto la lista installazioni annegata sotto ogni tile
+Applications, l'utente ha detto: *"non ha senso che l'installation sia sotto le
+application, deve esserci una sezione che mi permetta di comporre, istanza, per cliente,
+con applicativi su server"*. Il gap era gia' scritto in `01-decisions.md`
+("Deployments deve referenziare con FK reali... Customer/CustomerContext... non duplicare
+quei concetti"), ma non ancora risolto. Proposte due opzioni (rifattorizzare per bene con
+FK reale, oppure solo riorganizzare la UI lasciando `Environment` come stringa libera);
+l'utente ha scelto la prima.
+
+**Backend**: `ApplicationInstallation` (`Iris.Domain.Applications`) sostituisce il
+parametro/proprieta' `Environment` (`ContextKind` libero) con `CustomerContextId` (Guid,
+FK reale verso `Iris.Domain.Tenancy.CustomerContext`). `ApplicationInstallationConfiguration`
+aggiornata; migrazione `AddApplicationInstallationCustomerContext` generata per SQLite e
+Postgres (drop colonna `Environment`, add `CustomerContextId` con indice; confrontate,
+identiche a parte i tipi nativi). Aggiunto `ApplicationInstallationMapping.ResolveCustomerContextAsync`,
+extension method su `ICustomerRepository`: il repository non ha un lookup diretto by-context
+(i context sono owned entity di `Customer`, non un proprio aggregato), quindi carica tutti
+i customer accessibili e correla in memoria - stesso stile gia' usato da
+`ListApplicationInstallationsHandler` per application/server. Aggiornati tutti gli handler
+che leggevano `installation.Environment`: `CreateApplicationInstallation` (risolve il
+context dall'id passato, non piu' un parse di stringa), `ListApplicationInstallations`
+(constructor dictionary `contextId -> (Customer, Context)`), `GetApplicationInstallationAnsiblePlan`
+e `ValidateApplicationInstallation` (entrambi risolvono il context solo per il campo
+`Environment` della risposta). Contratti: `CreateApplicationInstallationRequest.CustomerContextId`
+sostituisce `Environment`; `ApplicationInstallationResponse` guadagna
+`CustomerId`/`CustomerName`/`CustomerContextId`/`CustomerContextName`, `Environment` resta
+come campo derivato di sola visualizzazione (`context.Kind.ToString()`).
+
+**Client MAUI**: nuova sezione flyout standalone `Deployments` (riga singola come
+`Dashboard`, non collassabile — una sola pagina oggi), route `//deployments`, gate
+`AppShellViewModel.CanSeeDeployments` = `deployments.read`. `DeploymentsPage`/
+`DeploymentsViewModel`: carica `GetCustomersAsync()` + `GetApplicationInstallationsAsync()`,
+raggruppa per `CustomerContextId` in `DeploymentCustomerGroupViewModel` ->
+`DeploymentContextGroupViewModel` -> `ApplicationInstallationRowViewModel` (annidamento a
+tre livelli via `BindableLayout` nidificati). `ApplicationInstallationRowViewModel` e'
+stato decoupled da `ApplicationRowViewModel`: ora il costruttore prende
+`bool canManageDeployments` + `Action<ApplicationInstallationRowViewModel> openOps` invece
+di un parent tipizzato, cosi' e' costruibile sia da `ApplicationsViewModel` (non piu'
+usato, vedi sotto) sia da `DeploymentsViewModel` senza dipendenza incrociata. Il comando
+"New deployment" non duplica il wizard esistente: `DeploymentsViewModel` inietta
+`ApplicationsViewModel` (istanza transient separata da quella legata a `ApplicationsPage`,
+usata solo come sorgente dati per il picker applicazione), e quando l'operatore sceglie
+un'applicazione invoca `SelectedApplication.RequestNewInstallationCommand.Execute(null)` -
+lo stesso comando/dialog gia' esistenti (`NewApplicationInstallationDialog`), a cui e'
+stato aggiunto un campo obbligatorio `Customer & environment`
+(`InstallCustomerContextOptions`/`SelectedInstallCustomerContext`/
+`CustomerContextOptionViewModel`, popolato in `PrepareInstallationAsync` da
+`GetCustomersAsync()`). Dopo la creazione, `DeploymentsViewModel` si iscrive a
+`ApplicationRowViewModel.ApplicationInstallationCompleted` (per ogni riga applicazione
+caricata) e ricarica l'intera lista - non un insert incrementale, scelta deliberata per
+semplicita' dato che comporre un deployment e' un'azione poco frequente.
+`ApplicationsPage` e' tornata catalogo-only: rimossi il bottone icona "New installation" e
+l'intera sezione "Installations" che l'iterazione precedente aveva aggiunto sotto ogni
+tile.
+
+**Test**: aggiornati 8 call site in `ApplicationsHandlersTests.cs` (nuovo helper
+`SeedCustomerContext(store, kind, name)` che crea un `Customer` + un `AddContext` e
+restituisce l'id del context) e 1 in `ApplicationsApiTests.cs` (crea customer+context via
+HTTP prima dell'installation). Nessun nuovo test aggiunto: la copertura esistente
+(handler + API) e' stata solo adattata alla nuova forma del comando/contratto, il
+comportamento verificato resta lo stesso.
+
+**Verificato**: `dotnet build Iris.sln` verde - 0 warning/0 errori; `dotnet test Iris.sln`
+verde - 192/192 (invariato: nessun test nuovo, solo call site aggiornati); `dotnet build
+Iris.App.sln --no-restore -p:UseAppHost=false -p:BaseOutputPath=...\scratchpad\verify-app-build5\`
+verde - 0 warning/0 errori.
+
+**Rischio noto, non verificato**: `NewApplicationInstallationDialog` (codice preesistente,
+non toccato in questa sessione) chiude se stessa con `Navigation.PopModalAsync()` invece
+del pattern `Application.Current.CloseWindow(Window)` usato dagli altri dialog aperti via
+`IDialogService`/`native.MakeModalDialog` (incl. `InstallationOpsDialog`, scritto in questa
+stessa sessione). Se `PopModalAsync` non chiude davvero la `Window` sottostante, va
+sistemato — ma il refresh di `DeploymentsViewModel` non dipende da quella chiusura (si
+aggancia all'evento `ApplicationInstallationCompleted`, indipendente da come/se la finestra
+si chiude visivamente), quindi il rischio e' isolato alla UX di chiusura del dialog, non
+alla correttezza dei dati.
+
+**Rischi residui / cosa resta aperto**: FK `CustomerContextId` ancora `Guid` semplice (non
+navigation EF, coerente con `ApplicationId`/`ServerNodeId` nello stesso aggregato); nessun
+check (ne' Validation Engine ne' in create) che il `ServerNode.Environment` scelto sia
+coerente col `CustomerContext.Kind` del deployment; nessuno stato di ciclo di vita
+sull'installazione; nessuna UI per modificare i binding dopo la creazione.
+**Non verificato manualmente nell'app Windows in esecuzione in questa sessione** — da fare
+prima di considerare il flusso davvero chiuso.
+
+**Prossimo step**: verifica manuale end-to-end (creare un deployment dal picker, controllare
+che il dialog si chiuda e la lista si aggiorni, Validate/Deploy/Run history nel nuovo
+contesto); poi, a scelta, check Kind/Environment nel Validation Engine oppure
+`PreparedAction`/polling di background per il run history.

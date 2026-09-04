@@ -40,15 +40,19 @@ Access/AAA, Governance (utenti/clienti/inviti/edit-lock/password), Infrastructur
 versioni, import configuration knowledge), auth produzione con sessioni locali, first-run
 setup wizard, bootstrap SSO controllato via `/setup/claim-admin`, SMTP, Serilog e security
 scanning minimo sono costruiti e verificati con test backend verdi (192/192).
-Primo strato Deployments presente: `ApplicationInstallation`/`ApplicationInstallationBinding`,
+Deployments presente con FK reale: `ApplicationInstallation.CustomerContextId` (Guid, FK a
+`Customer`/`CustomerContext`, non piu' un `ContextKind` libero),
 `GET/POST /applications/installations`, Validation Engine v1
-(`GET /applications/installations/{id}/validate`, `ValidateApplicationInstallationHandler`),
-`GET /applications/installations/{id}/ansible-vars` (piano variabili per Ansible/AWX),
-`POST .../awx/launch` che persiste un `InstallationRun`, run history
-(`GET .../runs`, `GET .../runs/{runId}` con poll AWX on-read), adapter mock-first
-OpenBao/AWX/Ansible (`OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore`). NON esistono
-ancora: legame Customer/Context, `PreparedAction`, polling di background, UI MAUI (Deploy,
-storico run, report di validazione), endpoint `test-connection`.
+(`GET /applications/installations/{id}/validate`), `GET /applications/installations/{id}/ansible-vars`
+(piano variabili per Ansible/AWX), `POST .../awx/launch` che persiste un `InstallationRun`,
+run history (`GET .../runs`, `GET .../runs/{runId}` con poll AWX on-read), adapter
+mock-first OpenBao/AWX/Ansible. Client MAUI: sezione flyout standalone **Deployments**
+(non sotto Applications) con `DeploymentsPage`/`DeploymentsViewModel` organizzata
+Customer -> Context -> installazioni, wizard di creazione condiviso con
+`ApplicationsViewModel`, `InstallationOpsDialog` (Validate/Deploy/Run history) —
+**non ancora verificata manualmente nell'app Windows in esecuzione**. NON esistono ancora:
+navigation EF per la FK, check Kind/Environment coerenti, `PreparedAction`, polling di
+background, endpoint `test-connection`.
 Prossimo lavoro pianificato in .contex/05-next-actions.md (punti 8-11), con F:\Work\Iris_v2
 come riferimento concettuale di dominio (non di codice: mai buildato con successo, non in git).
 

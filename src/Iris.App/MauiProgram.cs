@@ -106,6 +106,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<CustomersViewModel>();
 		builder.Services.AddTransient<ServersViewModel>();
 		builder.Services.AddTransient<ApplicationsViewModel>();
+		builder.Services.AddTransient<DeploymentsViewModel>();
 		builder.Services.AddTransient<ExtractorGuideViewModel>();
 
 		// ---- Pages ----------------------------------------------
@@ -123,6 +124,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<CustomersPage>();
 		builder.Services.AddTransient<ServersPage>();
 		builder.Services.AddTransient<ApplicationsPage>();
+		builder.Services.AddTransient<DeploymentsPage>();
 		builder.Services.AddTransient<ExtractorGuidePage>();
 
 		builder.Logging.AddSerilog(dispose: true);

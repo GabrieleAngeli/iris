@@ -15,34 +15,74 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    server via port `IServerInventoryProbe`, inventory `/data-services` per MSSQL,
    PostgreSQL e Redis, artifact metadata su Applications, guida
    `docs/application-assimilation.md`.
-8. **Deployments - associazione** *(parziale - fatto il primo strato)*: esiste
-   `ApplicationInstallation` + `ApplicationInstallationBinding` con endpoint
-   `GET/POST /applications/installations` e dialog MAUI di creazione. Manca: legame con
-   `Customer`/`CustomerContext`, FK come navigation EF (oggi `Guid` semplici), update dei
-   binding dopo la creazione, stato di ciclo di vita, UI di lista/dettaglio. Vedi anche il
+8. **Deployments - associazione** *(FK Customer/Context fatta, UI dedicata fatta)*: esiste
+   `ApplicationInstallation` + `ApplicationInstallationBinding` con
+   **`CustomerContextId` reale** (FK a `Customer`/`CustomerContext`, non piu' un
+   `ContextKind` libero — fatto 2026-09-04 su richiesta esplicita dell'utente: "non ha
+   senso che l'installation sia sotto le application"), endpoint
+   `GET/POST /applications/installations`, e sezione MAUI standalone **Deployments**
+   (`DeploymentsPage`/`DeploymentsViewModel`, non piu' sotto Applications) organizzata
+   Customer -> Context -> installazioni, con wizard di creazione riusato da
+   `ApplicationsViewModel`. **Da verificare avviando l'app Windows** prima di considerarla
+   chiusa. Manca ancora: FK come navigation EF (oggi `Guid` semplice, coerente con le altre
+   FK del modulo), update dei binding dopo la creazione, stato di ciclo di vita, check che
+   `ServerNode.Environment` sia coerente col `CustomerContext.Kind` scelto. Vedi anche il
    piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
 9. ~~**Validation Engine**~~ *(v1 fatto, UI MAUI fatta ma non verificata a mano)*:
    `ValidateApplicationInstallationHandler` + `GET /applications/installations/{id}/validate`
-   (perm `deployments.validate`), report mostrato in `InstallationOpsDialog`. Regole
-   coperte: placeholder/configuration key non risolti, dependency non legata / provider
-   mancante, OS non testato, capability `ServiceHost` assente, collisione porte, capacità
-   CPU/RAM insufficiente, vincoli servizio/versione sul data service legato. Da fare più
-   avanti: capability derivata dal runtime (non sempre `ServiceHost`), check disco, parser
-   di versioni più completo, legame Customer/Context.
+   (perm `deployments.validate`), report mostrato in `InstallationOpsDialog` (ora aperto da
+   `DeploymentsPage`). Regole coperte: placeholder/configuration key non risolti, dependency
+   non legata / provider mancante, OS non testato, capability `ServiceHost` assente,
+   collisione porte, capacità CPU/RAM insufficiente, vincoli servizio/versione sul data
+   service legato. Da fare più avanti: capability derivata dal runtime (non sempre
+   `ServiceHost`), check disco, parser di versioni più completo, check
+   `CustomerContext.Kind` vs `ServerNode.Environment` (vedi punto 8).
 10. **Actions - preparazione / run history** *(run history v1 fatto, UI MAUI fatta ma non
    verificata a mano)*: `InstallationRun` + `GET /applications/installations/{id}/runs` +
    `GET .../runs/{runId}` (polling AWX on-read). Il launch AWX persiste sempre una riga
-   (Pending -> Submitted/Failed). `ApplicationsPage` mostra ora la lista installazioni per
-   app + `InstallationOpsDialog` (Validate/Deploy/Run history) — **da verificare avviando
-   l'app Windows** prima di considerarla chiusa. Resta da fare: `PreparedAction` (draft di
-   preparazione prima del launch), polling di background, log completo della run, endpoint
-   `test-connection` (`probe:true`), test per `AnsibleExecutionPackageBuilder`.
+   (Pending -> Submitted/Failed). `DeploymentsPage` mostra ora la lista installazioni per
+   customer/context + `InstallationOpsDialog` (Validate/Deploy/Run history) — **da
+   verificare avviando l'app Windows** prima di considerarla chiusa. Resta da fare:
+   `PreparedAction` (draft di preparazione prima del launch), polling di background, log
+   completo della run, endpoint `test-connection` (`probe:true`), test per
+   `AnsibleExecutionPackageBuilder`.
 11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
 12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-04 - CustomerContext FK reale + sezione Deployments (rework su feedback utente)
+
+- Feedback utente dopo la sessione precedente: "non ha senso che l'installation sia sotto
+  le application, deve esserci una sezione che mi permetta di comporre, istanza, per
+  cliente, con applicativi su server". Confermato che il gap era gia' segnalato in
+  `01-decisions.md`.
+- Backend: `ApplicationInstallation.CustomerContextId` (Guid, FK reale) sostituisce
+  `Environment` (`ContextKind` libero). Migrazione `AddApplicationInstallationCustomerContext`
+  (SQLite+Postgres, drop/add colonna). `ApplicationInstallationMapping.ResolveCustomerContextAsync`
+  (extension su `ICustomerRepository`, correla in memoria - nessun lookup by-context diretto
+  nel repository). Aggiornati `CreateApplicationInstallation`/`ListApplicationInstallations`/
+  `GetApplicationInstallationAnsiblePlan`/`ValidateApplicationInstallation` handler +
+  contratti (`CreateApplicationInstallationRequest.CustomerContextId`,
+  `ApplicationInstallationResponse` con `CustomerId`/`CustomerName`/`CustomerContextId`/
+  `CustomerContextName`/`Environment` derivato).
+- MAUI: nuova sezione flyout standalone **Deployments** (route `//deployments`, gate
+  `deployments.read`) con `DeploymentsPage`/`DeploymentsViewModel`: Customer -> Context ->
+  installazioni. `ApplicationInstallationRowViewModel` decoupled da `ApplicationRowViewModel`
+  (prende `canManageDeployments`/`openOps` come parametri). "New deployment" riusa
+  `ApplicationsViewModel` (iniettata) per il picker applicazione e l'intero wizard
+  `NewApplicationInstallationDialog` esistente, a cui e' stato aggiunto il campo
+  obbligatorio `Customer & environment`. Rimossi da `ApplicationsPage` il bottone "New
+  installation" e la sezione "Installations" aggiunti nell'iterazione precedente.
+- Test: 8 call site in `ApplicationsHandlersTests` + 1 in `ApplicationsApiTests` aggiornati
+  per seedare/creare un `Customer`+`Context` reale invece di passare `"Production"`.
+  `dotnet test Iris.sln` 192/192 verde (invariato), build MAUI verde.
+- **Non ancora verificata manualmente nell'app Windows in esecuzione**. Rischio noto
+  segnalato in `00-current-state.md`: `NewApplicationInstallationDialog` chiude se stessa
+  con `Navigation.PopModalAsync()` (codice preesistente) invece del pattern
+  `CloseWindow` degli altri dialog — da controllare durante la verifica manuale.
 
 ### 2026-09-04 - UI MAUI installazioni: lista, Validate, Deploy, Run history
 

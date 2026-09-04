@@ -99,7 +99,9 @@ Vincolanti finché non cambiate con un aggiornamento esplicito di questo file.
   Validation Engine deve riusarli invece di introdurre un modello parallelo.
 - Deployments deve referenziare con FK reali `ApplicationDefinition`/`ApplicationVersion`,
   `Customer`/`CustomerContext` e `ServerNode`; non duplicare quei concetti come record
-  locali.
+  locali. *(fatto per Customer/CustomerContext: `ApplicationInstallation.CustomerContextId`,
+  2026-09-04 — la UI compone/mostra i deployment per customer/context, non sotto
+  Applications, su richiesta esplicita dell'utente.)*
 
 ## Cosa resta fuori per scelta
 

@@ -109,10 +109,12 @@ File da leggere prima di agire, per area.
   vincoli versione MongoDB/Redis
 - `src/Iris.App/Views/Dialogs/{NewApplicationDialog,EditApplicationDialog}.xaml`
 - `src/Iris.App/Views/Dialogs/InstallationOpsDialog.xaml` - console read-mostly per
-  installazione (`Manage` su ogni riga `Installations` della application tile): Validate
+  installazione (`Manage` su ogni riga installazione in `DeploymentsPage`): Validate
   (Validation Engine), Deploy (`awx/launch`), Run history. Non a edit-lock.
   `ApplicationInstallationRowViewModel`/`ValidationCheckRowViewModel`/`InstallationRunRowViewModel`
-  in `ApplicationsViewModel.cs`
+  in `ApplicationsViewModel.cs` (la prima e' decoupled: prende `canManageDeployments`/
+  `openOps` come parametri, non un `ApplicationRowViewModel` parent, cosi' `DeploymentsViewModel`
+  puo' costruirla senza dipendere dalla pagina Applications)
 - `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact, placeholder e
   procedura manuale per produrre/importare `iris-package.json` per `.NET`,
   Node/JavaScript, Java/Spring, Docker/container e Ansible Jinja2 (`targetKind =
@@ -173,7 +175,18 @@ File da leggere prima di agire, per area.
 - `src/Iris.App/ViewModels/ComponentsViewModel.cs` + `src/Iris.App/Views/ComponentsPage.xaml`
   - gallery componenti globali, include esempio `TabGroup`
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs` - pattern inventory applicazioni
-  con create/edit dialog e lock `application`
+  con create/edit dialog e lock `application`. Porta anche lo stato del wizard
+  "installation draft" (`SelectedInstallVersion`/`InstallServerOptions`/
+  `InstallCustomerContextOptions`/`InstallationBindings`/`CreateInstallationCommand`,
+  ecc.) su `ApplicationRowViewModel`, riusato da `DeploymentsPage` (vedi sotto) - non
+  duplicato li'
+- `src/Iris.App/Views/DeploymentsPage.xaml` + `ViewModels/DeploymentsViewModel.cs` -
+  sezione flyout standalone `Deployments` (route `//deployments`, gate
+  `AppShellViewModel.CanSeeDeployments` = `deployments.read`): lista Customer -> Context ->
+  installazioni (`GetCustomersAsync` + `GetApplicationInstallationsAsync` raggruppate per
+  `CustomerContextId`), bottone `New deployment` con picker applicazione che riusa
+  `ApplicationsViewModel` (iniettata, istanza transient separata da quella di
+  `ApplicationsPage`) per aprire lo stesso `NewApplicationInstallationDialog` esistente
 
 ## Integrazioni esterne (OpenBao / AWX / Ansible)
 
@@ -191,10 +204,15 @@ File da leggere prima di agire, per area.
 
 ## Deployments/Actions (parziale + da costruire)
 
-- Fatto: `ApplicationInstallation`/`Binding` + `GET/POST /applications/installations` +
-  `GET .../ansible-vars` + `POST .../awx/launch` (vedi sezione Applications e Integrazioni)
-- Da costruire: legame `Customer`/`CustomerContext`, `ValidateDeployment`/`ValidateInstallation`,
-  `InstallationRun`/`PreparedAction` con stato + polling AWX, UI lista/dettaglio + Deploy
+- Fatto: `ApplicationInstallation`/`Binding` con `CustomerContextId` reale +
+  `GET/POST /applications/installations` + `GET .../validate` + `GET .../ansible-vars` +
+  `POST .../awx/launch` + `GET .../runs`/`GET .../runs/{runId}` (vedi sezioni Applications e
+  Integrazioni), UI MAUI `DeploymentsPage`/`InstallationOpsDialog` (non ancora verificata a
+  mano nell'app in esecuzione)
+- Da costruire: navigation EF vera per `CustomerContextId` (oggi `Guid` semplice come le
+  altre FK del modulo), check Validation Engine tra `CustomerContext.Kind` e
+  `ServerNode.Environment`, stato di ciclo di vita installazione, UI modifica binding dopo
+  la creazione, `PreparedAction` con polling AWX di background
 - `F:\Work\Iris_v2\src\Iris.Domain\Models.cs`, `Enums.cs` - riferimento concettuale per
   `DeploymentAssociation`/`DeploymentCheck`/`PreparedAction`
 - `F:\Work\Iris_v2\src\Iris.Application\Services.cs` - regole di validazione deployment
