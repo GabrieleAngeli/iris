@@ -1,6 +1,7 @@
 using Iris.Application.Abstractions;
 using Iris.Infrastructure.Invitations;
 using Iris.Infrastructure.Inventory;
+using Iris.Infrastructure.Integrations;
 using Iris.Infrastructure.Mail;
 using Iris.Infrastructure.Persistence;
 using Iris.Infrastructure.Persistence.Interceptors;
@@ -71,7 +72,7 @@ public static class DependencyInjection
         services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
         services.TryAddScoped<IServerInventoryProbe, MockServerInventoryProbe>();
         services.TryAddScoped<IDataServiceInventoryProbe, MockDataServiceInventoryProbe>();
-        services.TryAddSingleton<ISecretStore, InMemorySecretStore>();
+        RegisterIntegrations(services, configuration);
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();
         services.TryAddScoped<IEmailSender, SmtpEmailSender>();
@@ -79,5 +80,60 @@ public static class DependencyInjection
         services.AddScoped<IrisDbSeeder>();
 
         return services;
+    }
+
+    private static void RegisterIntegrations(IServiceCollection services, IConfiguration configuration)
+    {
+        var integrations = configuration.GetSection("Iris:Integrations");
+        var openBao = new OpenBaoOptions
+        {
+            Endpoint = integrations["OpenBao:Endpoint"],
+            Token = integrations["OpenBao:Token"],
+            MountPath = integrations["OpenBao:MountPath"] ?? "secret",
+            UseKvV2 = !bool.TryParse(integrations["OpenBao:UseKvV2"], out var useKvV2) || useKvV2
+        };
+        var ansible = new AnsibleOptions
+        {
+            Endpoint = integrations["Ansible:Endpoint"],
+            Playbook = integrations["Ansible:Playbook"] ?? "iris-deploy-application.yml",
+            Inventory = integrations["Ansible:Inventory"]
+        };
+        var awxEndpoint = integrations["AWX:Endpoint"];
+        if (string.IsNullOrWhiteSpace(awxEndpoint))
+        {
+            awxEndpoint = integrations["Ansible:Endpoint"];
+        }
+
+        var awx = new AwxOptions
+        {
+            Endpoint = awxEndpoint,
+            Token = integrations["AWX:Token"],
+            JobTemplateId = int.TryParse(integrations["AWX:JobTemplateId"], out var jobTemplateId)
+                ? jobTemplateId
+                : null
+        };
+
+        services.AddSingleton(openBao);
+        services.AddSingleton(ansible);
+        services.AddSingleton(awx);
+
+        services.AddSingleton<OpenBaoConnector>();
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<OpenBaoConnector>());
+        if (openBao.IsSecretStoreConfigured)
+        {
+            services.AddSingleton<ISecretStore, OpenBaoSecretStore>();
+        }
+        else
+        {
+            services.AddSingleton<ISecretStore, InMemorySecretStore>();
+        }
+
+        services.AddSingleton<AnsibleExecutionPackageBuilder>();
+        services.AddSingleton<IAnsibleExecutionPackageBuilder>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
+
+        services.AddSingleton<AwxClient>();
+        services.AddSingleton<IAwxClient>(sp => sp.GetRequiredService<AwxClient>());
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AwxClient>());
     }
 }

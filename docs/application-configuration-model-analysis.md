@@ -67,6 +67,100 @@ systemd/container config) e la selezione di una installazione provider quando un
 dependency applicativa deve puntare non solo all'application logica ma a una sua istanza
 specifica.
 
+Decisione architetturale aggiornata: i file finali per istanza non devono essere generati
+direttamente da Iris. Iris deve produrre un piano di variabili e binding per Ansible/AWX;
+il rendering e la posa dei file finali devono avvenire tramite template Jinja2 (`.j2`)
+versionati nei ruoli/playbook.
+
+Primo endpoint implementato:
+
+- `GET /applications/installations/{installationId}/ansible-vars`
+
+L'endpoint restituisce:
+
+- installazione, application, release, unit e profile selezionati;
+- coordinate artifact/source reference per recuperare il buildato;
+- associazioni gia' risolte tra placeholder Iris e target concreti;
+- `templateTargets`, derivati dai `targetKind` del manifest e normalizzati come
+  `ansible:j2:<target>`;
+- `operations`, cioe' i passi che il ruolo/playbook Ansible deve eseguire;
+- variabili `iris_*` da consumare nei template Jinja2;
+- source del valore (`iris:data-service`, `iris:application`, `manifest:default`,
+  `manual`);
+- warning per chiavi required non ancora risolte.
+
+Questo endpoint non restituisce `application.properties`, `AppSettings.config` o altri file
+runtime renderizzati, e Iris non deve aprire porte, creare servizi, modificare proxy o
+scrivere file sul server. Il playbook dovra' trasformare le variabili Iris nei file finali
+usando task Ansible `template` ed eseguire ogni modifica infrastrutturale attraverso moduli
+o ruoli Ansible.
+
+Processo operativo previsto:
+
+1. Operatore/Iris completa la `ApplicationInstallation`: release, unit, profile, server,
+   data service, application provider e valori manuali.
+2. Iris compone il piano con variabili, artifact, associazioni e operazioni.
+3. AWX/Ansible legge il piano Iris via API.
+4. Ansible recupera l'artifact, renderizza i template `.j2`, crea/aggiorna servizi o
+   container, applica firewall/reverse proxy/TLS/DNS tramite ruoli dedicati.
+5. Iris registra esito e log della run, ma non effettua direttamente le modifiche sui
+   server.
+
+Esempio playbook:
+
+```yaml
+- name: Render AugeG4 Engine configuration
+  ansible.builtin.template:
+    src: application.properties.j2
+    dest: /opt/augeg4/application.properties
+    owner: augeg4
+    group: augeg4
+    mode: "0640"
+```
+
+Esempio template:
+
+```jinja2
+spring.datasource.url={{ iris_domain_augeg4_postgres_connectionstring }}
+server.port={{ iris_domain_augeg4_engine_httpport }}
+```
+
+Esempio operations:
+
+```json
+{
+  "operations": [
+    {
+      "step": 1,
+      "kind": "iris.plan",
+      "ansibleModule": "ansible.builtin.uri"
+    },
+    {
+      "step": 2,
+      "kind": "artifact.fetch",
+      "ansibleModule": "ansible.builtin.get_url/copy/unarchive"
+    },
+    {
+      "step": 3,
+      "kind": "configuration.render",
+      "ansibleModule": "ansible.builtin.template",
+      "template": "application.properties.j2"
+    },
+    {
+      "step": 4,
+      "kind": "runtime.service",
+      "ansibleModule": "ansible.builtin.systemd_service",
+      "template": "systemd/augeg4.engine.master.service.j2"
+    },
+    {
+      "step": 5,
+      "kind": "network.apply",
+      "ansibleModule": "role:iris.firewall_proxy"
+    }
+  ]
+}
+```
+
 Esempio:
 
 ```text

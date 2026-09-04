@@ -113,6 +113,21 @@ public static class ApplicationsEndpoints
             .WithSummary("Variables and template targets for rendering this installation through Ansible Jinja2 templates.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Read));
 
+        applications.MapPost("/installations/{installationId:guid}/awx/launch", async (
+                Guid installationId,
+                ApplicationInstallationAwxLaunchRequest body,
+                LaunchApplicationInstallationAwxJobHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new LaunchApplicationInstallationAwxJobCommand(installationId, body), ct)
+                    .ConfigureAwait(false);
+                return Results.Accepted(result.Url, result);
+            })
+            .WithName("LaunchApplicationInstallationAwxJob")
+            .WithSummary("Launches the configured AWX job template with the Iris Ansible deployment plan.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Write));
+
         applications.MapPost("/{applicationId:guid}/versions", async (
                 Guid applicationId,
                 AddApplicationVersionRequest body,

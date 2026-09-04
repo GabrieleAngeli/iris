@@ -78,6 +78,7 @@
                                             <VerticalStackLayout Spacing="0">
                                                 <Label Text="{Binding Name}" Style="{StaticResource Body}" />
                                                 <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
+                                                <Label Text="{Binding Message}" Style="{StaticResource Caption}" />
                                             </VerticalStackLayout>
                                             <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
                                                 <Label Text="{Binding Status}" Style="{StaticResource Caption}" />

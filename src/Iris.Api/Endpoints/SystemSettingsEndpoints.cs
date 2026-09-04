@@ -23,6 +23,7 @@ public static class SystemSettingsEndpoints
                         canManageSystem,
                         configuration["Iris:Integrations:OpenBao:Endpoint"],
                         configuration["Iris:Integrations:Ansible:Endpoint"],
+                        configuration["Iris:Integrations:AWX:Endpoint"],
                         configuration["Iris:Integrations:AzureDevOps:Endpoint"],
                         configuration["Iris:Integrations:Nexus:Endpoint"]),
                         ct)

@@ -82,6 +82,8 @@ public interface IIrisApiClient
 
 	Task<ApplicationInstallationAnsiblePlanResponse> GetApplicationInstallationAnsibleVarsAsync(Guid installationId, CancellationToken cancellationToken = default);
 
+	Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -247,6 +249,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ApplicationInstallationAnsiblePlanResponse> GetApplicationInstallationAnsibleVarsAsync(Guid installationId, CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<ApplicationInstallationAnsiblePlanResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/ansible-vars", cancellationToken);
+
+	public Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ApplicationInstallationAwxLaunchResponse>($"/applications/installations/{installationId}/awx/launch", request, cancellationToken);
 
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);

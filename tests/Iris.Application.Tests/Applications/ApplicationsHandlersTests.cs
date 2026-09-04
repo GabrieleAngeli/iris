@@ -26,6 +26,9 @@ public sealed class ApplicationsHandlersTests
     private static CreateApplicationInstallationHandler CreateInstallationHandler(FakeStore store) =>
         new(store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.ApplicationInstallationRepository, store.UnitOfWork);
 
+    private static GetApplicationInstallationAnsiblePlanHandler AnsiblePlanHandler(FakeStore store) =>
+        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository);
+
     private static RuntimeMetadataRequest Runtime(string name = "dotnet9", string? os = "Linux") =>
         new(name, os, 2, 1024, [8080, 8443]);
 
@@ -317,7 +320,17 @@ public sealed class ApplicationsHandlersTests
         store.DataServices.Add(database);
 
         var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
-            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+            "AugeG4 Engine",
+            null,
+            "Java",
+            "https://git.example/augeg4-engine",
+            "main",
+            null,
+            "Nexus",
+            "maven-releases",
+            "augeg4-engine",
+            "com.algorab:augeg4-engine:2026.09.03",
+            "https://dev.azure.com/algorab/augeg4/_build?definitionId=42"));
         var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
             app.Id, "2026.09.03", "refs/tags/2026.09.03", Runtime("java17")));
         await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
@@ -403,7 +416,17 @@ public sealed class ApplicationsHandlersTests
         store.WithServer(server);
 
         var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
-            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+            "AugeG4 Engine",
+            null,
+            "Java",
+            "https://git.example/augeg4-engine",
+            "main",
+            null,
+            "Nexus",
+            "maven-releases",
+            "augeg4-engine",
+            "com.algorab:augeg4-engine:2026.09.03",
+            "https://dev.azure.com/algorab/augeg4/_build?definitionId=42"));
         var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
             app.Id, "2026.09.03", "refs/tags/2026.09.03", Runtime("java17")));
         await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
@@ -429,5 +452,151 @@ public sealed class ApplicationsHandlersTests
                 null,
                 null,
                 [])));
+    }
+
+    [Fact]
+    public async Task GetApplicationInstallationAnsiblePlan_exports_variables_for_jinja_templates()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            "engine01.example",
+            ServerOs.Linux,
+            ServerHostingType.Cloud,
+            null,
+            "10.0.0.12",
+            ContextKind.Production);
+        var database = new DataServiceInstance(
+            Guid.CreateVersion7(),
+            "prd-pgsql01",
+            DataServiceKind.PostgreSql,
+            "prd-pgsql01.example",
+            5432,
+            "augeg4",
+            "secret:postgres",
+            "16",
+            "db.t3.medium",
+            1000,
+            ContextKind.Production);
+        store.WithServer(server);
+        store.DataServices.Add(database);
+
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine",
+            null,
+            "Java",
+            "https://git.example/augeg4-engine",
+            "main",
+            null,
+            "Nexus",
+            "maven-releases",
+            "augeg4-engine",
+            "com.algorab:augeg4-engine:2026.09.03",
+            "https://dev.azure.com/algorab/augeg4/_build?definitionId=42"));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "2026.09.03", "refs/tags/2026.09.03", Runtime("java17")));
+        await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
+            app.Id,
+            version.Id,
+            "1.1",
+            [
+                new ConfigurationKeyInput(
+                    "spring.datasource.url",
+                    "application.properties",
+                    true,
+                    true,
+                    null,
+                    "PostgreSQL connection string",
+                    "{database}",
+                    "domain.augeg4.postgres.connectionString",
+                    "connectionString",
+                    null,
+                    "serviceReference",
+                    null,
+                    """{"kind":"serviceReference","serviceKind":"postgresql"}""",
+                    """["master"]"""),
+                new ConfigurationKeyInput(
+                    "server.port",
+                    "application.properties",
+                    true,
+                    false,
+                    "9980",
+                    "HTTP port rendered by Ansible",
+                    "network:http:port",
+                    "domain.augeg4.engine.httpPort",
+                    "integer",
+                    null,
+                    "installationInstance",
+                    null,
+                    null,
+                    """["master"]""")
+            ],
+            [new DependencyInput(
+                "postgres",
+                "database",
+                true,
+                "Application database",
+                "domain.augeg4.postgres.connectionString")],
+            [],
+            [],
+            [new ApplicationUnitInput(
+                "augeg4.engine.master",
+                "Master",
+                "service",
+                "com.algorab.augeg4.Master",
+                "bin/augeg4-engine.jar",
+                ["linux-service"],
+                ["master"])],
+            [new InstallationProfileInput("master", "Master", true, false, ["spring.datasource.url", "server.port"])],
+            []));
+        var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            app.Id,
+            "augeg4-engine-master-prd",
+            version.Id,
+            server.Id,
+            "Production",
+            "augeg4.engine.master",
+            "master",
+            null,
+            [new ApplicationInstallationBindingInput(
+                "domain.augeg4.postgres.connectionString",
+                "dataService",
+                database.Id,
+                null,
+                "prd-pgsql01 - PostgreSql",
+                null)]));
+
+        var plan = await AnsiblePlanHandler(store).HandleAsync(new GetApplicationInstallationAnsiblePlanQuery(installation.Id));
+
+        Assert.Equal("augeg4-engine-master-prd", plan.InstallationName);
+        Assert.Equal(["ansible:j2:application.properties"], plan.TemplateTargets);
+        Assert.Equal("Nexus", plan.Artifact.Provider);
+        Assert.Equal("bin/augeg4-engine.jar", plan.Artifact.Path);
+        var association = Assert.Single(plan.Associations);
+        Assert.Equal("domain.augeg4.postgres.connectionString", association.PlaceholderKey);
+        Assert.Equal("dataService", association.TargetKind);
+        Assert.Equal("resolved", association.Status);
+        Assert.Contains(plan.Operations, operation =>
+            operation.Kind == "configuration.render" &&
+            operation.AnsibleModule == "ansible.builtin.template" &&
+            operation.Template == "application.properties.j2");
+        Assert.Contains(plan.Operations, operation =>
+            operation.Kind == "runtime.service" &&
+            operation.AnsibleModule == "ansible.builtin.systemd_service" &&
+            operation.Template == "systemd/augeg4.engine.master.service.j2");
+        Assert.Contains(plan.Operations, operation =>
+            operation.Kind == "network.apply" &&
+            operation.AnsibleModule == "role:iris.firewall_proxy");
+        Assert.Equal(2, plan.Variables.Count);
+        var db = plan.Variables.Single(v => v.ConfigurationKey == "spring.datasource.url");
+        Assert.Equal("iris_domain_augeg4_postgres_connectionstring", db.Name);
+        Assert.Equal("iris:data-service", db.Source);
+        Assert.True(db.Secret);
+        Assert.Equal("prd-pgsql01 - PostgreSql", db.ValuePreview);
+        var port = plan.Variables.Single(v => v.ConfigurationKey == "server.port");
+        Assert.Equal("manifest:default", port.Source);
+        Assert.Equal("9980", port.ValuePreview);
+        Assert.Contains(plan.Warnings, warning => warning.Contains("Ansible", StringComparison.OrdinalIgnoreCase));
     }
 }

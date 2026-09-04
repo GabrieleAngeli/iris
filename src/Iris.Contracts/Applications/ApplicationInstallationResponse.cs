@@ -40,6 +40,37 @@ public sealed record ApplicationInstallationAnsibleVariableResponse(
     string? ValuePreview,
     string? Notes);
 
+public sealed record ApplicationInstallationAnsibleArtifactResponse(
+    string? Provider,
+    string? Feed,
+    string? Name,
+    string? Path,
+    string? BuildPipelineUrl,
+    string? SourceReference);
+
+public sealed record ApplicationInstallationAnsibleAssociationResponse(
+    string PlaceholderKey,
+    string TargetKind,
+    Guid? TargetId,
+    string? TargetSlug,
+    string Status,
+    string? ValuePreview,
+    string? Notes);
+
+public sealed record ApplicationInstallationAnsibleOperationInputResponse(
+    string Name,
+    string? Value);
+
+public sealed record ApplicationInstallationAnsibleOperationResponse(
+    int Step,
+    string Name,
+    string Kind,
+    string AnsibleModule,
+    string Target,
+    string? Template,
+    IReadOnlyList<ApplicationInstallationAnsibleOperationInputResponse> Inputs,
+    string? Notes);
+
 public sealed record ApplicationInstallationAnsiblePlanResponse(
     Guid InstallationId,
     string InstallationName,
@@ -50,5 +81,21 @@ public sealed record ApplicationInstallationAnsiblePlanResponse(
     string Environment,
     string ServerName,
     IReadOnlyList<string> TemplateTargets,
+    ApplicationInstallationAnsibleArtifactResponse Artifact,
+    IReadOnlyList<ApplicationInstallationAnsibleAssociationResponse> Associations,
+    IReadOnlyList<ApplicationInstallationAnsibleOperationResponse> Operations,
     IReadOnlyList<ApplicationInstallationAnsibleVariableResponse> Variables,
     IReadOnlyList<string> Warnings);
+
+public sealed record ApplicationInstallationAwxLaunchRequest(
+    int? JobTemplateId = null,
+    string? Inventory = null,
+    string? Limit = null,
+    bool CheckMode = false);
+
+public sealed record ApplicationInstallationAwxLaunchResponse(
+    long JobId,
+    string Status,
+    string? Url,
+    string? Message,
+    IReadOnlyDictionary<string, string?> SubmittedVariablesPreview);

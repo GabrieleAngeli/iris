@@ -13,7 +13,8 @@ public sealed record IntegrationLinkResponse(
     string Key,
     string Name,
     string Status,
-    string? Endpoint);
+    string? Endpoint,
+    string? Message = null);
 
 public sealed record SystemSettingsResponse(
     bool CanManageSystem,
