@@ -946,3 +946,57 @@ resta il pezzo centrale non ancora scritto.
 **Prossimo step**: da decidere - (A) chiudere il loop connettori con `InstallationRun`/
 `PreparedAction` + polling + pulsante Deploy, oppure (B) Validation Engine
 (`05-next-actions.md` punto 9), che non dipende da un AWX reale.
+
+---
+
+## 2026-09-04 - Validation Engine v1
+
+**Classificazione**: feature domain/application/API - il pezzo centrale mancante dei
+Deployments (scelta B della sessione precedente).
+
+**Cosa e' successo**: aggiunto `ValidateApplicationInstallationHandler`
+(`src/Iris.Application/Applications/ValidateApplicationInstallation.cs`), i contratti
+`ApplicationInstallationValidationResponse` / `ApplicationInstallationValidationCheckResponse`,
+l'endpoint `GET /applications/installations/{installationId}/validate` (perm
+`deployments.validate`, gia' nel catalogo) e la registrazione DI. Solo lettura: prende una
+`ApplicationInstallation` + i suoi binding, risolve `ApplicationDefinition`/
+`ApplicationVersion`/`ServerNode` + tutti i `DataServiceInstance`, e produce una lista
+tipata di check con severita' `error`/`warning`/`info` e `IsValid` = nessun errore.
+
+**Regole v1** (categorie `placeholder`/`configuration`/`dependency`/`os`/`capability`/
+`port`/`capacity`/`constraint`):
+- placeholder required non coperto da un binding risolto -> `placeholder.unbound` /
+  `placeholder.unresolved` (binding presente ma senza target);
+- configuration key required (filtrata per `InstallationProfileKey` via `ProfilesJson`)
+  senza binding ne' default -> `configuration.secret-unbound` / `configuration.unresolved`
+  / `configuration.secret-missing` (error) o `configuration.manual-value` (warning);
+- dependency required non legata -> `dependency.unbound`; `ProviderApplicationSlug` non nel
+  catalogo -> `dependency.provider-missing` (warning); opzionale non legata -> info;
+- OS: `OsSupportJson` non vuoto e nessun match con `server.Os` -> `os.incompatible`
+  (error); altrimenti `PreferredOs != server.Os` -> `os.not-preferred` (warning);
+- capability: se l'app espone porte/port key/unit e il server ha capability dichiarate ma
+  non `ServiceHost` -> `capability.missing` (error); server senza capability ->
+  `capability.unknown` (info);
+- `RequiredPorts` ∩ `UsedPorts` -> `port.collision` (error) per porta;
+- `MinimumCpuCores`/`MinimumMemoryMb` > `ResourceProfile` -> `capacity.cpu`/`capacity.memory`
+  (error); `RequiredCpuCores`/`RequiredMemoryMb` sforati -> variante `-recommended`
+  (warning); `Resources` null -> `capacity.unknown` (info);
+- `DependencyConstraintDefinition` con `PlaceholderKey` legato a un `dataService`:
+  `ServiceKind` mappato (`postgres`/`redis`/`mssql`) e diverso dal `Kind` ->
+  `constraint.service-kind` (error); `VersionExpression` non soddisfatta da `ds.Version`
+  -> `constraint.version` (error). Parser `SatisfiesVersion` (internal, testato) copre
+  token nudo (major), `>= <= == > < ~> ^`, range `A-B`, clausole unite da `&&`/`,`/`and`;
+  espressione o versione non parsabile -> `info`, mai blocco.
+
+**Decisioni / limiti noti**: capability sempre valutata come `ServiceHost` (euristica),
+nessun check su disco, nessun legame con `Customer`/`CustomerContext`, nessuna UI MAUI del
+report. Il parser di versioni e' volutamente minimale e non-bloccante sull'ignoto.
+
+**Verificato**: `dotnet build Iris.sln` verde - 0 warning/0 errori; `dotnet test Iris.sln`
+verde - 180/180 (11 nuovi: 3 handler + 8 casi `SatisfiesVersion`); `dotnet build
+Iris.App.sln --no-restore -p:UseAppHost=false -p:BaseOutputPath=...\scratchpad\verify-app-build\`
+verde.
+
+**Prossimo step**: esporre il report nel client MAUI sopra la lista installation, oppure
+tornare ad A (run history / polling AWX). Poi l'associazione completa Deployments con
+`Customer`/`CustomerContext`.

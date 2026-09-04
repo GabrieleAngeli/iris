@@ -39,13 +39,15 @@ Access/AAA, Governance (utenti/clienti/inviti/edit-lock/password), Infrastructur
 (server+credenziali+capability/risorse/porte), Applications backend-first (catalogo,
 versioni, import configuration knowledge), auth produzione con sessioni locali, first-run
 setup wizard, bootstrap SSO controllato via `/setup/claim-admin`, SMTP, Serilog e security
-scanning minimo sono costruiti e verificati con test backend verdi (169/169).
+scanning minimo sono costruiti e verificati con test backend verdi (180/180).
 Primo strato Deployments presente: `ApplicationInstallation`/`ApplicationInstallationBinding`,
-`GET/POST /applications/installations`, `GET /applications/installations/{id}/ansible-vars`
-(piano variabili per Ansible/AWX), `POST .../awx/launch`, adapter mock-first
-OpenBao/AWX/Ansible (`OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore`). NON esistono
-ancora: legame Customer/Context, Validation Engine, run history / polling AWX, UI Deploy.
-Prossimo lavoro pianificato in .contex/05-next-actions.md (punti 8-10), con F:\Work\Iris_v2
+`GET/POST /applications/installations`, Validation Engine v1
+(`GET /applications/installations/{id}/validate`, `ValidateApplicationInstallationHandler`),
+`GET /applications/installations/{id}/ansible-vars` (piano variabili per Ansible/AWX),
+`POST .../awx/launch`, adapter mock-first OpenBao/AWX/Ansible
+(`OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore`). NON esistono ancora: legame
+Customer/Context, run history / polling AWX, UI Deploy e UI del report di validazione.
+Prossimo lavoro pianificato in .contex/05-next-actions.md (punti 8-11), con F:\Work\Iris_v2
 come riferimento concettuale di dominio (non di codice: mai buildato con successo, non in git).
 
 Best practice operative:

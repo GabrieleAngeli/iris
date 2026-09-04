@@ -1,7 +1,7 @@
 # Stato corrente
 
 Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
-(169/169 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+(180/180 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
 -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
 bloccato se l'app e' gia' aperta).
 
@@ -179,6 +179,27 @@ Ansible.
   `Message` a `IntegrationLinkResponse`, mostrato in `SystemSettingsPage`. Nessun endpoint
   invoca ancora `GetStatusAsync(probe:true)` (test connection reale).
 
+**Validation Engine (deployment)** - `GET /applications/installations/{id}/validate`
+(perm `deployments.validate`) -> `ValidateApplicationInstallationHandler`: solo lettura,
+confronta la configuration knowledge della `ApplicationVersion` (placeholder, configuration
+key filtrate per profilo, dependency, `RuntimeMetadata`, `DependencyConstraintDefinition`)
+contro il target concreto (`ServerNode.Capabilities`/`Resources`/`UsedPorts` +
+`DataServiceInstance` legati dai binding) e restituisce
+`ApplicationInstallationValidationResponse` con `IsValid`, conteggi e lista tipata di
+`ApplicationInstallationValidationCheckResponse { Code, Severity(error/warning/info),
+Category, Target, Message }`. Regole v1: placeholder required non legato
+(`placeholder.unbound`/`placeholder.unresolved`), configuration key required senza
+binding ne' default (`configuration.*`), dependency required non legata / provider
+application mancante (`dependency.*`), OS non testato (`os.incompatible` da `OsSupportJson`,
+`os.not-preferred` da `PreferredOs`), capability `ServiceHost` assente (`capability.missing`,
+`capability.unknown` se il server non e' profilato), collisione porte
+(`RequiredPorts` ∩ `UsedPorts` -> `port.collision`), capacita' insufficiente
+(`Minimum*`/`Required*` vs `ResourceProfile` -> `capacity.cpu`/`capacity.memory` +
+varianti `-recommended`), vincoli servizio non soddisfatti dal data service legato
+(`constraint.service-kind`, `constraint.version` via un parser di espressioni tipo
+`>= 6.2 && < 8`, `== 6`, `6.2-8.0`; non parsabile -> `info`, mai blocco). Nessuna UI MAUI
+ancora. Test: `ValidateApplicationInstallation_*` in `ApplicationsHandlersTests`.
+
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
 super-admin. Endpoint anonimi: `GET /setup/status`, `POST /setup/test-mail`,
@@ -264,10 +285,10 @@ e' parziale: nessun legame con `Customer`/`CustomerContext`, FK come `Guid` non 
 nessuno stato di ciclo di vita, nessuna UI oltre al dialog di creazione, nessun update dei
 binding dopo la creazione.
 
-**Validation Engine**: non esiste ancora. Entrambi i lati sono pronti da confrontare
-(`ApplicationVersion.RuntimeMetadata`/configuration knowledge/`DependencyConstraintDefinition`
-vs `ServerNode.Capabilities`/`Resources`/`UsedPorts` + `DataServiceInstance`), ma nessun
-handler `ValidateDeployment`/`ValidateInstallation` con lista tipata di check e severita'.
+**Validation Engine**: prima versione presente (vedi sopra), ma senza UI MAUI e senza
+legame con `Customer`/`CustomerContext`; alcune regole sono euristiche (capability =
+sempre `ServiceHost`, nessun check disco) e il parser di versioni copre solo espressioni
+semplici. Da estendere insieme all'associazione completa dei Deployments.
 
 **Actions / run history**: nessuna entita' `PreparedAction`/`InstallationRun`. Il launch
 AWX (`POST .../awx/launch`) chiama il job template ma non registra nulla in Iris: niente

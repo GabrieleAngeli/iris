@@ -21,12 +21,13 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    `Customer`/`CustomerContext`, FK come navigation EF (oggi `Guid` semplici), update dei
    binding dopo la creazione, stato di ciclo di vita, UI di lista/dettaglio. Vedi anche il
    piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
-9. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
-   come handler `ValidateDeployment`/`ValidateInstallation`, producendo una lista tipata di
-   check con severità. Regole iniziali: placeholder non risolto, dipendenza non legata, OS
-   incompatibile, capability mancante, collisione porte, capacità insufficiente,
-   `DependencyConstraintDefinition` non soddisfatto dal `DataServiceInstance` legato. Input
-   naturale: una `ApplicationInstallation` + i suoi binding + server + data service.
+9. ~~**Validation Engine**~~ *(v1 fatto)*: `ValidateApplicationInstallationHandler` +
+   `GET /applications/installations/{id}/validate` (perm `deployments.validate`).
+   Regole coperte: placeholder/configuration key non risolti, dependency non legata /
+   provider mancante, OS non testato, capability `ServiceHost` assente, collisione porte,
+   capacità CPU/RAM insufficiente, vincoli servizio/versione sul data service legato.
+   Da fare più avanti: UI MAUI del report, capability derivata dal runtime (non sempre
+   `ServiceHost`), check disco, parser di versioni più completo, legame Customer/Context.
 10. **Actions - preparazione / run history** *(connettori fatti, esecuzione non tracciata)*:
    gli adapter `OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore` esistono e
    `POST /applications/installations/{id}/awx/launch` lancia il job template AWX, ma non
@@ -40,6 +41,19 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-04 - Validation Engine v1
+
+- `ValidateApplicationInstallationHandler` (`src/Iris.Application/Applications/ValidateApplicationInstallation.cs`),
+  contratti `ApplicationInstallationValidation*Response`, endpoint
+  `GET /applications/installations/{id}/validate` (perm `deployments.validate`), DI.
+- Solo lettura: confronta `ApplicationVersion` (placeholder/config key/dependency/
+  `RuntimeMetadata`/`DependencyConstraintDefinition`) vs `ServerNode` +
+  `DataServiceInstance` legati; lista tipata di check con severità error/warning/info.
+- Parser interno `SatisfiesVersion` per espressioni tipo `>= 6.2 && < 8`, `== 6`,
+  `6.2-8.0`; non parsabile => `info`, mai blocco.
+- Test: 3 `ValidateApplicationInstallation_*` + 8 casi `SatisfiesVersion_*` in
+  `ApplicationsHandlersTests`. `dotnet test Iris.sln` 180/180 verde, build MAUI verde.
 
 ### 2026-09-04 - ApplicationInstallation + connettori integrazione + fix build
 

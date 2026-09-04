@@ -99,6 +99,20 @@ public static class ApplicationsEndpoints
             .WithSummary("Bind an application version/unit/profile to an infrastructure target.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Write));
 
+        applications.MapGet("/installations/{installationId:guid}/validate", async (
+                Guid installationId,
+                ValidateApplicationInstallationHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new ValidateApplicationInstallationQuery(installationId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ValidateApplicationInstallation")
+            .WithSummary("Runs the deployment Validation Engine for this installation: typed checks with severity comparing the release against the target server and bound data services.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Validate));
+
         applications.MapGet("/installations/{installationId:guid}/ansible-vars", async (
                 Guid installationId,
                 GetApplicationInstallationAnsiblePlanHandler handler,

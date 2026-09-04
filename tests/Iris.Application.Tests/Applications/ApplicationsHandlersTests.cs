@@ -599,4 +599,239 @@ public sealed class ApplicationsHandlersTests
         Assert.Equal("9980", port.ValuePreview);
         Assert.Contains(plan.Warnings, warning => warning.Contains("Ansible", StringComparison.OrdinalIgnoreCase));
     }
+
+    private static ValidateApplicationInstallationHandler ValidateHandler(FakeStore store) =>
+        new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository);
+
+    private static async Task<(Guid AppId, Guid VersionId)> SeedEngineVersion(
+        FakeStore store,
+        RuntimeMetadataRequest runtime,
+        IReadOnlyList<ConfigurationKeyInput> keys,
+        IReadOnlyList<DependencyInput> dependencies,
+        IReadOnlyList<PlaceholderInput> placeholders,
+        IReadOnlyList<DependencyConstraintInput> constraints)
+    {
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine",
+            null,
+            "Java",
+            "https://git.example/augeg4-engine",
+            "main",
+            null,
+            "Nexus",
+            "maven-releases",
+            "augeg4-engine",
+            "com.algorab:augeg4-engine:1",
+            null));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "2026.09.03", "refs/tags/2026.09.03", runtime));
+        await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
+            app.Id,
+            version.Id,
+            "1.1",
+            keys,
+            dependencies,
+            placeholders,
+            [],
+            [new ApplicationUnitInput("augeg4.engine.master", "Master", "service", "Main", "bin/app.jar", ["linux-service"], null)],
+            [],
+            constraints));
+        return (app.Id, version.Id);
+    }
+
+    [Fact]
+    public async Task ValidateApplicationInstallation_passes_when_release_matches_target()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            "engine01.example",
+            ServerOs.Linux,
+            ServerHostingType.Cloud,
+            null,
+            "10.0.0.12",
+            ContextKind.Production);
+        server.UpdateCapacity([NodeCapability.ServiceHost], new ResourceProfile(4, 8192, 200), [22, 443]);
+        store.WithServer(server);
+        var database = new DataServiceInstance(
+            Guid.CreateVersion7(),
+            "prd-pgsql01",
+            DataServiceKind.PostgreSql,
+            "prd-pgsql01.example",
+            5432,
+            "augeg4",
+            "secret:postgres",
+            "16.2",
+            "db.t3.medium",
+            1000,
+            ContextKind.Production);
+        store.DataServices.Add(database);
+
+        var runtime = new RuntimeMetadataRequest(
+            "java17", "Linux", 2, 2048, [8080, 8443],
+            OsSupport: [new RuntimeOsSupportInfo("linux", "ubuntu", "22.04")],
+            MinimumCpuCores: 2,
+            MinimumMemoryMb: 2048);
+        var (appId, versionId) = await SeedEngineVersion(
+            store,
+            runtime,
+            [new ConfigurationKeyInput(
+                "spring.datasource.url", "application.properties", true, true, null,
+                "PostgreSQL connection string", null, "domain.augeg4.postgres.connectionString")],
+            [new DependencyInput("postgres", "database", true, "Application database", "domain.augeg4.postgres.connectionString")],
+            [new PlaceholderInput("domain.augeg4.postgres.connectionString", "database", null, true)],
+            [new DependencyConstraintInput("domain.augeg4.postgres.connectionString", "postgresql", ">= 14")]);
+
+        var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            appId,
+            "augeg4-engine-master-prd",
+            versionId,
+            server.Id,
+            "Production",
+            "augeg4.engine.master",
+            null,
+            null,
+            [new ApplicationInstallationBindingInput(
+                "domain.augeg4.postgres.connectionString", "dataService", database.Id, null, "prd-pgsql01 - PostgreSql", null)]));
+
+        var report = await ValidateHandler(store).HandleAsync(new ValidateApplicationInstallationQuery(installation.Id));
+
+        Assert.True(report.IsValid);
+        Assert.Equal(0, report.Errors);
+        Assert.DoesNotContain(report.Checks, check => check.Severity == "error");
+    }
+
+    [Fact]
+    public async Task ValidateApplicationInstallation_collects_blocking_checks()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            null,
+            ServerOs.Linux,
+            ServerHostingType.SelfHosted,
+            null,
+            "10.0.0.20",
+            ContextKind.Production);
+        server.UpdateCapacity([NodeCapability.Database], new ResourceProfile(2, 1024, 50), [8080]);
+        store.WithServer(server);
+
+        var runtime = new RuntimeMetadataRequest(
+            "java17", "Linux", 2, 1024, [8080, 8443],
+            OsSupport: [new RuntimeOsSupportInfo("windows", null, "2022")],
+            MinimumCpuCores: 8,
+            MinimumMemoryMb: 4096);
+        var (appId, versionId) = await SeedEngineVersion(
+            store,
+            runtime,
+            [new ConfigurationKeyInput(
+                "spring.datasource.url", "application.properties", true, true, null,
+                "conn", null, "domain.augeg4.postgres.connectionString")],
+            [new DependencyInput("postgres", "database", true, "db", "domain.augeg4.postgres.connectionString")],
+            [new PlaceholderInput("domain.augeg4.postgres.connectionString", "database", null, true)],
+            []);
+
+        var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            appId,
+            "augeg4-engine-master-prd",
+            versionId,
+            server.Id,
+            "Production",
+            "augeg4.engine.master",
+            null,
+            null,
+            []));
+
+        var report = await ValidateHandler(store).HandleAsync(new ValidateApplicationInstallationQuery(installation.Id));
+
+        Assert.False(report.IsValid);
+        var codes = report.Checks.Select(check => check.Code).ToArray();
+        Assert.Contains("placeholder.unbound", codes);
+        Assert.Contains("dependency.unbound", codes);
+        Assert.Contains("os.incompatible", codes);
+        Assert.Contains("capability.missing", codes);
+        Assert.Contains("port.collision", codes);
+        Assert.Contains("capacity.cpu", codes);
+        Assert.Contains("capacity.memory", codes);
+        Assert.Contains(report.Checks, check => check.Code == "port.collision" && check.Target == "8080");
+        Assert.Equal(report.Errors, report.Checks.Count(check => check.Severity == "error"));
+    }
+
+    [Fact]
+    public async Task ValidateApplicationInstallation_flags_data_service_version_constraint()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            null,
+            ServerOs.Linux,
+            ServerHostingType.Cloud,
+            null,
+            "10.0.0.12",
+            ContextKind.Production);
+        server.UpdateCapacity([NodeCapability.ServiceHost], new ResourceProfile(4, 8192, 200), []);
+        store.WithServer(server);
+        var redis = new DataServiceInstance(
+            Guid.CreateVersion7(),
+            "prd-redis01",
+            DataServiceKind.Redis,
+            "prd-redis01.example",
+            6379,
+            null,
+            "secret:redis",
+            "6.0.14",
+            "cache.t3.small",
+            5,
+            ContextKind.Production);
+        store.DataServices.Add(redis);
+
+        var runtime = new RuntimeMetadataRequest("java17", "Linux", 2, 2048, [8080], MinimumCpuCores: 2, MinimumMemoryMb: 2048);
+        var (appId, versionId) = await SeedEngineVersion(
+            store,
+            runtime,
+            [],
+            [new DependencyInput("redis", "cache", true, "Cache", "domain.augeg4.redis.endpoint")],
+            [new PlaceholderInput("domain.augeg4.redis.endpoint", "cache", null, true)],
+            [
+                new DependencyConstraintInput("domain.augeg4.redis.endpoint", "redis", ">= 6.2 && < 8"),
+                new DependencyConstraintInput("domain.augeg4.mongo.uri", "mongodb", "== 6"),
+            ]);
+
+        var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            appId,
+            "augeg4-engine-master-prd",
+            versionId,
+            server.Id,
+            "Production",
+            "augeg4.engine.master",
+            null,
+            null,
+            [new ApplicationInstallationBindingInput(
+                "domain.augeg4.redis.endpoint", "dataService", redis.Id, null, "prd-redis01 - Redis", null)]));
+
+        var report = await ValidateHandler(store).HandleAsync(new ValidateApplicationInstallationQuery(installation.Id));
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Checks, check => check.Code == "constraint.version" && check.Severity == "error");
+        Assert.DoesNotContain(report.Checks, check => check.Code == "constraint.service-kind");
+    }
+
+    [Theory]
+    [InlineData(">= 6.2 && < 8", "6.0.14", false)]
+    [InlineData(">= 6.2 && < 8", "7.2.4", true)]
+    [InlineData("== 6", "6.0.14", true)]
+    [InlineData("6.2-8.0", "7.4", true)]
+    [InlineData("6.2-8.0", "8.1", false)]
+    [InlineData(">= 14", "16.2", true)]
+    public void SatisfiesVersion_evaluates_simple_expressions(string expression, string actual, bool expected) =>
+        Assert.Equal(expected, ValidateApplicationInstallationHandler.SatisfiesVersion(expression, actual));
+
+    [Theory]
+    [InlineData("weird-expr", "1.0")]
+    [InlineData(">= 6", "not-a-version")]
+    public void SatisfiesVersion_returns_null_when_unparseable(string expression, string actual) =>
+        Assert.Null(ValidateApplicationInstallationHandler.SatisfiesVersion(expression, actual));
 }

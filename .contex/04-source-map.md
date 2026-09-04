@@ -69,7 +69,9 @@ File da leggere prima di agire, per area.
 - `src/Iris.Domain/Applications/{ApplicationDefinition,ApplicationVersion,ApplicationRuntimeType,RuntimeMetadata,ConfigurationKey,DependencyDefinition,PlaceholderDefinition,ApplicationUnitDefinition,InstallationProfileDefinition,DependencyConstraintDefinition,ApplicationInstallation,ApplicationInstallationBinding}.cs`
 - `src/Iris.Application/Applications/*.cs` - include
   `CreateApplicationInstallation.cs`, `ListApplicationInstallations.cs`,
+  `ValidateApplicationInstallation.cs` (Validation Engine, `GET .../validate`),
   `GetApplicationInstallationAnsiblePlan.cs`, `LaunchApplicationInstallationAwxJob.cs`
+- `src/Iris.Contracts/Applications/ApplicationInstallationValidationResponse.cs`
 - `src/Iris.Application/Abstractions/{IApplicationRepository,IApplicationInstallationRepository}.cs`
 - `src/Iris.Contracts/Applications/*.cs`
 - `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`
