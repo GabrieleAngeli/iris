@@ -344,6 +344,51 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.ToTable("Applications", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationUnitDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArtifactPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EntryPoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ExecutionTargetsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ProfilesJson")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.HasIndex("ApplicationVersionId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationUnits", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -405,6 +450,13 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<string>("ItemSchemaJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ItemType")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -414,6 +466,12 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("ProfileDefaultsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProfilesJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("Purpose")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -421,19 +479,63 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<bool>("Required")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ResolutionJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<bool>("Secret")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("SerializationJson")
+                        .HasColumnType("text");
 
                     b.Property<string>("TargetKind")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("ValueType")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ApplicationVersionId");
 
                     b.ToTable("ApplicationConfigurationKeys", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.DependencyConstraintDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlaceholderKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("ServiceKind")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("VersionExpression")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.ToTable("ApplicationDependencyConstraints", (string)null);
                 });
 
             modelBuilder.Entity("Iris.Domain.Applications.DependencyDefinition", b =>
@@ -478,6 +580,42 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.HasIndex("ApplicationVersionId");
 
                     b.ToTable("ApplicationDependencies", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.InstallationProfileDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConfigurationKeysJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Multiple")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.HasIndex("ApplicationVersionId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationInstallationProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Iris.Domain.Applications.PlaceholderDefinition", b =>
@@ -902,6 +1040,15 @@ namespace Iris.Migrations.Postgres.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationUnitDefinition", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("ApplicationUnits")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
                 {
                     b.HasOne("Iris.Domain.Applications.ApplicationDefinition", null)
@@ -914,6 +1061,26 @@ namespace Iris.Migrations.Postgres.Migrations
                         {
                             b1.Property<Guid>("ApplicationVersionId")
                                 .HasColumnType("uuid");
+
+                            b1.Property<string>("ExecutionTargetsJson")
+                                .HasColumnType("text")
+                                .HasColumnName("ExecutionTargetsJson");
+
+                            b1.Property<int?>("MinimumCpuCores")
+                                .HasColumnType("integer")
+                                .HasColumnName("MinimumCpuCores");
+
+                            b1.Property<int?>("MinimumMemoryMb")
+                                .HasColumnType("integer")
+                                .HasColumnName("MinimumMemoryMb");
+
+                            b1.Property<string>("OsSupportJson")
+                                .HasColumnType("text")
+                                .HasColumnName("OsSupportJson");
+
+                            b1.Property<string>("PortKeysJson")
+                                .HasColumnType("text")
+                                .HasColumnName("PortKeysJson");
 
                             b1.Property<string>("PreferredOs")
                                 .HasMaxLength(20)
@@ -960,10 +1127,28 @@ namespace Iris.Migrations.Postgres.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Applications.DependencyConstraintDefinition", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("DependencyConstraints")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.DependencyDefinition", b =>
                 {
                     b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
                         .WithMany("Dependencies")
+                        .HasForeignKey("ApplicationVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.InstallationProfileDefinition", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
+                        .WithMany("InstallationProfiles")
                         .HasForeignKey("ApplicationVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1041,9 +1226,15 @@ namespace Iris.Migrations.Postgres.Migrations
 
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>
                 {
+                    b.Navigation("ApplicationUnits");
+
                     b.Navigation("ConfigurationKeys");
 
                     b.Navigation("Dependencies");
+
+                    b.Navigation("DependencyConstraints");
+
+                    b.Navigation("InstallationProfiles");
 
                     b.Navigation("Placeholders");
                 });

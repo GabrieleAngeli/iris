@@ -161,16 +161,58 @@ public sealed class ApplicationsHandlersTests
 
         var firstImport = await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
             app.Id, version.Id, "1.0",
-            [new ConfigurationKeyInput("ConnectionStrings:Main", "appsettings.json", true, true, null, null, null, "domain.db.main.connectionString")],
+            [new ConfigurationKeyInput(
+                "ConnectionStrings:Main",
+                "appsettings.json",
+                true,
+                true,
+                null,
+                null,
+                null,
+                "domain.db.main.connectionString",
+                "connectionString",
+                null,
+                "serviceReference",
+                null,
+                """{"kind":"serviceReference","serviceKind":"postgresql"}""",
+                """["master"]""",
+                null,
+                null)],
             [new DependencyInput("postgres", "database", true, null, "domain.db.main", "orders-api", "domain.db.main.connectionString")],
             [new PlaceholderInput("domain.db.main.connectionString", "database", null, true)],
-            ["Unresolved placeholder: domain.cache.redis"]));
+            ["Unresolved placeholder: domain.cache.redis"],
+            [new ApplicationUnitInput(
+                "notify.worker",
+                "Notify worker",
+                "worker",
+                "Notify.Worker.Program",
+                "drop/notify-worker.dll",
+                ["linux-service", "docker"],
+                ["master"])],
+            [new InstallationProfileInput("master", "Master", true, false, ["ConnectionStrings:Main"])],
+            [new DependencyConstraintInput(
+                "domain.db.main.connectionString",
+                "postgresql",
+                ">= 16",
+                """{"version":{"minInclusive":"16"}}""")]));
 
         Assert.Single(firstImport.ConfigurationKeys);
+        Assert.Equal("connectionString", firstImport.ConfigurationKeys.Single().ValueType);
+        Assert.Equal("serviceReference", firstImport.ConfigurationKeys.Single().Scope);
+        Assert.Contains("postgresql", firstImport.ConfigurationKeys.Single().ResolutionJson);
         var dependency = Assert.Single(firstImport.Dependencies);
         Assert.Equal("orders-api", dependency.ProviderApplicationSlug);
         Assert.Equal("domain.db.main.connectionString", dependency.ProviderPlaceholderKey);
         Assert.Single(firstImport.Placeholders);
+        var unit = Assert.Single(firstImport.ApplicationUnits);
+        Assert.Equal("notify.worker", unit.Key);
+        Assert.Contains("docker", unit.ExecutionTargets);
+        var profile = Assert.Single(firstImport.InstallationProfiles);
+        Assert.Equal("master", profile.Key);
+        Assert.Contains("ConnectionStrings:Main", profile.ConfigurationKeys);
+        var constraint = Assert.Single(firstImport.DependencyConstraints);
+        Assert.Equal("postgresql", constraint.ServiceKind);
+        Assert.Equal(">= 16", constraint.VersionExpression);
         Assert.Single(firstImport.ImportWarnings);
         Assert.Equal(Now, firstImport.LastImportedAtUtc);
         Assert.Equal("1.0", firstImport.LastImportSchemaVersion);
@@ -185,6 +227,9 @@ public sealed class ApplicationsHandlersTests
         Assert.Empty(secondImport.ConfigurationKeys);
         Assert.Empty(secondImport.Dependencies);
         Assert.Empty(secondImport.Placeholders);
+        Assert.Empty(secondImport.ApplicationUnits);
+        Assert.Empty(secondImport.InstallationProfiles);
+        Assert.Empty(secondImport.DependencyConstraints);
         Assert.Empty(secondImport.ImportWarnings);
         Assert.Equal("1.1", secondImport.LastImportSchemaVersion);
     }

@@ -835,3 +835,32 @@ contratti e persistenza.
 **Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
 -p:BaseOutputPath=...\artifacts\verify-build\` verde - 0 warning/0 errori; `dotnet test
 Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+---
+
+## 2026-09-04 - Applications: persistenza semantica manifest 1.1
+
+**Classificazione**: feature domain/API/persistence, prosecuzione del wizard import.
+
+**Cosa e' successo**: esteso il contratto `ImportConfigurationPackageRequest` e il modello
+Applications per salvare i dati che il wizard gia' leggeva dal manifest: value type,
+item type, scope, serialization/resolution/profile metadata sulle configuration key;
+runtime execution targets, OS support testati, risorse minime e port keys; application
+unit avviabili dallo stesso sorgente/artifact; installation profile master/slave; vincoli
+di compatibilita' delle dependency come `MongoDB == 6` o range Redis. L'import resta
+replace-whole come configuration key/dependency/placeholder, quindi un reimport rimpiazza
+anche unit/profili/constraint.
+
+**Persistenza/API**: aggiunte entita' figlie
+`ApplicationUnitDefinition`, `InstallationProfileDefinition` e
+`DependencyConstraintDefinition`, nuove configurazioni EF e migration SQLite/Postgres
+`PersistApplicationManifestSemantics`. `ApplicationMapping` restituisce i nuovi dati nei
+detail response e i conteggi nei summary.
+
+**Client**: `ApplicationsViewModel` non produce piu' warning "preview-only" per questi
+campi: li include nel payload reale di import. Le associazioni application-to-application
+continuano a essere risolte dal wizard prima della chiamata API.
+
+**Verificato**: `dotnet test Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\`
+verde - 166/166 test; `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\artifacts\verify-app-build\` verde - 0 warning/0 errori.

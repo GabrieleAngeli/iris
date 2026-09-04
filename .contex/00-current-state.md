@@ -1,8 +1,8 @@
 # Stato corrente
 
-Aggiornato: 2026-09-03. Verificato in questa sessione con `dotnet test Iris.sln`
+Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
 (166/166 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
--p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-build\` (output standard
+-p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
 bloccato se l'app e' gia' aperta).
 
 ## Architettura
@@ -93,10 +93,13 @@ da risolvere nel wizard (segreti, required senza default, liste e provider appli
 Il pulsante `Start import` apre `ImportManifestDialog`: release version, source reference,
 runtime target, OS testati, minimum resources e port policy vengono letti dal manifest e
 mostrati come dato non editabile; il wizard si concentra sulle associazioni logiche tra
-application Iris. Il client crea una `ApplicationVersion` e chiama l'import package
-esistente. Nel dominio attuale vengono persistiti solo i campi gia' supportati; application
-unit/launchable, profili, tipi evoluti, resolution, serialization e vincoli versione
-restano come preview/warning in attesa dell'estensione del modello.
+application Iris. Il client crea una `ApplicationVersion` e chiama l'import package.
+Il dominio/API persistono ora anche la semantica manifest 1.1: value type/item type/scope
+delle configuration key, metadata JSON di serialization/resolution/profile defaults,
+runtime execution targets, OS support testati, risorse minime, port keys per istanza,
+application unit avviabili, installation profile master/slave e dependency constraints
+di versione. I valori finali restano comunque da comporre nel futuro binding
+server/data-service/application <-> application installation.
 Esiste un manifest demo caricabile dalla tile `augeg4-engine` in
 `docs/manifests/augeg4-engine.demo.iris-package.json`: copre release/source nel manifest,
 runtime service/docker, OS testati, minimum resources, port keys per istanza, application
@@ -222,7 +225,8 @@ salvataggio o chiamate reali verso OpenBao/Ansible.
 `AddServerCredentialOwnership` -> `AddUserInvitations` -> `AddEditLocks` ->
 `AddUserLocalPassword` -> `AddApplications` -> `AddServerCapacity` -> `AddUserSessions` ->
 `AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
-`AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery`.
+`AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery` ->
+`PersistApplicationManifestSemantics`.
 Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

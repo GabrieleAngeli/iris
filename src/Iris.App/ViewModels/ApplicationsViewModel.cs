@@ -639,6 +639,77 @@ internal static class ManifestValidator
 			package);
 	}
 
+	private static IReadOnlyList<ApplicationUnitInput> BuildApplicationUnitInputs(IReadOnlyList<JsonElement> applicationUnits) =>
+		applicationUnits
+			.Where(item => item.ValueKind == JsonValueKind.Object)
+			.Select((item, index) => new ApplicationUnitInput(
+				ReadString(item, "key") ?? ReadString(item, "slug") ?? ReadString(item, "name") ?? $"application-unit-{index + 1}",
+				ReadString(item, "displayName") ?? ReadString(item, "name"),
+				ReadString(item, "kind"),
+				ReadString(item, "entryPoint"),
+				ReadString(item, "artifactPath"),
+				ReadStringArray(item, "executionTargets"),
+				ReadStringArray(item, "profiles")))
+			.ToArray();
+
+	private static IReadOnlyList<InstallationProfileInput> BuildInstallationProfileInputs(IReadOnlyList<JsonElement> profiles) =>
+		profiles
+			.Where(item => item.ValueKind == JsonValueKind.Object)
+			.Select((item, index) => new InstallationProfileInput(
+				ReadString(item, "key") ?? ReadString(item, "name") ?? ReadString(item, "profile") ?? $"profile-{index + 1}",
+				ReadString(item, "displayName") ?? ReadString(item, "name"),
+				ReadBoolean(item, "required") == true,
+				ReadBoolean(item, "multiple") == true,
+				ReadFirstStringArray(item, "configurationKeys", "keys")))
+			.ToArray();
+
+	private static IReadOnlyList<DependencyConstraintInput> BuildDependencyConstraintInputs(JsonElement root)
+	{
+		var constraints = ReadArray(root, "dependencyConstraints", new List<ManifestValidationIssueViewModel>(), required: false);
+		return constraints
+			.Where(item => item.ValueKind == JsonValueKind.Object)
+			.Select(item => new DependencyConstraintInput(
+				ReadString(item, "placeholderKey"),
+				ReadString(item, "serviceKind") ?? ReadString(item, "category"),
+				ReadVersionExpression(item),
+				item.GetRawText()))
+			.ToArray();
+	}
+
+	private static IReadOnlyList<RuntimeOsSupportInfo> ReadRuntimeOsSupport(JsonElement runtime)
+	{
+		if (runtime.ValueKind != JsonValueKind.Object ||
+			!runtime.TryGetProperty("osSupport", out var osSupport) ||
+			osSupport.ValueKind != JsonValueKind.Array)
+		{
+			return [];
+		}
+
+		return osSupport.EnumerateArray()
+			.Select(item =>
+			{
+				if (item.ValueKind == JsonValueKind.String)
+				{
+					return new RuntimeOsSupportInfo(item.GetString() ?? "Unknown", null, null);
+				}
+
+				if (item.ValueKind != JsonValueKind.Object)
+				{
+					return null;
+				}
+
+				var type = ReadFirstString(item, "type", "family", "name", "os") ?? "Unknown";
+				return new RuntimeOsSupportInfo(
+					type,
+					ReadString(item, "distribution"),
+					ReadFirstString(item, "version", "minVersion", "testedVersion"),
+					ReadBoolean(item, "tested") != false);
+			})
+			.Where(item => item is not null)
+			.Cast<RuntimeOsSupportInfo>()
+			.ToArray();
+	}
+
 	private static IReadOnlyList<string> BuildImportWarnings(
 		JsonElement root,
 		string schemaVersion,
@@ -653,31 +724,6 @@ internal static class ManifestValidator
 			.Cast<string>()
 			.ToList();
 
-		if (schemaVersion != "1.0")
-		{
-			warnings.Add($"Manifest schemaVersion {schemaVersion} was imported into the current Iris package contract; valueType/resolution metadata is preview-only for now.");
-		}
-
-		if (profiles.Count > 0)
-		{
-			warnings.Add("Installation profiles were detected but are not persisted by the current Applications domain yet.");
-		}
-
-		if (applicationUnits.Count > 0)
-		{
-			warnings.Add("Launchable application units were detected but are not persisted by the current Applications domain yet.");
-		}
-
-		if (root.TryGetProperty("dependencyConstraints", out var constraints) && constraints.ValueKind == JsonValueKind.Array && constraints.GetArrayLength() > 0)
-		{
-			warnings.Add("Dependency constraints were detected but are not persisted by the current Applications domain yet.");
-		}
-
-		if (configurationKeys.Any(HasPreviewOnlyConfigurationMetadata))
-		{
-			warnings.Add("Some configuration keys contain valueType, resolution, serialization or profile metadata that remains preview-only in this import.");
-		}
-
 		return warnings.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 	}
 
@@ -690,16 +736,6 @@ internal static class ManifestValidator
 			_ => item.ToString()
 		};
 	}
-
-	private static bool HasPreviewOnlyConfigurationMetadata(JsonElement item) =>
-		item.ValueKind == JsonValueKind.Object &&
-		(item.TryGetProperty("valueType", out _) ||
-			item.TryGetProperty("itemType", out _) ||
-			item.TryGetProperty("itemSchema", out _) ||
-			item.TryGetProperty("serialization", out _) ||
-			item.TryGetProperty("resolution", out _) ||
-			item.TryGetProperty("profiles", out _) ||
-			item.TryGetProperty("profileDefaults", out _));
 
 	private static string? ReadDefaultValueForImport(JsonElement item)
 	{
@@ -804,9 +840,20 @@ internal static class ManifestValidator
 		return new RuntimeMetadataRequest(
 			string.IsNullOrWhiteSpace(runtimeName) ? "Unknown" : runtimeName,
 			ReadFirstOsFamily(runtime) ?? ReadFirstString(runtime, "preferredOs", "os"),
+			null,
+			null,
+			[],
+			ReadStringArray(runtime, "executionTargets")
+				.Concat(ReadStringArray(root, "executionTargets"))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToArray(),
+			ReadRuntimeOsSupport(runtime),
 			ReadNullableInt(minimumResources, "requiredCpuCores", "cpuCores", "cpu"),
 			ReadNullableInt(minimumResources, "requiredMemoryMb", "memoryMb", "memory"),
-			[]);
+			ReadStringArray(runtime, "portKeys")
+				.Concat(ReadStringArray(root, "portKeys"))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToArray());
 	}
 
 	private static IReadOnlyList<int> ReadRequiredPorts(JsonElement runtime, IReadOnlyList<JsonElement> configurationKeys)
@@ -1000,7 +1047,7 @@ internal static class ManifestValidator
 					displayName,
 					ReadString(item, "entryPoint") is { Length: > 0 } entryPoint ? $"entry point: {entryPoint}" : null,
 					ReadString(item, "artifactPath") is { Length: > 0 } artifactPath ? $"artifact: {artifactPath}" : null);
-				return new ManifestPreviewItemViewModel(key, subtitle, detail, true, "Persist as launchable application unit when the domain model is extended.");
+				return new ManifestPreviewItemViewModel(key, subtitle, detail, true, "Persist as launchable application unit for installation binding.");
 			})
 			.ToArray();
 	}
@@ -1463,6 +1510,88 @@ internal static class ManifestValidator
 			.Where(text => !string.IsNullOrWhiteSpace(text))
 			.Cast<string>()
 			.ToArray();
+	}
+
+	private static IReadOnlyList<string> ReadFirstStringArray(JsonElement item, params string[] names)
+	{
+		foreach (var name in names)
+		{
+			var values = ReadStringArray(item, name);
+			if (values.Count > 0)
+			{
+				return values;
+			}
+		}
+
+		return [];
+	}
+
+	private static string? ReadJsonProperty(JsonElement item, string name)
+	{
+		if (item.ValueKind != JsonValueKind.Object ||
+			!item.TryGetProperty(name, out var value) ||
+			value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+		{
+			return null;
+		}
+
+		return value.GetRawText();
+	}
+
+	private static string? ReadVersionExpression(JsonElement item)
+	{
+		var direct = ReadFirstString(item, "versionExpression", "versionRequirement", "constraint");
+		if (!string.IsNullOrWhiteSpace(direct))
+		{
+			return direct;
+		}
+
+		if (item.ValueKind != JsonValueKind.Object ||
+			!item.TryGetProperty("version", out var version) ||
+			version.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+		{
+			return null;
+		}
+
+		if (version.ValueKind == JsonValueKind.String)
+		{
+			return version.GetString();
+		}
+
+		if (version.ValueKind != JsonValueKind.Object)
+		{
+			return version.GetRawText();
+		}
+
+		var @operator = ReadString(version, "operator");
+		var value = ReadString(version, "value");
+		if (!string.IsNullOrWhiteSpace(@operator) && !string.IsNullOrWhiteSpace(value))
+		{
+			return $"{@operator} {value}";
+		}
+
+		var parts = new List<string>();
+		if (ReadString(version, "minInclusive") is { Length: > 0 } minInclusive)
+		{
+			parts.Add($">= {minInclusive}");
+		}
+
+		if (ReadString(version, "minExclusive") is { Length: > 0 } minExclusive)
+		{
+			parts.Add($"> {minExclusive}");
+		}
+
+		if (ReadString(version, "maxInclusive") is { Length: > 0 } maxInclusive)
+		{
+			parts.Add($"<= {maxInclusive}");
+		}
+
+		if (ReadString(version, "maxExclusive") is { Length: > 0 } maxExclusive)
+		{
+			parts.Add($"< {maxExclusive}");
+		}
+
+		return parts.Count > 0 ? string.Join(" ", parts) : version.GetRawText();
 	}
 
 	private static string? ReadFirstOsFamily(JsonElement runtime)

@@ -66,12 +66,12 @@ File da leggere prima di agire, per area.
 
 ## Applications
 
-- `src/Iris.Domain/Applications/{ApplicationDefinition,ApplicationVersion,ApplicationRuntimeType,RuntimeMetadata,ConfigurationKey,DependencyDefinition,PlaceholderDefinition}.cs`
+- `src/Iris.Domain/Applications/{ApplicationDefinition,ApplicationVersion,ApplicationRuntimeType,RuntimeMetadata,ConfigurationKey,DependencyDefinition,PlaceholderDefinition,ApplicationUnitDefinition,InstallationProfileDefinition,DependencyConstraintDefinition}.cs`
 - `src/Iris.Application/Applications/*.cs`
 - `src/Iris.Application/Abstractions/IApplicationRepository.cs`
 - `src/Iris.Contracts/Applications/*.cs`
 - `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`
-- `src/Iris.Infrastructure/Persistence/Configurations/{ApplicationDefinitionConfiguration,ApplicationVersionConfiguration,ConfigurationKeyConfiguration,DependencyDefinitionConfiguration,PlaceholderDefinitionConfiguration}.cs`
+- `src/Iris.Infrastructure/Persistence/Configurations/{ApplicationDefinitionConfiguration,ApplicationVersionConfiguration,ConfigurationKeyConfiguration,DependencyDefinitionConfiguration,PlaceholderDefinitionConfiguration,ApplicationUnitDefinitionConfiguration,InstallationProfileDefinitionConfiguration,DependencyConstraintDefinitionConfiguration}.cs`
 - `src/Iris.Infrastructure/Persistence/Repositories/ApplicationRepository.cs`
 - `tests/Iris.Application.Tests/Applications/ApplicationsHandlersTests.cs`
 - `tests/Iris.Api.Tests/ApplicationsApiTests.cs`
@@ -91,7 +91,8 @@ File da leggere prima di agire, per area.
   iniziale `Fields` per spiegare significato/rappresentazione dei campi manifest
 - `src/Iris.App/Views/Dialogs/ImportManifestDialog.xaml` - wizard minimale aperto dalla
   preview valida: mostra release/source/runtime dal manifest, gestisce associazioni
-  logiche application-to-application e importa nel dominio attuale
+  logiche application-to-application e importa anche metadata manifest 1.1 persistiti
+  (unit, profili, value type, resolution/serialization e dependency constraints)
 - `docs/manifests/augeg4-engine.demo.iris-package.json` - manifest demo caricabile dalla
   tile `augeg4-engine` per provare preview/validazione/import: release/source obbligatori,
   runtime service/docker, OS testati, port keys per istanza, application units,
