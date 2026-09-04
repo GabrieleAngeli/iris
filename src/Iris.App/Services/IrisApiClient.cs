@@ -84,6 +84,15 @@ public interface IIrisApiClient
 
 	Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default);
 
+	/// <summary>Runs the deployment Validation Engine for an installation. Requires <c>deployments.validate</c>.</summary>
+	Task<ApplicationInstallationValidationResponse> ValidateApplicationInstallationAsync(Guid installationId, CancellationToken cancellationToken = default);
+
+	/// <summary>Recorded deployment attempts (AWX job launches) for an installation, newest first. Requires <c>deployments.read</c>.</summary>
+	Task<IReadOnlyList<InstallationRunResponse>> GetInstallationRunsAsync(Guid installationId, CancellationToken cancellationToken = default);
+
+	/// <summary>One recorded deployment attempt; refreshes its status from AWX when still running. Requires <c>deployments.read</c>.</summary>
+	Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -252,6 +261,15 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ApplicationInstallationAwxLaunchResponse>($"/applications/installations/{installationId}/awx/launch", request, cancellationToken);
+
+	public Task<ApplicationInstallationValidationResponse> ValidateApplicationInstallationAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ApplicationInstallationValidationResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/validate", cancellationToken);
+
+	public Task<IReadOnlyList<InstallationRunResponse>> GetInstallationRunsAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+		GetListAsync<InstallationRunResponse>($"/applications/installations/{installationId}/runs", cancellationToken);
+
+	public Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<InstallationRunResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/runs/{runId}", cancellationToken);
 
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);
