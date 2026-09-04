@@ -1200,3 +1200,50 @@ prima di considerare il flusso davvero chiuso.
 che il dialog si chiuda e la lista si aggiorni, Validate/Deploy/Run history nel nuovo
 contesto); poi, a scelta, check Kind/Environment nel Validation Engine oppure
 `PreparedAction`/polling di background per il run history.
+
+---
+
+## 2026-09-04 - Deployments dentro Governance, vista a tre livelli per server
+
+**Classificazione**: fix navigazione + UX drill-down, su feedback diretto dopo aver visto
+la sezione Deployments funzionante (debug VS nel frattempo sbloccato dall'utente
+terminando processi dormienti - non un problema del codice).
+
+**Cosa e' successo**: due richieste nello stesso messaggio.
+
+1. *"la sezione deploy la sposti sotto governance"* — `Deployments` non e' piu' una riga
+   flyout standalone: e' ora una voce dentro la sezione collassabile **Governance**, sotto
+   `Customers`. Per non perdere l'accesso a chi ha `deployments.read` ma non
+   `governance.read`, la visibilita' della sezione Governance stessa e' passata da
+   `CanManageUsers` a `CanSeeGovernanceSection` (= `CanManageUsers || CanSeeDeployments`);
+   la riga `Deployments` resta comunque gated singolarmente su `CanSeeDeployments`.
+   `IsGovernanceActive` include ora anche `IsDeploymentsActive`, cosi' la sezione resta
+   aperta quando la pagina attiva e' Deployments.
+2. *"bene che per un Customers si vedano gli enviroment. Ora per enviroment lo step e'
+   scegliere i server, una volta scelti i server, per ogni server si scelgono gli
+   applicativi e le modalita' di installazione"* — la vista e' passata da
+   Customer -> Context -> installazioni (piatto) a **Customer -> Context -> Server ->
+   installazioni**: nuovo `DeploymentServerGroupViewModel`, costruito raggruppando le
+   installazioni esistenti per `(ServerNodeId, ServerName)` dentro
+   `DeploymentsViewModel.RefreshAsync`. Nessuna nuova persistenza: e' un livello di
+   raggruppamento sui dati gia' letti da `GetApplicationInstallationsAsync()`, non un
+   concetto salvato di "server assegnati a un environment".
+
+**Decisione presa senza chiedere**: lo spostamento in Governance e la vista a tre livelli
+sono stati implementati subito perche' inequivocabili e a basso rischio (nessun nuovo
+concetto di dominio, solo riorganizzazione di navigazione/display). **Non implementato**:
+la parte di "scegliere i server" come *azione* del wizard di creazione (oggi il wizard
+resta App -> Version -> Server -> Unit/Profile in un unico dialog, non
+Server(i) -> per-server App+modalita' in due fasi) — questo richiederebbe o un
+riordino sostanziale del wizard esistente, o una nuova associazione persistita
+"server di un environment", e cambia il modo in cui si compone un deployment, non solo
+come lo si guarda. Rimandato a decisione esplicita dell'utente (vedi `05-next-actions.md`).
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\scratchpad\verify-app-build6\` verde - 0 warning/0 errori. Non
+toccato il backend in questa iterazione, nessun nuovo test. **Non verificato manualmente
+nell'app Windows in esecuzione.**
+
+**Prossimo step**: chiedere/decidere se il wizard di creazione va riordinato
+server-first (multi-select server per un environment, poi loop app+modalita' per
+ciascuno) oppure se la vista a tre livelli basta e la creazione resta com'e' oggi.

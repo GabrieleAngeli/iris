@@ -86,10 +86,20 @@ public partial class DeploymentsViewModel : ObservableObject
 				foreach (var context in customer.Contexts.OrderBy(c => c.Kind, StringComparer.OrdinalIgnoreCase))
 				{
 					var contextGroup = new DeploymentContextGroupViewModel(context);
-					foreach (var installation in installations.Where(i => i.CustomerContextId == context.Id))
+					var byServer = installations
+						.Where(i => i.CustomerContextId == context.Id)
+						.GroupBy(i => (i.ServerNodeId, i.ServerName))
+						.OrderBy(g => g.Key.ServerName, StringComparer.OrdinalIgnoreCase);
+					foreach (var serverInstallations in byServer)
 					{
-						contextGroup.Installations.Add(new ApplicationInstallationRowViewModel(
-							installation, _api, CanManageDeployments, RaiseInstallationOpsRequested));
+						var serverGroup = new DeploymentServerGroupViewModel(serverInstallations.Key.ServerNodeId, serverInstallations.Key.ServerName);
+						foreach (var installation in serverInstallations)
+						{
+							serverGroup.Installations.Add(new ApplicationInstallationRowViewModel(
+								installation, _api, CanManageDeployments, RaiseInstallationOpsRequested));
+						}
+
+						contextGroup.Servers.Add(serverGroup);
 					}
 
 					group.Contexts.Add(contextGroup);
@@ -146,7 +156,11 @@ public sealed class DeploymentCustomerGroupViewModel(CustomerSummaryResponse cus
 	public ObservableCollection<DeploymentContextGroupViewModel> Contexts { get; } = [];
 }
 
-/// <summary>One customer context (environment) and the installations deployed into it.</summary>
+/// <summary>
+/// One customer context (environment). Deployments into it are shown one level deeper, by
+/// server: pick the servers that host this environment first, then per server the applications
+/// and their installation mode — not a flat list of installations.
+/// </summary>
 public sealed class DeploymentContextGroupViewModel(ContextSummaryResponse context)
 {
 	public Guid Id { get; } = context.Id;
@@ -157,7 +171,17 @@ public sealed class DeploymentContextGroupViewModel(ContextSummaryResponse conte
 
 	public bool IsActive { get; } = context.IsActive;
 
-	public ObservableCollection<ApplicationInstallationRowViewModel> Installations { get; } = [];
+	public ObservableCollection<DeploymentServerGroupViewModel> Servers { get; } = [];
 
-	public bool HasInstallations => Installations.Count > 0;
+	public bool HasServers => Servers.Count > 0;
+}
+
+/// <summary>One server hosting this environment, and the applications (with installation mode) on it.</summary>
+public sealed class DeploymentServerGroupViewModel(Guid serverNodeId, string serverName)
+{
+	public Guid ServerNodeId { get; } = serverNodeId;
+
+	public string ServerName { get; } = serverName;
+
+	public ObservableCollection<ApplicationInstallationRowViewModel> Installations { get; } = [];
 }

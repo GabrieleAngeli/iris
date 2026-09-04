@@ -43,6 +43,13 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 	/// <summary>Same reasoning as <see cref="CanManageUsers"/>: <c>/applications/installations</c> has no scope route parameter.</summary>
 	public bool CanSeeDeployments => _auth.Me?.EffectivePermissions.Contains("deployments.read") == true;
 
+	/// <summary>
+	/// Deployments lives inside the Governance section (composed per customer/environment),
+	/// so the section itself must open for either governance or deployments visibility —
+	/// a caller with only <c>deployments.read</c> must still reach it.
+	/// </summary>
+	public bool CanSeeGovernanceSection => CanManageUsers || CanSeeDeployments;
+
 	[ObservableProperty] private string _currentRoute = "startup";
 	[ObservableProperty] private bool _isWorkspaceExpanded;
 	[ObservableProperty] private bool _isGovernanceExpanded;
@@ -74,7 +81,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 
 	public bool IsWorkspaceActive => IsAccessActive;
 
-	public bool IsGovernanceActive => IsUsersActive || IsCustomersActive;
+	public bool IsGovernanceActive => IsUsersActive || IsCustomersActive || IsDeploymentsActive;
 
 	public bool IsInfrastructureActive => IsServersActive;
 
@@ -161,6 +168,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(CanManageInfrastructure));
 		OnPropertyChanged(nameof(CanSeeApplications));
 		OnPropertyChanged(nameof(CanSeeDeployments));
+		OnPropertyChanged(nameof(CanSeeGovernanceSection));
 	}
 
 	partial void OnCurrentRouteChanged(string value)

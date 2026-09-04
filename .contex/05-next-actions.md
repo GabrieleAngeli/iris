@@ -20,13 +20,21 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    **`CustomerContextId` reale** (FK a `Customer`/`CustomerContext`, non piu' un
    `ContextKind` libero — fatto 2026-09-04 su richiesta esplicita dell'utente: "non ha
    senso che l'installation sia sotto le application"), endpoint
-   `GET/POST /applications/installations`, e sezione MAUI standalone **Deployments**
-   (`DeploymentsPage`/`DeploymentsViewModel`, non piu' sotto Applications) organizzata
-   Customer -> Context -> installazioni, con wizard di creazione riusato da
-   `ApplicationsViewModel`. **Da verificare avviando l'app Windows** prima di considerarla
-   chiusa. Manca ancora: FK come navigation EF (oggi `Guid` semplice, coerente con le altre
-   FK del modulo), update dei binding dopo la creazione, stato di ciclo di vita, check che
-   `ServerNode.Environment` sia coerente col `CustomerContext.Kind` scelto. Vedi anche il
+   `GET/POST /applications/installations`, e sezione MAUI **Deployments** dentro
+   **Governance** (`DeploymentsPage`/`DeploymentsViewModel`, non piu' sotto Applications,
+   non piu' standalone nel flyout — spostata su richiesta esplicita 2026-09-04) organizzata
+   a tre livelli Customer -> Context -> **Server** -> installazioni (raggruppamento sui
+   dati esistenti, nessuna nuova persistenza "server di un environment"), con wizard di
+   creazione riusato da `ApplicationsViewModel`. **APERTO**: l'utente ha chiesto che la
+   *creazione* segua lo stesso ordine (prima scegliere il/i server per l'environment, poi
+   per ciascun server scegliere applicativi e modalita' installazione) — oggi il wizard
+   resta App -> Version -> Server -> Unit/Profile in un unico dialog. Decidere se
+   riordinare il wizard esistente o introdurre una vera associazione persistita
+   "server assegnati a un environment" prima di implementarlo. **Da verificare avviando
+   l'app Windows** prima di considerare l'intera sezione chiusa. Manca ancora: FK come
+   navigation EF (oggi `Guid` semplice, coerente con le altre FK del modulo), update dei
+   binding dopo la creazione, stato di ciclo di vita, check che `ServerNode.Environment`
+   sia coerente col `CustomerContext.Kind` scelto. Vedi anche il
    piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
 9. ~~**Validation Engine**~~ *(v1 fatto, UI MAUI fatta ma non verificata a mano)*:
    `ValidateApplicationInstallationHandler` + `GET /applications/installations/{id}/validate`

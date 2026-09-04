@@ -155,14 +155,26 @@ Migrazioni `AddApplicationInstallations` -> `AddApplicationInstallationCustomerC
 (drop colonna `Environment`, add `CustomerContextId`) per SQLite e Postgres. Mappato in
 `TransactionLogInterceptor.AreaFor` come `Deployments`.
 
-**Client MAUI - sezione Deployments** (nuova, sostituisce la lista installazioni sotto
-Applications di una iterazione precedente, spostata su richiesta esplicita dell'utente:
-"non ha senso che l'installation sia sotto le application"): voce flyout standalone
-`Deployments` (route `//deployments`, icona rocket, gate `CanSeeDeployments` =
-`deployments.read` su `AppShellViewModel`), pagina `DeploymentsPage` +
-`DeploymentsViewModel`. Organizzata Customer -> Context -> installazioni
-(`GetCustomersAsync()` + `GetApplicationInstallationsAsync()` raggruppate per
-`CustomerContextId`), ogni installazione mostra `ApplicationName` (aggiunto a
+**Client MAUI - sezione Deployments** (sostituisce la lista installazioni sotto
+Applications di due iterazioni fa, spostata su richiesta esplicita dell'utente:
+"non ha senso che l'installation sia sotto le application"; poi rispostata dentro
+Governance su ulteriore richiesta - "la sezione deploy la sposti sotto governance"):
+voce flyout `Deployments` dentro la sezione collassabile **Governance** (dopo
+Customers), route `//deployments`, icona rocket, riga gated `CanSeeDeployments` =
+`deployments.read`; la sezione Governance stessa e' ora visibile se
+`CanManageUsers` (`governance.read`) **oppure** `CanSeeDeployments`
+(`AppShellViewModel.CanSeeGovernanceSection`), cosi' un operatore con solo
+`deployments.read` non perde l'accesso. Pagina `DeploymentsPage` + `DeploymentsViewModel`,
+organizzata a **tre livelli**: Customer -> Context -> **Server** -> installazioni
+(non piu' Context -> installazioni piatto: l'utente ha chiesto esplicitamente "per
+enviroment lo step e' scegliere i server, una volta scelti i server, per ogni server
+si scelgono gli applicativi e le modalita' di installazione"). Il livello Server
+(`DeploymentServerGroupViewModel`) e' costruito raggruppando le installazioni esistenti
+per `ServerNodeId`/`ServerName` - nessuna nuova persistenza, e nessun modo ancora per
+"aggiungere un server vuoto" a un environment prima che ci sia una prima installazione
+li' (vedi `05-next-actions.md` per l'opzione di riordinare anche il wizard di creazione
+server-first). `GetCustomersAsync()` + `GetApplicationInstallationsAsync()` restano la
+fonte dati. Ogni installazione mostra `ApplicationName` (aggiunto a
 `ApplicationInstallationRowViewModel`, decoupled da `ApplicationRowViewModel`: ora prende
 `canManageDeployments`/`openOps` come parametri invece di un parent tipizzato, cosi'
 riusabile sia da Deployments sia in futuro altrove) e apre lo stesso `InstallationOpsDialog`
