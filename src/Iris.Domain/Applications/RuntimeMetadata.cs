@@ -21,7 +21,12 @@ public sealed class RuntimeMetadata
         ServerOs? preferredOs,
         int? requiredCpuCores,
         int? requiredMemoryMb,
-        IEnumerable<int>? requiredPorts)
+        IEnumerable<int>? requiredPorts,
+        string? executionTargetsJson = null,
+        string? osSupportJson = null,
+        int? minimumCpuCores = null,
+        int? minimumMemoryMb = null,
+        string? portKeysJson = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runtimeName);
 
@@ -30,6 +35,11 @@ public sealed class RuntimeMetadata
         RequiredCpuCores = requiredCpuCores;
         RequiredMemoryMb = requiredMemoryMb;
         RequiredPorts = requiredPorts?.Distinct().Order().ToList() ?? [];
+        ExecutionTargetsJson = string.IsNullOrWhiteSpace(executionTargetsJson) ? null : executionTargetsJson.Trim();
+        OsSupportJson = string.IsNullOrWhiteSpace(osSupportJson) ? null : osSupportJson.Trim();
+        MinimumCpuCores = minimumCpuCores;
+        MinimumMemoryMb = minimumMemoryMb;
+        PortKeysJson = string.IsNullOrWhiteSpace(portKeysJson) ? null : portKeysJson.Trim();
     }
 
     public string RuntimeName { get; private set; }
@@ -47,4 +57,14 @@ public sealed class RuntimeMetadata
     /// native primitive collection.
     /// </summary>
     public IReadOnlyList<int> RequiredPorts { get; private set; }
+
+    public string? ExecutionTargetsJson { get; private set; }
+
+    public string? OsSupportJson { get; private set; }
+
+    public int? MinimumCpuCores { get; private set; }
+
+    public int? MinimumMemoryMb { get; private set; }
+
+    public string? PortKeysJson { get; private set; }
 }

@@ -68,6 +68,12 @@ public interface IIrisApiClient
 	/// <summary>Updates application inventory metadata. Requires <c>applications.write</c>.</summary>
 	Task<ApplicationResponse> UpdateApplicationAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken cancellationToken = default);
 
+	/// <summary>Adds a version to an application before importing configuration knowledge. Requires <c>applications.write</c>.</summary>
+	Task<ApplicationVersionSummaryResponse> AddApplicationVersionAsync(Guid applicationId, AddApplicationVersionRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Imports the validated manifest package into an application version. Requires <c>applications.import</c>.</summary>
+	Task<ApplicationVersionDetailResponse> ImportConfigurationPackageAsync(Guid applicationId, Guid versionId, ImportConfigurationPackageRequest request, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -215,6 +221,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ApplicationResponse> UpdateApplicationAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<ApplicationResponse>(HttpMethod.Put, $"/applications/{applicationId}", request, cancellationToken);
+
+	public Task<ApplicationVersionSummaryResponse> AddApplicationVersionAsync(Guid applicationId, AddApplicationVersionRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ApplicationVersionSummaryResponse>($"/applications/{applicationId}/versions", request, cancellationToken);
+
+	public Task<ApplicationVersionDetailResponse> ImportConfigurationPackageAsync(Guid applicationId, Guid versionId, ImportConfigurationPackageRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ApplicationVersionDetailResponse>($"/applications/{applicationId}/versions/{versionId}/import", request, cancellationToken);
 
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);

@@ -12,7 +12,15 @@ public sealed record NewConfigurationKey(
     string? DefaultValue,
     string? Description,
     string? Purpose,
-    string? PlaceholderKey);
+    string? PlaceholderKey,
+    string? ValueType = null,
+    string? ItemType = null,
+    string? Scope = null,
+    string? SerializationJson = null,
+    string? ResolutionJson = null,
+    string? ProfilesJson = null,
+    string? ProfileDefaultsJson = null,
+    string? ItemSchemaJson = null);
 
 /// <summary>Shape of one <see cref="DependencyDefinition"/> to create.</summary>
 public sealed record NewDependencyDefinition(
@@ -33,6 +41,31 @@ public sealed record NewPlaceholderDefinition(
     string? Description,
     bool Required);
 
+public sealed record NewApplicationUnitDefinition(
+    Guid Id,
+    string Key,
+    string? DisplayName,
+    string? Kind,
+    string? EntryPoint,
+    string? ArtifactPath,
+    string? ExecutionTargetsJson,
+    string? ProfilesJson);
+
+public sealed record NewInstallationProfileDefinition(
+    Guid Id,
+    string Key,
+    string? DisplayName,
+    bool Required,
+    bool Multiple,
+    string? ConfigurationKeysJson);
+
+public sealed record NewDependencyConstraintDefinition(
+    Guid Id,
+    string? PlaceholderKey,
+    string? ServiceKind,
+    string? VersionExpression,
+    string? DetailsJson);
+
 /// <summary>
 /// One released version of an <see cref="ApplicationDefinition"/>. Carries what the Iris Extractor
 /// found the last time its configuration knowledge was imported (<see cref="ApplyImport"/>) — the
@@ -44,6 +77,9 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
     private readonly List<ConfigurationKey> _configurationKeys = [];
     private readonly List<DependencyDefinition> _dependencies = [];
     private readonly List<PlaceholderDefinition> _placeholders = [];
+    private readonly List<ApplicationUnitDefinition> _applicationUnits = [];
+    private readonly List<InstallationProfileDefinition> _installationProfiles = [];
+    private readonly List<DependencyConstraintDefinition> _dependencyConstraints = [];
 
     // For the persistence layer.
     private ApplicationVersion()
@@ -81,6 +117,12 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
 
     public IReadOnlyCollection<PlaceholderDefinition> Placeholders => _placeholders.AsReadOnly();
 
+    public IReadOnlyCollection<ApplicationUnitDefinition> ApplicationUnits => _applicationUnits.AsReadOnly();
+
+    public IReadOnlyCollection<InstallationProfileDefinition> InstallationProfiles => _installationProfiles.AsReadOnly();
+
+    public IReadOnlyCollection<DependencyConstraintDefinition> DependencyConstraints => _dependencyConstraints.AsReadOnly();
+
     public IReadOnlyList<string> ImportWarnings { get; private set; }
 
     /// <summary>The original extracted package, kept verbatim for audit and later reprocessing.</summary>
@@ -105,6 +147,9 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
         IReadOnlyList<NewConfigurationKey> configurationKeys,
         IReadOnlyList<NewDependencyDefinition> dependencies,
         IReadOnlyList<NewPlaceholderDefinition> placeholders,
+        IReadOnlyList<NewApplicationUnitDefinition> applicationUnits,
+        IReadOnlyList<NewInstallationProfileDefinition> installationProfiles,
+        IReadOnlyList<NewDependencyConstraintDefinition> dependencyConstraints,
         IReadOnlyList<string> warnings,
         DateTimeOffset importedAtUtc)
     {
@@ -113,7 +158,24 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
 
         _configurationKeys.Clear();
         _configurationKeys.AddRange(configurationKeys.Select(k => new ConfigurationKey(
-            k.Id, Id, k.Key, k.TargetKind, k.Required, k.Secret, k.DefaultValue, k.Description, k.Purpose, k.PlaceholderKey)));
+            k.Id,
+            Id,
+            k.Key,
+            k.TargetKind,
+            k.Required,
+            k.Secret,
+            k.DefaultValue,
+            k.Description,
+            k.Purpose,
+            k.PlaceholderKey,
+            k.ValueType,
+            k.ItemType,
+            k.Scope,
+            k.SerializationJson,
+            k.ResolutionJson,
+            k.ProfilesJson,
+            k.ProfileDefaultsJson,
+            k.ItemSchemaJson)));
 
         _dependencies.Clear();
         _dependencies.AddRange(dependencies.Select(d => new DependencyDefinition(
@@ -122,6 +184,18 @@ public sealed class ApplicationVersion : Entity<Guid>, IAuditableEntity
         _placeholders.Clear();
         _placeholders.AddRange(placeholders.Select(p => new PlaceholderDefinition(
             p.Id, Id, p.Key, p.Category, p.Description, p.Required)));
+
+        _applicationUnits.Clear();
+        _applicationUnits.AddRange(applicationUnits.Select(u => new ApplicationUnitDefinition(
+            u.Id, Id, u.Key, u.DisplayName, u.Kind, u.EntryPoint, u.ArtifactPath, u.ExecutionTargetsJson, u.ProfilesJson)));
+
+        _installationProfiles.Clear();
+        _installationProfiles.AddRange(installationProfiles.Select(p => new InstallationProfileDefinition(
+            p.Id, Id, p.Key, p.DisplayName, p.Required, p.Multiple, p.ConfigurationKeysJson)));
+
+        _dependencyConstraints.Clear();
+        _dependencyConstraints.AddRange(dependencyConstraints.Select(c => new DependencyConstraintDefinition(
+            c.Id, Id, c.PlaceholderKey, c.ServiceKind, c.VersionExpression, c.DetailsJson)));
 
         ImportWarnings = warnings.ToList();
 

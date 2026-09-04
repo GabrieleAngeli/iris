@@ -21,6 +21,14 @@ internal sealed class ConfigurationKeyConfiguration : IEntityTypeConfiguration<C
         builder.Property(k => k.Description).HasMaxLength(1000);
         builder.Property(k => k.Purpose).HasMaxLength(200);
         builder.Property(k => k.PlaceholderKey).HasMaxLength(300);
+        builder.Property(k => k.ValueType).HasMaxLength(80);
+        builder.Property(k => k.ItemType).HasMaxLength(80);
+        builder.Property(k => k.Scope).HasMaxLength(100);
+        builder.Property(k => k.SerializationJson);
+        builder.Property(k => k.ResolutionJson);
+        builder.Property(k => k.ProfilesJson);
+        builder.Property(k => k.ProfileDefaultsJson);
+        builder.Property(k => k.ItemSchemaJson);
 
         builder.HasIndex(k => k.ApplicationVersionId);
     }

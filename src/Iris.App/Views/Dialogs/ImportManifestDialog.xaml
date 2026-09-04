@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.ImportManifestDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ApplicationRowViewModel"
+    Title="Import manifest">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding Name, StringFormat='Import manifest for {0}'}" Style="{StaticResource Subtitle}" />
+                    <Label Text="{Binding ManifestValidation.FileName}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                    <Label Text="The release, source reference, runtime targets and tested OS come from the manifest. This step only resolves logical application associations before import." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Release" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.SuggestedVersion}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3">
+                            <Label Text="Source reference" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.SuggestedSourceReference}" Style="{StaticResource Body}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" Spacing="3">
+                            <Label Text="Runtime" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.RuntimeSummary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="3">
+                            <Label Text="Execution targets" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.ExecutionTargetsSummary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="2" Spacing="3">
+                            <Label Text="Tested OS" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.OsSupportSummary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="2" Grid.Column="1" Spacing="3">
+                            <Label Text="Minimum capacity" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.MinimumResourcesSummary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Contract" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.Summary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Text="Application units" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ApplicationUnitPreview.Count, StringFormat='{0} launchable unit(s)'}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" Spacing="4">
+                            <Label Text="Ports" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding ManifestValidation.ImportDraft.PortPolicySummary}" Style="{StaticResource Body}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border IsVisible="{Binding HasManifestAssociations}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <VerticalStackLayout Spacing="10">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Application associations" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                            <Label Text="Resolve logical application dependencies now; physical server and instance bindings are handled later." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="10"
+                                             BindableLayout.ItemsSource="{Binding ManifestAssociations}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ManifestAssociationViewModel">
+                                    <Grid ColumnDefinitions="*,260" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding DependencyName}" FontFamily="{StaticResource FontSemibold}" FontSize="12" />
+                                            <Label Text="{Binding PlaceholderText}" Style="{StaticResource Caption}" />
+                                            <Label Text="{Binding ProviderText}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+                                        <Border Grid.Column="1" Style="{StaticResource FieldBorder}">
+                                            <Picker ItemsSource="{Binding ApplicationOptions}"
+                                                    SelectedItem="{Binding SelectedApplication}">
+                                                <Picker.ItemDisplayBinding>
+                                                    <Binding Path="DisplayName" x:DataType="vm:ApplicationOptionViewModel" />
+                                                </Picker.ItemDisplayBinding>
+                                            </Picker>
+                                        </Border>
+                                        <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="8">
+                                            <Border Style="{StaticResource Badge}">
+                                                <Label Text="{Binding RequiredText}" Style="{StaticResource Caption}" />
+                                            </Border>
+                                            <Label Text="{Binding StatusText}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border IsVisible="{Binding HasUnresolvedRequiredManifestAssociations}"
+                        BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#332B18}"
+                        Stroke="{AppThemeBinding Light=#E4C35A, Dark=#8A7130}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <Label Text="Resolve every required application association before importing." Style="{StaticResource Caption}" />
+                </Border>
+
+                <Label Text="{Binding ImportManifestError}" IsVisible="{Binding HasImportManifestError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsImportingManifest}" IsVisible="{Binding IsImportingManifest}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Import" Command="{Binding ImportManifestCommand}"
+                    IsEnabled="{Binding IsImportingManifest, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -87,7 +87,22 @@ include ora il primo step di upload manifest: selezione file JSON via FilePicker
 validazione client-side senza import automatico, associazione immediata del report alla
 application scelta, riepilogo schema/conteggi/tipi default rilevati e issue list per
 errori, warning e link application-to-application presenti o mancanti nel catalogo Iris
-corrente.
+corrente. Se il manifest e' valido, nella stessa tile viene costruita una preview di
+assimilazione con configuration key, dependency, placeholder, profili/varianti e decisioni
+da risolvere nel wizard (segreti, required senza default, liste e provider application).
+Il pulsante `Start import` apre `ImportManifestDialog`: release version, source reference,
+runtime target, OS testati, minimum resources e port policy vengono letti dal manifest e
+mostrati come dato non editabile; il wizard si concentra sulle associazioni logiche tra
+application Iris. Il client crea una `ApplicationVersion` e chiama l'import package
+esistente. Nel dominio attuale vengono persistiti solo i campi gia' supportati; application
+unit/launchable, profili, tipi evoluti, resolution, serialization e vincoli versione
+restano come preview/warning in attesa dell'estensione del modello.
+Esiste un manifest demo caricabile dalla tile `augeg4-engine` in
+`docs/manifests/augeg4-engine.demo.iris-package.json`: copre release/source nel manifest,
+runtime service/docker, OS testati, minimum resources, port keys per istanza, application
+unit (`augeg4.engine`, `augeg4.monitor-admin`, `augeg4.p5.engine`), master/slave, chiavi
+tipizzate, liste, segreti, service reference MongoDB/Redis/SMTP, riferimento a
+`augeg4-web`, placeholder esposti e vincoli demo di versione servizio.
 Nel database dev locale e' stata assimilata come prova l'application
 `algorab-augeg4-grpcflow` da manifest esterni AugeG4 GrpcFlow: versione
 `net8.0-Windows-win-x64-self-contained`, artifact Nexus

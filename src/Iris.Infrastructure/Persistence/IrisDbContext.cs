@@ -42,6 +42,12 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<PlaceholderDefinition> ApplicationPlaceholders => Set<PlaceholderDefinition>();
 
+    public DbSet<ApplicationUnitDefinition> ApplicationUnits => Set<ApplicationUnitDefinition>();
+
+    public DbSet<InstallationProfileDefinition> InstallationProfiles => Set<InstallationProfileDefinition>();
+
+    public DbSet<DependencyConstraintDefinition> ApplicationDependencyConstraints => Set<DependencyConstraintDefinition>();
+
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 
     public DbSet<TransactionLogEntry> TransactionLogEntries => Set<TransactionLogEntry>();

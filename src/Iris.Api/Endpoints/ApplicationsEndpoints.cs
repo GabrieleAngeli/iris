@@ -109,8 +109,16 @@ public static class ApplicationsEndpoints
             {
                 var result = await handler
                     .HandleAsync(new ImportConfigurationPackageCommand(
-                        applicationId, versionId, body.SchemaVersion,
-                        body.ConfigurationKeys, body.Dependencies, body.Placeholders, body.Warnings), ct)
+                        applicationId,
+                        versionId,
+                        body.SchemaVersion,
+                        body.ConfigurationKeys,
+                        body.Dependencies,
+                        body.Placeholders,
+                        body.Warnings,
+                        body.ApplicationUnits,
+                        body.InstallationProfiles,
+                        body.DependencyConstraints), ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);
             })

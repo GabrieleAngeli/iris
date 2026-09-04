@@ -53,6 +53,97 @@ Solo nel deployment si decide:
 AugeG4.Web su SERVERA -> AugeG4.Engine master su SERVERB
 ```
 
+## Decisioni aggiornate sul manifest
+
+Il manifest deve essere legato a una release applicativa precisa. `releaseVersion` e
+`sourceReference` sono obbligatori nel manifest e non devono essere chiesti manualmente nel
+wizard di import. Il wizard puo' mostrarli e bloccare l'import se mancano, ma non deve
+inventarli.
+
+```json
+{
+  "schemaVersion": "1.1",
+  "releaseVersion": "4.0.0",
+  "sourceReference": "git:algorab/augeg4-engine@9f2c4d7"
+}
+```
+
+Il runtime descrive capability e modalita' supportate, non una singola installazione. Lo
+stesso applicativo puo' essere avviato come servizio o come container Docker.
+
+```json
+{
+  "runtime": {
+    "framework": "Java",
+    "javaVersion": "17",
+    "executionTargets": ["linux-service", "docker"]
+  }
+}
+```
+
+`preferredOs` non basta: il manifest deve dichiarare una lista di sistemi operativi
+validati/testati, con famiglia, distribuzione e versione quando disponibili.
+
+```json
+{
+  "runtime": {
+    "osSupport": [
+      { "type": "Linux", "distribution": "Ubuntu", "version": "22.04", "tested": true },
+      { "type": "Linux", "distribution": "RHEL", "version": "9", "tested": true }
+    ]
+  }
+}
+```
+
+CPU e memoria non sono valori da decidere nel wizard di import: dipendono dal carico e
+dalla topologia. Al massimo il manifest puo' dichiarare requisiti minimi tecnici, da
+usare come hint durante la capacity planning.
+
+```json
+{
+  "runtime": {
+    "minimumResources": {
+      "cpuCores": 2,
+      "memoryMb": 4096
+    }
+  }
+}
+```
+
+Le porte non devono essere considerate valori finali della versione applicativa. Il
+manifest puo' dichiarare le chiavi o porte logiche usate dall'applicazione, ma il valore
+concreto deve restare per istanza/installazione: se sul server scelto una porta e' gia'
+occupata, il binding deve poter cambiarla.
+
+```json
+{
+  "runtime": {
+    "portKeys": ["server.port", "grpcPort", "websocketPort"]
+  }
+}
+```
+
+Il wizard di import deve concentrarsi sulle associazioni logiche, ad esempio quale
+application Iris soddisfa una dependency applicativa. Il binding fisico
+server/istanza/porta resta un passo successivo.
+
+Lo stesso sorgente puo' produrre piu' applicativi avviabili. AugeG4.Engine puo' generare,
+ad esempio, `augeg4.engine`, `augeg4.monitor-admin` e `augeg4.p5.engine`, ciascuno con
+entry point, artifact path, target di esecuzione e profili installativi diversi.
+
+```json
+{
+  "applicationUnits": [
+    {
+      "key": "augeg4.engine",
+      "entryPoint": "com.algorab.augeg4.EngineApplication",
+      "executionTargets": ["linux-service", "docker"],
+      "profiles": ["master", "slave"]
+    }
+  ]
+}
+```
+
 ## Valori tipizzati
 
 Il contratto attuale `defaultValue: string?` non basta. Dai file reali emergono stringhe,

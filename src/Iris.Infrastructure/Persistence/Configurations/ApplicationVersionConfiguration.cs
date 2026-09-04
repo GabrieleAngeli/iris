@@ -27,6 +27,11 @@ internal sealed class ApplicationVersionConfiguration : IEntityTypeConfiguration
 
             // Native EF Core primitive collection — mapped as a JSON array column, no separate table.
             metadata.Property(m => m.RequiredPorts).HasColumnName("RequiredPorts");
+            metadata.Property(m => m.ExecutionTargetsJson).HasColumnName("ExecutionTargetsJson");
+            metadata.Property(m => m.OsSupportJson).HasColumnName("OsSupportJson");
+            metadata.Property(m => m.MinimumCpuCores).HasColumnName("MinimumCpuCores");
+            metadata.Property(m => m.MinimumMemoryMb).HasColumnName("MinimumMemoryMb");
+            metadata.Property(m => m.PortKeysJson).HasColumnName("PortKeysJson");
         });
         builder.Navigation(v => v.RuntimeMetadata).IsRequired();
 
@@ -55,11 +60,32 @@ internal sealed class ApplicationVersionConfiguration : IEntityTypeConfiguration
             .HasForeignKey(p => p.ApplicationVersionId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(v => v.ApplicationUnits)
+            .WithOne()
+            .HasForeignKey(u => u.ApplicationVersionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.InstallationProfiles)
+            .WithOne()
+            .HasForeignKey(p => p.ApplicationVersionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.DependencyConstraints)
+            .WithOne()
+            .HasForeignKey(c => c.ApplicationVersionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Metadata.FindNavigation(nameof(ApplicationVersion.ConfigurationKeys))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
         builder.Metadata.FindNavigation(nameof(ApplicationVersion.Dependencies))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
         builder.Metadata.FindNavigation(nameof(ApplicationVersion.Placeholders))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(ApplicationVersion.ApplicationUnits))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(ApplicationVersion.InstallationProfiles))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(ApplicationVersion.DependencyConstraints))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

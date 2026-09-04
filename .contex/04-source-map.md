@@ -75,20 +75,28 @@ File da leggere prima di agire, per area.
 - `src/Iris.Infrastructure/Persistence/Repositories/ApplicationRepository.cs`
 - `tests/Iris.Application.Tests/Applications/ApplicationsHandlersTests.cs`
 - `tests/Iris.Api.Tests/ApplicationsApiTests.cs`
+- `src/Iris.App/Services/IrisApiClient.cs` - client MAUI per list/create/update
+  Applications, add version e import package validato
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs`
 - `src/Iris.App/Views/ApplicationsPage.xaml` - inventory Applications; include upload
   manifest JSON per singola application tile e validazione client-side iniziale
   (`schemaVersion`, `configurationKeys`, `dependencies`, `placeholders`, warning su
   secret/default, default tipizzati e dependency provider application presenti/mancanti
-  nel catalogo)
+  nel catalogo); per manifest validi mostra preview di assimilazione con key,
+  dependency, placeholder, profili/varianti e decisioni da risolvere
 - `src/Iris.App/ViewModels/ExtractorGuideViewModel.cs`
 - `src/Iris.App/Views/ExtractorGuidePage.xaml` - guida FE in Applications per extractor
   .NET automatico, import manuale e template JSON manuali per tecnologia; layout verticale
   per stack con `controls:TabGroup` (`Automatic` / `Manual manifest`) e tab condivisa
   iniziale `Fields` per spiegare significato/rappresentazione dei campi manifest
-  (`configurationKeys`, `dependencies`, `placeholders`, `warnings`), esempi PostgreSQL,
-  Redis, HTTP API e placeholder provider/consumer; contenuto a blocchi leggibili (`Text`,
-  `Note`, `Code`), con blocchi codice renderizzati da `controls:CodeBlock`
+- `src/Iris.App/Views/Dialogs/ImportManifestDialog.xaml` - wizard minimale aperto dalla
+  preview valida: mostra release/source/runtime dal manifest, gestisce associazioni
+  logiche application-to-application e importa nel dominio attuale
+- `docs/manifests/augeg4-engine.demo.iris-package.json` - manifest demo caricabile dalla
+  tile `augeg4-engine` per provare preview/validazione/import: release/source obbligatori,
+  runtime service/docker, OS testati, port keys per istanza, application units,
+  master/slave, typed values, liste, secret/service reference, link a `augeg4-web` e
+  vincoli versione MongoDB/Redis
 - `src/Iris.App/Views/Dialogs/{NewApplicationDialog,EditApplicationDialog}.xaml`
 - `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact, placeholder e
   procedura manuale per produrre/importare `iris-package.json` per `.NET`,

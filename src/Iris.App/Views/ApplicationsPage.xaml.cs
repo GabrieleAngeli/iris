@@ -20,6 +20,9 @@ public partial class ApplicationsPage : ContentPage
 
 		_vm.EditApplicationRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new EditApplicationDialog(row), "dlg.edit-application", 640, 520);
+
+		_vm.ImportManifestRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new ImportManifestDialog(row), "dlg.import-manifest", 720, 640);
 	}
 
 	protected override void OnAppearing()

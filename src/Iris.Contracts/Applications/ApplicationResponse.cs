@@ -5,7 +5,12 @@ public sealed record RuntimeMetadataResponse(
     string? PreferredOs,
     int? RequiredCpuCores,
     int? RequiredMemoryMb,
-    IReadOnlyList<int> RequiredPorts);
+    IReadOnlyList<int> RequiredPorts,
+    IReadOnlyList<string> ExecutionTargets,
+    IReadOnlyList<RuntimeOsSupportInfo> OsSupport,
+    int? MinimumCpuCores,
+    int? MinimumMemoryMb,
+    IReadOnlyList<string> PortKeys);
 
 public sealed record ApplicationVersionSummaryResponse(
     Guid Id,
@@ -15,6 +20,9 @@ public sealed record ApplicationVersionSummaryResponse(
     int ConfigurationKeyCount,
     int DependencyCount,
     int PlaceholderCount,
+    int ApplicationUnitCount,
+    int InstallationProfileCount,
+    int DependencyConstraintCount,
     DateTimeOffset? LastImportedAtUtc);
 
 public sealed record ApplicationResponse(

@@ -14,7 +14,10 @@ public sealed record ImportConfigurationPackageCommand(
     IReadOnlyList<ConfigurationKeyInput> ConfigurationKeys,
     IReadOnlyList<DependencyInput> Dependencies,
     IReadOnlyList<PlaceholderInput> Placeholders,
-    IReadOnlyList<string>? Warnings);
+    IReadOnlyList<string>? Warnings,
+    IReadOnlyList<ApplicationUnitInput>? ApplicationUnits = null,
+    IReadOnlyList<InstallationProfileInput>? InstallationProfiles = null,
+    IReadOnlyList<DependencyConstraintInput>? DependencyConstraints = null);
 
 public sealed class ImportConfigurationPackageHandler(IApplicationRepository applications, IClock clock, IUnitOfWork unitOfWork)
 {
@@ -37,7 +40,23 @@ public sealed class ImportConfigurationPackageHandler(IApplicationRepository app
 
         var configurationKeys = command.ConfigurationKeys
             .Select(k => new NewConfigurationKey(
-                Guid.CreateVersion7(), k.Key, k.TargetKind, k.Required, k.Secret, k.DefaultValue, k.Description, k.Purpose, k.PlaceholderKey))
+                Guid.CreateVersion7(),
+                k.Key,
+                k.TargetKind,
+                k.Required,
+                k.Secret,
+                k.DefaultValue,
+                k.Description,
+                k.Purpose,
+                k.PlaceholderKey,
+                k.ValueType,
+                k.ItemType,
+                k.Scope,
+                k.SerializationJson,
+                k.ResolutionJson,
+                k.ProfilesJson,
+                k.ProfileDefaultsJson,
+                k.ItemSchemaJson))
             .ToArray();
 
         var dependencies = command.Dependencies
@@ -56,6 +75,37 @@ public sealed class ImportConfigurationPackageHandler(IApplicationRepository app
             .Select(p => new NewPlaceholderDefinition(Guid.CreateVersion7(), p.Key, p.Category, p.Description, p.Required))
             .ToArray();
 
+        var applicationUnits = (command.ApplicationUnits ?? [])
+            .Select(u => new NewApplicationUnitDefinition(
+                Guid.CreateVersion7(),
+                u.Key,
+                u.DisplayName,
+                u.Kind,
+                u.EntryPoint,
+                u.ArtifactPath,
+                SerializeOrNull(u.ExecutionTargets),
+                SerializeOrNull(u.Profiles)))
+            .ToArray();
+
+        var installationProfiles = (command.InstallationProfiles ?? [])
+            .Select(p => new NewInstallationProfileDefinition(
+                Guid.CreateVersion7(),
+                p.Key,
+                p.DisplayName,
+                p.Required,
+                p.Multiple,
+                SerializeOrNull(p.ConfigurationKeys)))
+            .ToArray();
+
+        var dependencyConstraints = (command.DependencyConstraints ?? [])
+            .Select(c => new NewDependencyConstraintDefinition(
+                Guid.CreateVersion7(),
+                c.PlaceholderKey,
+                c.ServiceKind,
+                c.VersionExpression,
+                c.DetailsJson))
+            .ToArray();
+
         var warnings = command.Warnings ?? [];
 
         // The original package as accepted — kept verbatim for audit/reprocessing, per the
@@ -66,13 +116,29 @@ public sealed class ImportConfigurationPackageHandler(IApplicationRepository app
             command.ConfigurationKeys,
             command.Dependencies,
             command.Placeholders,
+            command.ApplicationUnits,
+            command.InstallationProfiles,
+            command.DependencyConstraints,
             Warnings = warnings,
         });
 
-        version.ApplyImport(command.SchemaVersion, rawPackageJson, configurationKeys, dependencies, placeholders, warnings, clock.UtcNow);
+        version.ApplyImport(
+            command.SchemaVersion,
+            rawPackageJson,
+            configurationKeys,
+            dependencies,
+            placeholders,
+            applicationUnits,
+            installationProfiles,
+            dependencyConstraints,
+            warnings,
+            clock.UtcNow);
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return version.ToDetailResponse();
     }
+
+    private static string? SerializeOrNull<T>(IReadOnlyList<T>? values) =>
+        values is { Count: > 0 } ? JsonSerializer.Serialize(values) : null;
 }

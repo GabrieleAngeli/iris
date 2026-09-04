@@ -33,7 +33,18 @@ public sealed record RuntimeMetadataRequest(
     string? PreferredOs,
     int? RequiredCpuCores,
     int? RequiredMemoryMb,
-    IReadOnlyList<int>? RequiredPorts);
+    IReadOnlyList<int>? RequiredPorts,
+    IReadOnlyList<string>? ExecutionTargets = null,
+    IReadOnlyList<RuntimeOsSupportInfo>? OsSupport = null,
+    int? MinimumCpuCores = null,
+    int? MinimumMemoryMb = null,
+    IReadOnlyList<string>? PortKeys = null);
+
+public sealed record RuntimeOsSupportInfo(
+    string Type,
+    string? Distribution,
+    string? Version,
+    bool Tested = true);
 
 /// <summary>Body of <c>POST /applications/{applicationId}/versions</c>.</summary>
 public sealed record AddApplicationVersionRequest(
@@ -49,7 +60,15 @@ public sealed record ConfigurationKeyInput(
     string? DefaultValue,
     string? Description,
     string? Purpose,
-    string? PlaceholderKey);
+    string? PlaceholderKey,
+    string? ValueType = null,
+    string? ItemType = null,
+    string? Scope = null,
+    string? SerializationJson = null,
+    string? ResolutionJson = null,
+    string? ProfilesJson = null,
+    string? ProfileDefaultsJson = null,
+    string? ItemSchemaJson = null);
 
 public sealed record DependencyInput(
     string Name,
@@ -66,6 +85,28 @@ public sealed record PlaceholderInput(
     string? Description,
     bool Required);
 
+public sealed record ApplicationUnitInput(
+    string Key,
+    string? DisplayName,
+    string? Kind,
+    string? EntryPoint,
+    string? ArtifactPath,
+    IReadOnlyList<string>? ExecutionTargets = null,
+    IReadOnlyList<string>? Profiles = null);
+
+public sealed record InstallationProfileInput(
+    string Key,
+    string? DisplayName,
+    bool Required,
+    bool Multiple,
+    IReadOnlyList<string>? ConfigurationKeys = null);
+
+public sealed record DependencyConstraintInput(
+    string? PlaceholderKey,
+    string? ServiceKind,
+    string? VersionExpression,
+    string? DetailsJson = null);
+
 /// <summary>
 /// Body of <c>POST /applications/{applicationId}/versions/{versionId}/import</c> — the shape an
 /// Iris Extractor package takes today (accepted directly via the API; a real pipeline-triggered
@@ -76,4 +117,7 @@ public sealed record ImportConfigurationPackageRequest(
     IReadOnlyList<ConfigurationKeyInput> ConfigurationKeys,
     IReadOnlyList<DependencyInput> Dependencies,
     IReadOnlyList<PlaceholderInput> Placeholders,
-    IReadOnlyList<string>? Warnings);
+    IReadOnlyList<string>? Warnings,
+    IReadOnlyList<ApplicationUnitInput>? ApplicationUnits = null,
+    IReadOnlyList<InstallationProfileInput>? InstallationProfiles = null,
+    IReadOnlyList<DependencyConstraintInput>? DependencyConstraints = null);

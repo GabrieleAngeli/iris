@@ -127,7 +127,10 @@ public sealed class TransactionLogInterceptor(
             || type == typeof(ApplicationVersion)
             || type == typeof(ConfigurationKey)
             || type == typeof(DependencyDefinition)
-            || type == typeof(PlaceholderDefinition))
+            || type == typeof(PlaceholderDefinition)
+            || type == typeof(ApplicationUnitDefinition)
+            || type == typeof(InstallationProfileDefinition)
+            || type == typeof(DependencyConstraintDefinition))
         {
             return "Applications";
         }

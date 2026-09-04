@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Iris.Application.Abstractions;
 using Iris.Application.Common;
 using Iris.Contracts.Applications;
@@ -50,7 +51,12 @@ public sealed class AddApplicationVersionHandler(IApplicationRepository applicat
             preferredOs,
             command.RuntimeMetadata.RequiredCpuCores,
             command.RuntimeMetadata.RequiredMemoryMb,
-            command.RuntimeMetadata.RequiredPorts);
+            command.RuntimeMetadata.RequiredPorts,
+            SerializeOrNull(command.RuntimeMetadata.ExecutionTargets),
+            SerializeOrNull(command.RuntimeMetadata.OsSupport),
+            command.RuntimeMetadata.MinimumCpuCores,
+            command.RuntimeMetadata.MinimumMemoryMb,
+            SerializeOrNull(command.RuntimeMetadata.PortKeys));
 
         ApplicationVersion version;
         try
@@ -66,4 +72,7 @@ public sealed class AddApplicationVersionHandler(IApplicationRepository applicat
 
         return version.ToSummaryResponse();
     }
+
+    private static string? SerializeOrNull<T>(IReadOnlyList<T>? values) =>
+        values is { Count: > 0 } ? JsonSerializer.Serialize(values) : null;
 }

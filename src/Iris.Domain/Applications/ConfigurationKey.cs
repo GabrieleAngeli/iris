@@ -28,7 +28,15 @@ public sealed class ConfigurationKey : Entity<Guid>
         string? defaultValue,
         string? description,
         string? purpose,
-        string? placeholderKey)
+        string? placeholderKey,
+        string? valueType = null,
+        string? itemType = null,
+        string? scope = null,
+        string? serializationJson = null,
+        string? resolutionJson = null,
+        string? profilesJson = null,
+        string? profileDefaultsJson = null,
+        string? itemSchemaJson = null)
         : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -43,6 +51,14 @@ public sealed class ConfigurationKey : Entity<Guid>
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         Purpose = string.IsNullOrWhiteSpace(purpose) ? null : purpose.Trim();
         PlaceholderKey = string.IsNullOrWhiteSpace(placeholderKey) ? null : placeholderKey.Trim();
+        ValueType = string.IsNullOrWhiteSpace(valueType) ? null : valueType.Trim();
+        ItemType = string.IsNullOrWhiteSpace(itemType) ? null : itemType.Trim();
+        Scope = string.IsNullOrWhiteSpace(scope) ? null : scope.Trim();
+        SerializationJson = string.IsNullOrWhiteSpace(serializationJson) ? null : serializationJson.Trim();
+        ResolutionJson = string.IsNullOrWhiteSpace(resolutionJson) ? null : resolutionJson.Trim();
+        ProfilesJson = string.IsNullOrWhiteSpace(profilesJson) ? null : profilesJson.Trim();
+        ProfileDefaultsJson = string.IsNullOrWhiteSpace(profileDefaultsJson) ? null : profileDefaultsJson.Trim();
+        ItemSchemaJson = string.IsNullOrWhiteSpace(itemSchemaJson) ? null : itemSchemaJson.Trim();
     }
 
     public Guid ApplicationVersionId { get; private set; }
@@ -63,4 +79,20 @@ public sealed class ConfigurationKey : Entity<Guid>
     public string? Purpose { get; private set; }
 
     public string? PlaceholderKey { get; private set; }
+
+    public string? ValueType { get; private set; }
+
+    public string? ItemType { get; private set; }
+
+    public string? Scope { get; private set; }
+
+    public string? SerializationJson { get; private set; }
+
+    public string? ResolutionJson { get; private set; }
+
+    public string? ProfilesJson { get; private set; }
+
+    public string? ProfileDefaultsJson { get; private set; }
+
+    public string? ItemSchemaJson { get; private set; }
 }

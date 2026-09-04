@@ -13,6 +13,9 @@ internal sealed class ApplicationRepository(IrisDbContext dbContext) : IApplicat
             .Include(a => a.Versions).ThenInclude(v => v.ConfigurationKeys)
             .Include(a => a.Versions).ThenInclude(v => v.Dependencies)
             .Include(a => a.Versions).ThenInclude(v => v.Placeholders)
+            .Include(a => a.Versions).ThenInclude(v => v.ApplicationUnits)
+            .Include(a => a.Versions).ThenInclude(v => v.InstallationProfiles)
+            .Include(a => a.Versions).ThenInclude(v => v.DependencyConstraints)
             .AsNoTracking()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -22,6 +25,9 @@ internal sealed class ApplicationRepository(IrisDbContext dbContext) : IApplicat
             .Include(a => a.Versions).ThenInclude(v => v.ConfigurationKeys)
             .Include(a => a.Versions).ThenInclude(v => v.Dependencies)
             .Include(a => a.Versions).ThenInclude(v => v.Placeholders)
+            .Include(a => a.Versions).ThenInclude(v => v.ApplicationUnits)
+            .Include(a => a.Versions).ThenInclude(v => v.InstallationProfiles)
+            .Include(a => a.Versions).ThenInclude(v => v.DependencyConstraints)
             .AsNoTracking()
             .SingleOrDefaultAsync(a => a.Id == applicationId, cancellationToken);
 
@@ -30,6 +36,9 @@ internal sealed class ApplicationRepository(IrisDbContext dbContext) : IApplicat
             .Include(a => a.Versions).ThenInclude(v => v.ConfigurationKeys)
             .Include(a => a.Versions).ThenInclude(v => v.Dependencies)
             .Include(a => a.Versions).ThenInclude(v => v.Placeholders)
+            .Include(a => a.Versions).ThenInclude(v => v.ApplicationUnits)
+            .Include(a => a.Versions).ThenInclude(v => v.InstallationProfiles)
+            .Include(a => a.Versions).ThenInclude(v => v.DependencyConstraints)
             .SingleOrDefaultAsync(a => a.Id == applicationId, cancellationToken);
 
     public Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) =>

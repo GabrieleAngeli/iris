@@ -1,0 +1,579 @@
+{
+  "schemaVersion": "1.1",
+  "releaseVersion": "4.0.0-demo",
+  "sourceReference": "git:algorab/augeg4-engine@9f2c4d7-demo",
+  "application": {
+    "slug": "augeg4-engine",
+    "name": "AugeG4 Engine",
+    "runtimeType": "Java",
+    "artifact": {
+      "provider": "Nexus",
+      "feed": "algorab-raw",
+      "name": "augeg4-engine",
+      "path": "augeg4.engine.${VERSION}.zip!/AugeG4"
+    }
+  },
+  "runtime": {
+    "framework": "Java",
+    "javaVersion": "17",
+    "executionTargets": [
+      "linux-service",
+      "docker"
+    ],
+    "osSupport": [
+      {
+        "type": "Linux",
+        "distribution": "Ubuntu",
+        "version": "22.04",
+        "tested": true
+      },
+      {
+        "type": "Linux",
+        "distribution": "RHEL",
+        "version": "9",
+        "tested": true
+      }
+    ],
+    "minimumResources": {
+      "cpuCores": 2,
+      "memoryMb": 4096
+    },
+    "portKeys": [
+      "server.port",
+      "wsPort",
+      "websocketPort",
+      "grpcPort",
+      "jmx.rmi.port"
+    ]
+  },
+  "applicationUnits": [
+    {
+      "key": "augeg4.engine",
+      "displayName": "AugeG4 Engine",
+      "kind": "engine",
+      "entryPoint": "com.algorab.augeg4.EngineApplication",
+      "artifactPath": "AugeG4/bin/augeg4-engine.jar",
+      "executionTargets": [
+        "linux-service",
+        "docker"
+      ],
+      "profiles": [
+        "master",
+        "slave"
+      ]
+    },
+    {
+      "key": "augeg4.monitor-admin",
+      "displayName": "AugeG4 MonitorAdmin",
+      "kind": "monitoring-admin",
+      "entryPoint": "com.algorab.augeg4.MonitorAdminApplication",
+      "artifactPath": "AugeG4/bin/augeg4-monitor-admin.jar",
+      "executionTargets": [
+        "linux-service"
+      ],
+      "profiles": [
+        "monitor-admin"
+      ]
+    },
+    {
+      "key": "augeg4.p5.engine",
+      "displayName": "AugeG4 P5 Engine",
+      "kind": "protocol-engine",
+      "entryPoint": "com.algorab.augeg4.p5.P5EngineApplication",
+      "artifactPath": "AugeG4/bin/augeg4-p5-engine.jar",
+      "executionTargets": [
+        "linux-service",
+        "docker"
+      ],
+      "profiles": [
+        "p5-engine"
+      ]
+    }
+  ],
+  "installationProfiles": [
+    {
+      "key": "master",
+      "displayName": "Master",
+      "required": true,
+      "multiple": false,
+      "configurationKeys": [
+        "spring.profiles.active",
+        "master",
+        "slaveCount",
+        "motoriJmxURL",
+        "tlcWebUrl",
+        "wsPort",
+        "websocketPort",
+        "grpcPort"
+      ]
+    },
+    {
+      "key": "slave",
+      "displayName": "Slave",
+      "required": false,
+      "multiple": true,
+      "configurationKeys": [
+        "spring.profiles.active",
+        "master",
+        "motoreIds",
+        "motoriJmxURL"
+      ]
+    },
+    {
+      "key": "monitor-admin",
+      "displayName": "Monitor Admin",
+      "required": false,
+      "multiple": false,
+      "configurationKeys": [
+        "spring.profiles.active",
+        "server.port",
+        "mongoserver",
+        "mongodb"
+      ]
+    },
+    {
+      "key": "p5-engine",
+      "displayName": "P5 Engine",
+      "required": false,
+      "multiple": true,
+      "configurationKeys": [
+        "spring.profiles.active",
+        "motoreIds",
+        "motoriJmxURL",
+        "grpcPort"
+      ]
+    }
+  ],
+  "configurationKeys": [
+    {
+      "key": "spring.profiles.active",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "array",
+      "itemType": "string",
+      "defaultValue": [
+        "AugeG4-Base"
+      ],
+      "description": "Spring profiles enabled for the AugeG4 Engine instance.",
+      "purpose": "runtime:spring:profiles",
+      "placeholderKey": "domain.augeg4.engine.springProfiles",
+      "scope": "installationInstance",
+      "profiles": [
+        "master",
+        "slave"
+      ],
+      "profileDefaults": {
+        "master": [
+          "AugeG4-Full",
+          "ProtocolG3"
+        ],
+        "slave": [
+          "AugeG4-Base"
+        ]
+      },
+      "serialization": {
+        "format": "csv"
+      }
+    },
+    {
+      "key": "master",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "boolean",
+      "defaultValue": false,
+      "description": "Declares whether the current engine instance runs as master.",
+      "purpose": "topology:engine:role",
+      "placeholderKey": "domain.augeg4.engine.isMaster",
+      "scope": "installationInstance",
+      "profiles": [
+        "master",
+        "slave"
+      ],
+      "profileDefaults": {
+        "master": true,
+        "slave": false
+      }
+    },
+    {
+      "key": "motoreIds",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "array",
+      "itemType": "integer",
+      "description": "Engine identifiers assigned to this instance.",
+      "purpose": "topology:engine:ids",
+      "placeholderKey": "domain.augeg4.engine.instanceIds",
+      "scope": "installationInstance",
+      "profiles": [
+        "master",
+        "slave"
+      ],
+      "serialization": {
+        "format": "csv"
+      },
+      "resolution": {
+        "kind": "topology",
+        "source": "engineInstances.ids"
+      }
+    },
+    {
+      "key": "slaveCount",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "description": "Number of slave engine instances known by the master.",
+      "purpose": "topology:engine:slave-count",
+      "placeholderKey": "domain.augeg4.engine.slaveCount",
+      "scope": "topology",
+      "profiles": [
+        "master"
+      ],
+      "resolution": {
+        "kind": "topology",
+        "source": "engineInstances.slaves.count"
+      }
+    },
+    {
+      "key": "motoriJmxURL",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "array",
+      "itemType": "object",
+      "description": "Legacy pipe tuple list containing engine id, host and JMX URL.",
+      "purpose": "topology:engine:jmx-peers",
+      "placeholderKey": "domain.augeg4.engine.jmxUrls",
+      "scope": "topology",
+      "profiles": [
+        "master",
+        "slave"
+      ],
+      "itemSchema": {
+        "engineId": "integer",
+        "host": "string",
+        "jmxUrl": "uri"
+      },
+      "serialization": {
+        "format": "pipe-tuples",
+        "tupleSize": 3
+      },
+      "resolution": {
+        "kind": "topology",
+        "source": "engineInstances.jmx"
+      }
+    },
+    {
+      "key": "server.port",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 9980,
+      "description": "HTTP port exposed by the master engine.",
+      "purpose": "network:http:port",
+      "placeholderKey": "domain.augeg4.engine.httpPort",
+      "scope": "installationInstance",
+      "profiles": [
+        "master"
+      ]
+    },
+    {
+      "key": "wsPort",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 9000,
+      "description": "Stat service port exposed by the master engine.",
+      "purpose": "network:stat-service:port",
+      "placeholderKey": "domain.augeg4.engine.statServicePort",
+      "scope": "installationInstance",
+      "profiles": [
+        "master"
+      ]
+    },
+    {
+      "key": "websocketPort",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 9292,
+      "description": "WebSocket port exposed by the master engine.",
+      "purpose": "network:websocket:port",
+      "placeholderKey": "domain.augeg4.engine.websocketPort",
+      "scope": "installationInstance",
+      "profiles": [
+        "master"
+      ]
+    },
+    {
+      "key": "grpcPort",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 9393,
+      "description": "gRPC port exposed by the master engine.",
+      "purpose": "network:grpc:port",
+      "placeholderKey": "domain.augeg4.engine.grpcPort",
+      "scope": "installationInstance",
+      "profiles": [
+        "master"
+      ]
+    },
+    {
+      "key": "jmx.rmi.port",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 7080,
+      "description": "JMX/RMI port used by engine peer discovery and monitoring.",
+      "purpose": "network:jmx:rmi-port",
+      "placeholderKey": "domain.augeg4.engine.jmxRmiPort",
+      "scope": "installationInstance"
+    },
+    {
+      "key": "mongoserver",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": true,
+      "valueType": "connectionString",
+      "description": "MongoDB connection string for AugeG4 runtime data.",
+      "purpose": "database:mongodb:connection-string",
+      "placeholderKey": "domain.augeg4.mongodb.connectionString",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "mongodb",
+        "output": "connectionString"
+      }
+    },
+    {
+      "key": "mongodb",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "string",
+      "description": "MongoDB database name for AugeG4 runtime data.",
+      "purpose": "database:mongodb:database",
+      "placeholderKey": "domain.augeg4.mongodb.database",
+      "scope": "deployment",
+      "resolution": {
+        "kind": "template",
+        "template": "augeg4-{domain}",
+        "variables": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "key": "redis.host",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "string",
+      "description": "Redis endpoint host used by engine cache/session features.",
+      "purpose": "cache:redis:host",
+      "placeholderKey": "domain.augeg4.redis.host",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "redis",
+        "output": "host"
+      }
+    },
+    {
+      "key": "redis.port",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 6379,
+      "description": "Redis endpoint port.",
+      "purpose": "cache:redis:port",
+      "placeholderKey": "domain.augeg4.redis.port",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "redis",
+        "output": "port"
+      }
+    },
+    {
+      "key": "mail.host",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "string",
+      "description": "SMTP host used by AugeG4 notifications.",
+      "purpose": "smtp:host",
+      "placeholderKey": "domain.augeg4.smtp.system.host",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "smtp",
+        "output": "host"
+      }
+    },
+    {
+      "key": "mail.port",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "integer",
+      "defaultValue": 587,
+      "description": "SMTP port used by AugeG4 notifications.",
+      "purpose": "smtp:port",
+      "placeholderKey": "domain.augeg4.smtp.system.port",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "smtp",
+        "output": "port"
+      }
+    },
+    {
+      "key": "mail.username",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "string",
+      "description": "SMTP username used by AugeG4 notifications.",
+      "purpose": "smtp:username",
+      "placeholderKey": "domain.augeg4.smtp.system.username",
+      "scope": "serviceReference",
+      "resolution": {
+        "kind": "serviceReference",
+        "serviceKind": "smtp",
+        "output": "username"
+      }
+    },
+    {
+      "key": "mail.password",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": true,
+      "valueType": "string",
+      "description": "SMTP password used by AugeG4 notifications.",
+      "purpose": "smtp:password",
+      "placeholderKey": "domain.augeg4.smtp.system.password",
+      "scope": "secretStore",
+      "resolution": {
+        "kind": "secretStore",
+        "serviceKind": "smtp",
+        "output": "password"
+      }
+    },
+    {
+      "key": "tlcWebUrl",
+      "targetKind": "application.properties",
+      "required": true,
+      "secret": false,
+      "valueType": "uri",
+      "description": "Base URL of the AugeG4 Web application used by the master engine.",
+      "purpose": "application:augeg4-web:base-url",
+      "placeholderKey": "domain.augeg4.web.baseUrl",
+      "scope": "serviceReference",
+      "profiles": [
+        "master"
+      ],
+      "resolution": {
+        "kind": "applicationReference",
+        "applicationSlug": "augeg4-web",
+        "placeholderKey": "domain.augeg4.web.baseUrl"
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "mongodb",
+      "category": "data-service",
+      "required": true,
+      "description": "MongoDB service used for AugeG4 runtime data.",
+      "placeholderKey": "domain.augeg4.mongodb.connectionString"
+    },
+    {
+      "name": "redis",
+      "category": "cache",
+      "required": true,
+      "description": "Redis service used for cache and lightweight coordination.",
+      "placeholderKey": "domain.augeg4.redis.host"
+    },
+    {
+      "name": "smtp",
+      "category": "platform-service",
+      "required": true,
+      "description": "SMTP service used for system notifications.",
+      "placeholderKey": "domain.augeg4.smtp.system.host"
+    },
+    {
+      "name": "augeg4-web",
+      "category": "application",
+      "required": true,
+      "description": "AugeG4 Web application consumed by the master engine.",
+      "placeholderKey": "domain.augeg4.web.baseUrl",
+      "providerApplicationSlug": "augeg4-web",
+      "providerPlaceholderKey": "domain.augeg4.web.baseUrl"
+    }
+  ],
+  "placeholders": [
+    {
+      "key": "domain.augeg4.engine.httpBaseUrl",
+      "category": "http",
+      "description": "Base HTTP URL exposed by the AugeG4 Engine master.",
+      "required": true
+    },
+    {
+      "key": "domain.augeg4.engine.grpcEndpoint",
+      "category": "grpc",
+      "description": "gRPC endpoint exposed by the AugeG4 Engine master.",
+      "required": true
+    },
+    {
+      "key": "domain.augeg4.engine.rulesCheckerUrl",
+      "category": "http",
+      "description": "Rules checker URL exposed by the AugeG4 Engine master.",
+      "required": true
+    },
+    {
+      "key": "domain.augeg4.engine.jmxUrls",
+      "category": "topology",
+      "description": "Serialized JMX/RMI peer list for the AugeG4 Engine cluster.",
+      "required": true
+    }
+  ],
+  "dependencyConstraints": [
+    {
+      "placeholderKey": "domain.augeg4.mongodb.connectionString",
+      "serviceKind": "mongodb",
+      "version": {
+        "operator": "==",
+        "value": "6"
+      }
+    },
+    {
+      "placeholderKey": "domain.augeg4.redis.host",
+      "serviceKind": "redis",
+      "version": {
+        "minInclusive": "6.2",
+        "maxExclusive": "8.0"
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "code": "demo.firewall-not-modeled",
+      "message": "Firewall, reverse proxy and TLS bindings are intentionally not modeled in this demo manifest yet."
+    },
+    {
+      "code": "demo.jinja2-target-not-modeled",
+      "message": "Ansible Jinja2 rendering can use these keys, but target template metadata still needs a final schema."
+    }
+  ]
+}

@@ -151,6 +151,186 @@
                                             </Border>
                                         </Grid>
 
+                                        <VerticalStackLayout Spacing="12" IsVisible="{Binding ManifestValidation.HasAssimilationPreview}">
+                                            <VerticalStackLayout Spacing="3">
+                                                <Label Text="Assimilation preview" Style="{StaticResource Subtitle}" />
+                                                <Label Text="{Binding ManifestValidation.PreviewSummary}" Style="{StaticResource Caption}" />
+                                                <Label Text="{Binding ManifestValidation.DecisionSummary}" Style="{StaticResource Caption}" />
+                                            </VerticalStackLayout>
+
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Button Text="Start import"
+                                                        Command="{Binding RequestManifestImportCommand}"
+                                                        IsVisible="{Binding CanStartManifestImport}" />
+                                                <Label Text="Creates a version and imports the supported package fields."
+                                                       Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                <Border IsVisible="{Binding ManifestValidation.HasConfigurationKeyPreview}"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Configuration keys" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.ConfigurationKeyPreview}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" IsVisible="{Binding RequiresDecision}"
+                                                                                BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}">
+                                                                            <Label Text="Decision" Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+                                                                        </Border>
+                                                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                        <Label Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DecisionText}" Style="{StaticResource Caption}"
+                                                                               TextColor="{StaticResource Warning}" IsVisible="{Binding HasDecisionText}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+
+                                                <Border Grid.Column="1" IsVisible="{Binding ManifestValidation.HasDependencyPreview}"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Dependencies" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.DependencyPreview}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" IsVisible="{Binding RequiresDecision}"
+                                                                                BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}">
+                                                                            <Label Text="Decision" Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+                                                                        </Border>
+                                                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                        <Label Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DecisionText}" Style="{StaticResource Caption}"
+                                                                               TextColor="{StaticResource Warning}" IsVisible="{Binding HasDecisionText}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+
+                                                <Border Grid.Row="1" IsVisible="{Binding ManifestValidation.HasPlaceholderPreview}"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Exposed placeholders" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.PlaceholderPreview}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+
+                                                <Border Grid.Row="1" Grid.Column="1" IsVisible="{Binding ManifestValidation.HasProfilePreview}"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Profiles" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.ProfilePreview}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" IsVisible="{Binding RequiresDecision}"
+                                                                                BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}">
+                                                                            <Label Text="Decision" Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+                                                                        </Border>
+                                                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                        <Label Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DecisionText}" Style="{StaticResource Caption}"
+                                                                               TextColor="{StaticResource Warning}" IsVisible="{Binding HasDecisionText}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+
+                                                <Border Grid.Row="2" Grid.ColumnSpan="2" IsVisible="{Binding ManifestValidation.HasApplicationUnitPreview}"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Launchable application units" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.ApplicationUnitPreview}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" IsVisible="{Binding RequiresDecision}"
+                                                                                BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}">
+                                                                            <Label Text="Model gap" Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+                                                                        </Border>
+                                                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                        <Label Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DecisionText}" Style="{StaticResource Caption}"
+                                                                               TextColor="{StaticResource Warning}" IsVisible="{Binding HasDecisionText}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+
+                                                <Border Grid.Row="3" Grid.ColumnSpan="2" IsVisible="{Binding ManifestValidation.HasAssimilationDecisions}"
+                                                        BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#332B18}"
+                                                        Stroke="{AppThemeBinding Light=#E4C35A, Dark=#8A7130}"
+                                                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                    <VerticalStackLayout Spacing="10">
+                                                        <Label Text="Decisions before import/binding" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                                                        <VerticalStackLayout Spacing="8"
+                                                                             BindableLayout.ItemsSource="{Binding ManifestValidation.AssimilationDecisions}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ManifestPreviewItemViewModel">
+                                                                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
+                                                                        <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                               LineBreakMode="TailTruncation" />
+                                                                        <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource Caption}" />
+                                                                        <Label Grid.Row="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasDetail}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+                                            </Grid>
+                                        </VerticalStackLayout>
+
                                         <Border IsVisible="{Binding ManifestValidation.HasIssues}"
                                                 BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
                                                 Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"

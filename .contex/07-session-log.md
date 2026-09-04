@@ -771,11 +771,66 @@ client-side associata all'application scelta: `schemaVersion`, array
 `required`/`secret`, duplicati, default valorizzati su chiavi secret, default tipizzati
 non-stringa, coerenza base tra `valueType` e `defaultValue`, `scope`, `serialization`,
 `resolution` e dependency che puntano a `providerApplicationSlug`.
+Per i manifest validi il report ora costruisce anche la preview di assimilazione nella
+stessa tile: configuration key, dependency, placeholder esposti, profili/varianti
+(`profiles`, `deploymentProfiles`, `installationProfiles`, `variants`) e decisioni da
+risolvere prima di import/binding (segreti, valori required senza default, liste e
+provider application mancanti o da confermare).
 
 **Decisione di flusso**: questa iterazione si ferma alla validazione e al report visivo
 dei problemi. Non chiama ancora `/applications/{id}/versions/{id}/import` e non crea
-binding: il prossimo step sara' decidere come trasformare un manifest valido in wizard di
-import, risoluzione link application-to-application e poi binding fisico in deployment.
+binding: il prossimo step sara' trasformare la preview valida in wizard di import,
+risoluzione link application-to-application e poi binding fisico in deployment.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\artifacts\verify-build\` verde - 0 warning/0 errori; `dotnet test
+Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\` verde - 166/166 test.
+
+**Aggiornamento successivo**: allineato il wizard al modello corretto: `releaseVersion` e
+`sourceReference` sono obbligatori nel manifest e mostrati read-only; runtime, execution
+targets, OS testati, minimum resources e port policy arrivano dal manifest. CPU/RAM e
+porte non sono piu' input del wizard: le prime sono hint minimi, le seconde restano valori
+per istanza/installazione. Aggiunta preview `applicationUnits`/`launchables` per modellare
+piu' avviabili dallo stesso sorgente, come `augeg4.engine`, `augeg4.monitor-admin` e
+`augeg4.p5.engine`.
+
+---
+
+## 2026-09-04 - Applications: manifest demo AugeG4 Engine
+
+**Classificazione**: dati demo / test upload manifest per singola application.
+
+**Cosa e' successo**: creato
+`docs/manifests/augeg4-engine.demo.iris-package.json`, manifest demo `schemaVersion`
+`1.1` per `augeg4-engine`. Il file rappresenta il contratto applicativo, non una
+installazione finale: profili `master`/`slave`, configuration key tipizzate, liste CSV e
+pipe-tuples, secret da secret store, service reference MongoDB/Redis/SMTP, dependency
+applicativa verso `augeg4-web`, placeholder esposti e vincoli demo per MongoDB 6 e Redis
+6.2-8.0.
+
+**Verificato**: parsing JSON con `ConvertFrom-Json` completato senza errori. Nessuna build
+eseguita perche' la modifica e' solo un artifact JSON documentale/demo.
+
+---
+
+## 2026-09-04 - Applications: wizard minimale di import manifest
+
+**Classificazione**: feature UX/API client Applications.
+
+**Cosa e' successo**: la preview valida ora espone `Start import`, visibile con permesso
+`applications.import`. Il comando apre `ImportManifestDialog`: release version,
+source reference, runtime target, OS testati, minimum resources e port policy arrivano dal
+manifest e sono mostrati come dato non editabile. Il wizard si concentra sulle associazioni
+logiche application-to-application, proponendo select con le application presenti nel
+catalogo Iris. Il client MAUI espone gli endpoint gia' presenti nel backend:
+`POST /applications/{id}/versions` e `POST /applications/{id}/versions/{versionId}/import`.
+L'import crea una versione e salva nel modello attuale configuration key, dependency,
+placeholder e warning normalizzati dal manifest validato.
+
+**Limite esplicito**: application unit/launchable, profili master/slave, `valueType`,
+`resolution`, `serialization`, `dependencyConstraints`, porte per istanza e default JSON
+tipizzati restano rappresentati come preview/warning finche' non estendiamo dominio,
+contratti e persistenza.
 
 **Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
 -p:BaseOutputPath=...\artifacts\verify-build\` verde - 0 warning/0 errori; `dotnet test
