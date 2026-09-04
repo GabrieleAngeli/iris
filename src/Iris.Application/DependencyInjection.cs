@@ -86,6 +86,8 @@ public static class DependencyInjection
         services.TryAddScoped<ValidateApplicationInstallationHandler>();
         services.TryAddScoped<GetApplicationInstallationAnsiblePlanHandler>();
         services.TryAddScoped<LaunchApplicationInstallationAwxJobHandler>();
+        services.TryAddScoped<ListInstallationRunsHandler>();
+        services.TryAddScoped<GetInstallationRunHandler>();
 
         return services;
     }

@@ -26,9 +26,21 @@ public sealed record AwxJobLaunchResult(
     string? Url,
     string? Message);
 
+public sealed record AwxJobStatusResult(
+    string Status,
+    bool Finished,
+    bool Succeeded,
+    string? Url,
+    string? Message);
+
 public interface IAwxClient
 {
     Task<AwxJobLaunchResult> LaunchAsync(
         AwxJobLaunch launch,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Polls the executor for the current state of a previously launched job.</summary>
+    Task<AwxJobStatusResult> GetJobStatusAsync(
+        string jobId,
         CancellationToken cancellationToken = default);
 }

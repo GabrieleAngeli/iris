@@ -52,6 +52,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<ApplicationInstallationBinding> ApplicationInstallationBindings => Set<ApplicationInstallationBinding>();
 
+    public DbSet<InstallationRun> InstallationRuns => Set<InstallationRun>();
+
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 
     public DbSet<TransactionLogEntry> TransactionLogEntries => Set<TransactionLogEntry>();

@@ -70,7 +70,12 @@ File da leggere prima di agire, per area.
 - `src/Iris.Application/Applications/*.cs` - include
   `CreateApplicationInstallation.cs`, `ListApplicationInstallations.cs`,
   `ValidateApplicationInstallation.cs` (Validation Engine, `GET .../validate`),
-  `GetApplicationInstallationAnsiblePlan.cs`, `LaunchApplicationInstallationAwxJob.cs`
+  `GetApplicationInstallationAnsiblePlan.cs`, `LaunchApplicationInstallationAwxJob.cs`,
+  `ListInstallationRuns.cs`, `GetInstallationRun.cs`, `InstallationRunMapping.cs`
+- `src/Iris.Domain/Applications/InstallationRun.cs` (aggregato run history AWX)
+- `src/Iris.Application/Abstractions/IInstallationRunRepository.cs`,
+  `src/Iris.Infrastructure/Persistence/Repositories/InstallationRunRepository.cs`,
+  `src/Iris.Infrastructure/Persistence/Configurations/InstallationRunConfiguration.cs`
 - `src/Iris.Contracts/Applications/ApplicationInstallationValidationResponse.cs`
 - `src/Iris.Application/Abstractions/{IApplicationRepository,IApplicationInstallationRepository}.cs`
 - `src/Iris.Contracts/Applications/*.cs`

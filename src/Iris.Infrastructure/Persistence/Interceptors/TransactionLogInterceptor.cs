@@ -135,7 +135,9 @@ public sealed class TransactionLogInterceptor(
             return "Applications";
         }
 
-        if (type == typeof(ApplicationInstallation) || type == typeof(ApplicationInstallationBinding))
+        if (type == typeof(ApplicationInstallation)
+            || type == typeof(ApplicationInstallationBinding)
+            || type == typeof(InstallationRun))
         {
             return "Deployments";
         }

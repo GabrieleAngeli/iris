@@ -1,7 +1,7 @@
 # Stato corrente
 
 Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
-(180/180 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+(192/192 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
 -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
 bloccato se l'app e' gia' aperta).
 
@@ -161,11 +161,24 @@ Ansible.
   `iris:application`, `manifest:default`, `manual`) e warning per required non risolti.
 - `POST /applications/installations/{id}/awx/launch` (perm `deployments.write`) ->
   `LaunchApplicationInstallationAwxJobHandler`: prende il piano, `IAnsibleExecutionPackageBuilder`
-  compone `extra_vars`, `IAwxClient` lancia il job template. Restituisce job
-  id/status/url + preview extra_vars. NON persiste la run e NON e' collegato a nessun
-  pulsante MAUI.
+  compone `extra_vars`, crea e persiste un `InstallationRun` (stato `Pending`), poi
+  `IAwxClient.LaunchAsync`. Successo -> `run.MarkSubmitted(jobId/url/status mappato)`;
+  `ValidationException` da AWX (es. non configurato) -> `run.MarkFailed(...)` e rilancia
+  (endpoint resta 400). Risposta con `RunId` + job id/status/url + preview extra_vars.
+  NON collegato a nessun pulsante MAUI.
+- **Run history**: `InstallationRun` (aggregato, `Iris.Domain/Applications`), FK `Guid`
+  verso `ApplicationInstallation`, `Kind` (`AwxJob`), `Status`
+  (`Pending`/`Running`/`Succeeded`/`Failed`/`Canceled`, ultimi tre terminali),
+  `ExternalJobId`/`ExternalUrl`, `SubmittedVariablesJson`, `Message`, `CompletedAtUtc`.
+  `GET /applications/installations/{id}/runs` (lista, newest first) e
+  `GET .../runs/{runId}` (perm `deployments.read`): il GET singolo, se il run non e'
+  terminale e ha un job id, chiama `IAwxClient.GetJobStatusAsync` (GET `/api/v2/jobs/{id}/`)
+  e aggiorna lo stato; se AWX non e' raggiungibile/configurato il read non fallisce, resta
+  l'ultimo stato noto. Migrazione `AddInstallationRuns` (SQLite + Postgres), area
+  `Deployments` nel `TransactionLogInterceptor`.
 - Porte in `Iris.Application/Abstractions`: `IIntegrationConnector` (status/health),
-  `IAwxClient`, `IAnsibleExecutionPackageBuilder`.
+  `IAwxClient` (`LaunchAsync` + `GetJobStatusAsync`), `IAnsibleExecutionPackageBuilder`,
+  `IInstallationRunRepository`.
 - Adapter in `src/Iris.Infrastructure/Integrations`: `OpenBaoConnector` (probe
   `/v1/sys/health`), `AwxClient` (`POST /api/v2/job_templates/{id}/launch/`, probe
   `/api/v2/ping/`, `HttpClient` via `new()` come singleton),
@@ -290,10 +303,10 @@ legame con `Customer`/`CustomerContext`; alcune regole sono euristiche (capabili
 sempre `ServiceHost`, nessun check disco) e il parser di versioni copre solo espressioni
 semplici. Da estendere insieme all'associazione completa dei Deployments.
 
-**Actions / run history**: nessuna entita' `PreparedAction`/`InstallationRun`. Il launch
-AWX (`POST .../awx/launch`) chiama il job template ma non registra nulla in Iris: niente
-storico, niente polling stato/log della run, niente step 5 del processo descritto nel doc
-("Iris registra esito e log della run"). Nessun pulsante Deploy nel client.
+**Actions / run history**: `InstallationRun` + `GET .../runs` esistono (vedi sopra). Manca:
+`PreparedAction` per la fase di preparazione (draft prima del launch), log completo della
+run oltre a `job_explanation`, polling di background (oggi si aggiorna solo quando qualcuno
+apre il dettaglio), e il pulsante Deploy + UI storico nel client MAUI.
 
 OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
 `OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di
@@ -308,7 +321,7 @@ andrebbe coperto). Grafana resta del tutto assente.
 `AddUserLocalPassword` -> `AddApplications` -> `AddServerCapacity` -> `AddUserSessions` ->
 `AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
 `AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery` ->
-`PersistApplicationManifestSemantics` -> `AddApplicationInstallations`.
+`PersistApplicationManifestSemantics` -> `AddApplicationInstallations` -> `AddInstallationRuns`.
 Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

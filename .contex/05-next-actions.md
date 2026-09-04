@@ -28,19 +28,34 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    capacità CPU/RAM insufficiente, vincoli servizio/versione sul data service legato.
    Da fare più avanti: UI MAUI del report, capability derivata dal runtime (non sempre
    `ServiceHost`), check disco, parser di versioni più completo, legame Customer/Context.
-10. **Actions - preparazione / run history** *(connettori fatti, esecuzione non tracciata)*:
-   gli adapter `OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore` esistono e
-   `POST /applications/installations/{id}/awx/launch` lancia il job template AWX, ma non
-   c'e' nessuna entita' che registri la run. Introdurre `InstallationRun`/`PreparedAction`
-   (stato Draft/Prepared/Pending/Running/Completed/Failed), persistere il launch, aggiungere
-   `GET .../runs` + polling stato/log da AWX, endpoint `test-connection` (`probe:true`) e il
-   pulsante Deploy nel client MAUI. Aggiungere test per `AnsibleExecutionPackageBuilder`.
+10. **Actions - preparazione / run history** *(run history v1 fatto)*: `InstallationRun` +
+   `GET /applications/installations/{id}/runs` + `GET .../runs/{runId}` (polling AWX
+   on-read). Il launch AWX persiste sempre una riga (Pending -> Submitted/Failed). Resta da
+   fare: `PreparedAction` (draft di preparazione prima del launch), polling di background,
+   log completo della run, endpoint `test-connection` (`probe:true`), pulsante Deploy +
+   storico nel client MAUI, test per `AnsibleExecutionPackageBuilder`.
 11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
 12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-04 - Run history AWX v1
+
+- `InstallationRun` (aggregato + enum `InstallationRunKind`/`InstallationRunStatus`),
+  `IInstallationRunRepository` + `InstallationRunRepository`, EF config + migrazione
+  `AddInstallationRuns` (SQLite + Postgres), area `Deployments` in
+  `TransactionLogInterceptor`.
+- `LaunchApplicationInstallationAwxJobHandler` ora persiste una riga per ogni tentativo:
+  `Pending` -> `MarkSubmitted` (successo) o `MarkFailed` + rethrow (AWX non configurato).
+  Risposta con `RunId`.
+- `ListInstallationRunsHandler` (`GET .../runs`) e `GetInstallationRunHandler`
+  (`GET .../runs/{runId}`, poll AWX on-read via nuovo `IAwxClient.GetJobStatusAsync` ->
+  `GET /api/v2/jobs/{id}/`; se AWX non raggiungibile il read non fallisce).
+- Test: `InstallationRunTests` (5, Domain), 4 handler (`Launch*`/`List*`/`Get*`),
+  3 API (`ApplicationsApiTests`: 403 launch reader, 404 runs, happy-path failed-run).
+  `dotnet test Iris.sln` 192/192 verde, build MAUI verde.
 
 ### 2026-09-04 - Validation Engine v1
 

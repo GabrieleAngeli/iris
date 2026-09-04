@@ -142,6 +142,35 @@ public static class ApplicationsEndpoints
             .WithSummary("Launches the configured AWX job template with the Iris Ansible deployment plan.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Write));
 
+        applications.MapGet("/installations/{installationId:guid}/runs", async (
+                Guid installationId,
+                ListInstallationRunsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new ListInstallationRunsQuery(installationId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ListInstallationRuns")
+            .WithSummary("Recorded deployment attempts (AWX job launches) for this installation, newest first.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Read));
+
+        applications.MapGet("/installations/{installationId:guid}/runs/{runId:guid}", async (
+                Guid installationId,
+                Guid runId,
+                GetInstallationRunHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new GetInstallationRunQuery(installationId, runId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("GetInstallationRun")
+            .WithSummary("One recorded deployment attempt; refreshes its status from AWX when still running.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Read));
+
         applications.MapPost("/{applicationId:guid}/versions", async (
                 Guid applicationId,
                 AddApplicationVersionRequest body,

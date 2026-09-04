@@ -69,6 +69,51 @@ internal sealed class AwxClient(AwxOptions options) : IAwxClient, IIntegrationCo
         return new AwxJobLaunchResult(id, status, url, null);
     }
 
+    public async Task<AwxJobStatusResult> GetJobStatusAsync(
+        string jobId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!options.IsConfigured)
+        {
+            throw new ValidationException("AWX is not configured. Set endpoint, token and job template id.");
+        }
+
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            throw new ValidationException("AWX job id is required.");
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            new Uri(new Uri(options.Endpoint!), $"/api/v2/jobs/{jobId}/"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.Token);
+
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the job status request ({(int)response.StatusCode}): {body}");
+        }
+
+        using var json = JsonDocument.Parse(body);
+        var root = json.RootElement;
+        var status = root.TryGetProperty("status", out var statusProperty)
+            ? statusProperty.GetString() ?? "unknown"
+            : "unknown";
+        var finished = root.TryGetProperty("finished", out var finishedProperty) &&
+            finishedProperty.ValueKind is not JsonValueKind.Null;
+        var failed = root.TryGetProperty("failed", out var failedProperty) &&
+            failedProperty.ValueKind == JsonValueKind.True;
+        var url = root.TryGetProperty("url", out var urlProperty)
+            ? new Uri(new Uri(options.Endpoint!), urlProperty.GetString() ?? string.Empty).ToString()
+            : null;
+        var message = root.TryGetProperty("job_explanation", out var explanationProperty)
+            ? explanationProperty.GetString()
+            : null;
+
+        return new AwxJobStatusResult(status, finished, finished && !failed, url, message);
+    }
+
     public async Task<IntegrationConnectorStatus> GetStatusAsync(
         bool probe = false,
         CancellationToken cancellationToken = default)

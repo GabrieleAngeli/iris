@@ -238,6 +238,85 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.NotFound, import.StatusCode);
     }
 
+    [Fact]
+    public async Task Reader_cannot_launch_an_installation_awx_job()
+    {
+        var response = await Reader().PostAsJsonAsync(
+            $"/applications/installations/{Guid.NewGuid()}/awx/launch", new { });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Installation_runs_for_an_unknown_installation_return_not_found()
+    {
+        var admin = Admin();
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await admin.GetAsync($"/applications/installations/{Guid.NewGuid()}/runs")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await admin.GetAsync($"/applications/installations/{Guid.NewGuid()}/runs/{Guid.NewGuid()}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Launching_a_deployment_records_a_failed_run_when_awx_is_not_configured()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+
+        var application = await (await admin.PostAsJsonAsync("/applications", new
+        {
+            name,
+            runtimeType = "CSharp",
+            repositoryUrl = $"https://git.example/{name}",
+            defaultBranch = "main",
+        })).Content.ReadFromJsonAsync<ApplicationDto>();
+
+        var version = await (await admin.PostAsJsonAsync($"/applications/{application!.Id}/versions", new
+        {
+            version = "1.0.0",
+            runtimeMetadata = new { runtimeName = "dotnet9", requiredPorts = new[] { 8080 } },
+        })).Content.ReadFromJsonAsync<VersionSummaryDto>();
+
+        var server = await (await admin.PostAsJsonAsync("/servers", new
+        {
+            name = $"{name}-node",
+            os = "Linux",
+            hostingType = "SelfHosted",
+            privateIpAddress = "10.0.5.5",
+            environment = "Production",
+        })).Content.ReadFromJsonAsync<IdOnlyDto>();
+
+        var installation = await (await admin.PostAsJsonAsync($"/applications/{application.Id}/installations", new
+        {
+            name = $"{name}-prd",
+            applicationVersionId = version!.Id,
+            serverNodeId = server!.Id,
+            environment = "Production",
+        })).Content.ReadFromJsonAsync<IdOnlyDto>();
+
+        // AWX is not configured in the test host: the launch is rejected...
+        var launch = await admin.PostAsJsonAsync(
+            $"/applications/installations/{installation!.Id}/awx/launch", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, launch.StatusCode);
+
+        // ...but the attempt is recorded as a failed run.
+        var runs = await admin.GetFromJsonAsync<List<InstallationRunDto>>(
+            $"/applications/installations/{installation.Id}/runs");
+        var run = Assert.Single(runs!);
+        Assert.Equal("Failed", run.Status);
+        Assert.True(run.IsTerminal);
+
+        var detail = await admin.GetAsync($"/applications/installations/{installation.Id}/runs/{run.Id}");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+    }
+
+    private sealed record IdOnlyDto(Guid Id);
+
+    private sealed record InstallationRunDto(Guid Id, string Status, bool IsTerminal);
+
     private sealed record RuntimeMetadataDto(string RuntimeName, string? PreferredOs, int? RequiredCpuCores, int? RequiredMemoryMb, List<int> RequiredPorts);
 
     private sealed record VersionSummaryDto(

@@ -1000,3 +1000,54 @@ verde.
 **Prossimo step**: esporre il report nel client MAUI sopra la lista installation, oppure
 tornare ad A (run history / polling AWX). Poi l'associazione completa Deployments con
 `Customer`/`CustomerContext`.
+
+---
+
+## 2026-09-04 - Run history AWX v1 (opzione A)
+
+**Classificazione**: feature domain/application/infrastructure/API - traccia l'esecuzione
+dei deployment lanciati verso AWX (era il pezzo su cui l'utente si era bloccato prima del
+Validation Engine).
+
+**Cosa e' successo**: aggiunto l'aggregato `InstallationRun`
+(`src/Iris.Domain/Applications/InstallationRun.cs`) con enum `InstallationRunKind`
+(`AwxJob`) e `InstallationRunStatus` (`Pending`/`Running`/`Succeeded`/`Failed`/`Canceled`,
+ultimi tre terminali). FK `Guid` verso `ApplicationInstallation` (coerente con come
+`ApplicationInstallation` stessa referenzia version/server). Metodi comportamentali
+`MarkSubmitted`/`UpdateStatus`/`MarkFailed`, tutti con `nowUtc` passato dall'handler
+(`IClock`), guardia sui terminali. `CompletedAtUtc` stampato una sola volta al primo stato
+terminale.
+
+- `LaunchApplicationInstallationAwxJobHandler` riscritto: compone il piano + package,
+  crea `InstallationRun(Pending)`, `SaveChanges` (la riga esiste anche se AWX fallisce),
+  poi `IAwxClient.LaunchAsync`. Successo -> `MarkSubmitted(jobId, url, FromAwxStatus(status),
+  message)` + `SaveChanges`. `ValidationException` da AWX -> `MarkFailed(ex.Message)` +
+  `SaveChanges` + rethrow (endpoint resta 400). La risposta
+  `ApplicationInstallationAwxLaunchResponse` ha ora `RunId` come primo campo.
+- `ListInstallationRunsHandler` -> `GET /applications/installations/{id}/runs`
+  (404 se l'installation non esiste, newest first).
+- `GetInstallationRunHandler` -> `GET .../runs/{runId}` (404 se il run non appartiene
+  all'installation): se il run non e' terminale e ha `ExternalJobId`, chiama il nuovo
+  `IAwxClient.GetJobStatusAsync` (GET `/api/v2/jobs/{id}/`, legge `status`/`finished`/
+  `failed`/`job_explanation`) e aggiorna lo stato; `ValidationException` (AWX non
+  configurato/irraggiungibile) viene assorbita, il read restituisce l'ultimo stato noto.
+- Persistenza: `IInstallationRunRepository` + `InstallationRunRepository` (filtra a DB,
+  ordina in memoria per `CreatedAtUtc` - stesso accorgimento di `UserSessionRepository`
+  per SQLite/`DateTimeOffset`), `InstallationRunConfiguration`, `DbSet` su `IrisDbContext`,
+  mapping `Deployments` in `TransactionLogInterceptor.AreaFor`. Migrazione
+  `AddInstallationRuns` generata per SQLite e Postgres; confrontate a mano, identiche per
+  colonne/tipi/indice (differiscono solo nei nomi di tipo nativi).
+
+**Decisioni / limiti noti**: nessun `PreparedAction` (fase di preparazione/draft) ancora;
+polling solo on-read (nessun job di background); niente log completo oltre a
+`job_explanation`; nessun pulsante Deploy / storico nel client MAUI; `AnsibleExecutionPackageBuilder`
+(logica pura in Infrastructure) ancora senza test dedicati.
+
+**Verificato**: `dotnet build Iris.sln` verde - 0 warning/0 errori; `dotnet test Iris.sln`
+verde - 192/192 (12 nuovi: 5 Domain `InstallationRunTests`, 4 Application handler, 3 API);
+`dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\scratchpad\verify-app-build\` verde.
+
+**Prossimo step**: portare in UI (MAUI) sia il report di validazione sia lo storico run +
+un pulsante Deploy; oppure `PreparedAction` + endpoint `test-connection` (`probe:true`).
+Poi l'associazione completa Deployments con `Customer`/`CustomerContext`.

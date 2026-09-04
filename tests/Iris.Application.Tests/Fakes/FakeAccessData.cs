@@ -1,5 +1,6 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
+using Iris.Application.Common;
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
@@ -26,6 +27,8 @@ internal sealed class FakeStore
     public List<ApplicationDefinition> Applications { get; } = [];
 
     public List<ApplicationInstallation> ApplicationInstallations { get; } = [];
+
+    public List<InstallationRun> InstallationRuns { get; } = [];
 
     public List<UserInvitation> Invitations { get; } = [];
 
@@ -94,6 +97,8 @@ internal sealed class FakeStore
     public FakeApplicationRepository ApplicationRepository => new(this);
 
     public FakeApplicationInstallationRepository ApplicationInstallationRepository => new(this);
+
+    public FakeInstallationRunRepository InstallationRunRepository => new(this);
 
     public FakeSecretStore SecretStore => new(this);
 
@@ -414,6 +419,80 @@ internal sealed class FakeApplicationInstallationRepository(FakeStore store) : I
         store.ApplicationInstallations.Add(installation);
         return Task.CompletedTask;
     }
+}
+
+internal sealed class FakeInstallationRunRepository(FakeStore store) : IInstallationRunRepository
+{
+    public Task<IReadOnlyList<InstallationRun>> GetForInstallationAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InstallationRun>>(store.InstallationRuns
+            .Where(run => run.ApplicationInstallationId == installationId)
+            .OrderByDescending(run => run.CreatedAtUtc)
+            .ToList());
+
+    public Task<InstallationRun?> GetAsync(Guid runId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.InstallationRuns.SingleOrDefault(run => run.Id == runId));
+
+    public Task<InstallationRun?> GetForUpdateAsync(Guid runId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.InstallationRuns.SingleOrDefault(run => run.Id == runId));
+
+    public Task AddAsync(InstallationRun run, CancellationToken cancellationToken = default)
+    {
+        store.InstallationRuns.Add(run);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Configurable stand-in for the AWX HTTP client.</summary>
+internal sealed class FakeAwxClient : IAwxClient
+{
+    public bool ThrowOnLaunch { get; set; }
+
+    public string LaunchFailureMessage { get; set; } = "AWX is not configured.";
+
+    public AwxJobLaunchResult LaunchResult { get; set; } = new(4242, "pending", "https://awx.example/#/jobs/4242", null);
+
+    public AwxJobStatusResult? JobStatus { get; set; }
+
+    public int LaunchCalls { get; private set; }
+
+    public int StatusCalls { get; private set; }
+
+    public Task<AwxJobLaunchResult> LaunchAsync(AwxJobLaunch launch, CancellationToken cancellationToken = default)
+    {
+        LaunchCalls++;
+        if (ThrowOnLaunch)
+        {
+            throw new ValidationException(LaunchFailureMessage);
+        }
+
+        return Task.FromResult(LaunchResult);
+    }
+
+    public Task<AwxJobStatusResult> GetJobStatusAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        StatusCalls++;
+        return JobStatus is null
+            ? throw new ValidationException("AWX is not configured.")
+            : Task.FromResult(JobStatus);
+    }
+}
+
+/// <summary>Trivial stand-in for the Ansible extra-vars builder (the real one lives in Iris.Infrastructure).</summary>
+internal sealed class FakeAnsibleExecutionPackageBuilder : IAnsibleExecutionPackageBuilder
+{
+    public AnsibleExecutionPackage Build(
+        Iris.Contracts.Applications.ApplicationInstallationAnsiblePlanResponse plan,
+        Iris.Contracts.Applications.ApplicationInstallationAwxLaunchRequest request) =>
+        new(
+            "iris-deploy-application.yml",
+            request.Inventory,
+            request.Limit,
+            request.CheckMode,
+            new Dictionary<string, object?>
+            {
+                ["iris_installation_id"] = plan.InstallationId.ToString(),
+                ["iris_application_slug"] = plan.ApplicationSlug,
+            });
 }
 
 /// <summary>Fake stand-in for OpenBao: records what was stored so tests can assert the raw secret never reaches the DB.</summary>

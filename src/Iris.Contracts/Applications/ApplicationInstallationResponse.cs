@@ -94,8 +94,24 @@ public sealed record ApplicationInstallationAwxLaunchRequest(
     bool CheckMode = false);
 
 public sealed record ApplicationInstallationAwxLaunchResponse(
+    Guid RunId,
     long JobId,
     string Status,
     string? Url,
     string? Message,
     IReadOnlyDictionary<string, string?> SubmittedVariablesPreview);
+
+/// <summary>One recorded deployment attempt for an installation (an AWX job launch).</summary>
+public sealed record InstallationRunResponse(
+    Guid Id,
+    Guid InstallationId,
+    string Kind,
+    string Status,
+    bool IsTerminal,
+    string? ExternalJobId,
+    string? ExternalUrl,
+    string? Message,
+    IReadOnlyDictionary<string, string?> SubmittedVariablesPreview,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    DateTimeOffset? CompletedAtUtc);
