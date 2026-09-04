@@ -70,6 +70,11 @@
                                         </VerticalStackLayout>
 
                                         <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Start">
+                                            <Button Text="&#xE710;" FontFamily="{StaticResource FontIcons}"
+                                                    Style="{StaticResource IconButton}"
+                                                    Command="{Binding RequestNewInstallationCommand}"
+                                                    IsVisible="{Binding CanManageDeployments}"
+                                                    ToolTipProperties.Text="Create installation binding" />
                                             <Button Text="&#xE898;" FontFamily="{StaticResource FontIcons}"
                                                     Style="{StaticResource IconButton}"
                                                     Command="{Binding UploadManifestCommand}"

@@ -2,6 +2,8 @@ using Iris.Application.Applications;
 using Iris.Application.Common;
 using Iris.Application.Tests.Fakes;
 using Iris.Contracts.Applications;
+using Iris.Domain.Infrastructure;
+using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Tests.Applications;
 
@@ -20,6 +22,9 @@ public sealed class ApplicationsHandlersTests
 
     private static ImportConfigurationPackageHandler ImportHandler(FakeStore store) =>
         new(store.ApplicationRepository, new FakeClock(Now), store.UnitOfWork);
+
+    private static CreateApplicationInstallationHandler CreateInstallationHandler(FakeStore store) =>
+        new(store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.ApplicationInstallationRepository, store.UnitOfWork);
 
     private static RuntimeMetadataRequest Runtime(string name = "dotnet9", string? os = "Linux") =>
         new(name, os, 2, 1024, [8080, 8443]);
@@ -281,5 +286,148 @@ public sealed class ApplicationsHandlersTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => new GetApplicationVersionDetailHandler(store.ApplicationRepository)
             .HandleAsync(new GetApplicationVersionDetailQuery(app.Id, Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task CreateApplicationInstallation_binds_a_release_unit_profile_to_a_server()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            "engine01.example",
+            ServerOs.Linux,
+            ServerHostingType.Cloud,
+            null,
+            "10.0.0.12",
+            ContextKind.Production);
+        var database = new DataServiceInstance(
+            Guid.CreateVersion7(),
+            "prd-pgsql01",
+            DataServiceKind.PostgreSql,
+            "prd-pgsql01.example",
+            5432,
+            "augeg4",
+            "secret:postgres",
+            "16",
+            "db.t3.medium",
+            1000,
+            ContextKind.Production);
+        store.WithServer(server);
+        store.DataServices.Add(database);
+
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "2026.09.03", "refs/tags/2026.09.03", Runtime("java17")));
+        await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
+            app.Id,
+            version.Id,
+            "1.1",
+            [new ConfigurationKeyInput(
+                "spring.datasource.url",
+                "application.properties",
+                true,
+                true,
+                null,
+                "PostgreSQL connection string",
+                "{database}",
+                "domain.augeg4.postgres.connectionString",
+                "connectionString",
+                null,
+                "serviceReference",
+                null,
+                """{"kind":"serviceReference","serviceKind":"postgresql"}""")],
+            [new DependencyInput(
+                "postgres",
+                "database",
+                true,
+                "Application database",
+                "domain.augeg4.postgres.connectionString")],
+            [],
+            [],
+            [new ApplicationUnitInput(
+                "augeg4.engine.master",
+                "AugeG4 engine master",
+                "service",
+                "com.algorab.augeg4.Master",
+                "bin/augeg4-engine.jar",
+                ["linux-service", "docker"],
+                ["master"])],
+            [new InstallationProfileInput("master", "Master", true, false, ["spring.datasource.url"])],
+            []));
+
+        var savesBeforeInstallation = store.SaveChangesCalls;
+        var created = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            app.Id,
+            "augeg4-engine-master-prd",
+            version.Id,
+            server.Id,
+            "Production",
+            "augeg4.engine.master",
+            "master",
+            "primary installation",
+            [new ApplicationInstallationBindingInput(
+                "domain.augeg4.postgres.connectionString",
+                "dataService",
+                database.Id,
+                null,
+                "prd-pgsql01 - PostgreSql",
+                null)]));
+
+        Assert.Equal("AugeG4 Engine", created.ApplicationName);
+        Assert.Equal("2026.09.03", created.Version);
+        Assert.Equal("engine01", created.ServerName);
+        Assert.Equal("augeg4.engine.master", created.ApplicationUnitKey);
+        Assert.Equal("master", created.InstallationProfileKey);
+        var binding = Assert.Single(created.Bindings);
+        Assert.Equal("dataService", binding.TargetKind);
+        Assert.Equal(database.Id, binding.TargetId);
+        Assert.Single(store.ApplicationInstallations);
+        Assert.Equal(savesBeforeInstallation + 1, store.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task CreateApplicationInstallation_rejects_unit_not_declared_by_the_manifest()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(),
+            "engine01",
+            null,
+            ServerOs.Linux,
+            ServerHostingType.Cloud,
+            null,
+            null,
+            ContextKind.Production);
+        store.WithServer(server);
+
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "2026.09.03", "refs/tags/2026.09.03", Runtime("java17")));
+        await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
+            app.Id,
+            version.Id,
+            "1.1",
+            [],
+            [],
+            [],
+            [],
+            [new ApplicationUnitInput("augeg4.engine.master", "Master", "service", null, null, null, null)],
+            [],
+            []));
+
+        await Assert.ThrowsAsync<ValidationException>(() => CreateInstallationHandler(store).HandleAsync(
+            new CreateApplicationInstallationCommand(
+                app.Id,
+                "bad-installation",
+                version.Id,
+                server.Id,
+                "Production",
+                "augeg4.engine.slave",
+                null,
+                null,
+                [])));
     }
 }

@@ -81,6 +81,9 @@ public static class DependencyInjection
         services.TryAddScoped<ImportConfigurationPackageHandler>();
         services.TryAddScoped<ListApplicationsHandler>();
         services.TryAddScoped<GetApplicationVersionDetailHandler>();
+        services.TryAddScoped<ListApplicationInstallationsHandler>();
+        services.TryAddScoped<CreateApplicationInstallationHandler>();
+        services.TryAddScoped<GetApplicationInstallationAnsiblePlanHandler>();
 
         return services;
     }

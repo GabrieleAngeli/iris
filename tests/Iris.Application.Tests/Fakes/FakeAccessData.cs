@@ -25,6 +25,8 @@ internal sealed class FakeStore
 
     public List<ApplicationDefinition> Applications { get; } = [];
 
+    public List<ApplicationInstallation> ApplicationInstallations { get; } = [];
+
     public List<UserInvitation> Invitations { get; } = [];
 
     public List<UserSession> Sessions { get; } = [];
@@ -90,6 +92,8 @@ internal sealed class FakeStore
     public FakeDataServiceRepository DataServiceRepository => new(this);
 
     public FakeApplicationRepository ApplicationRepository => new(this);
+
+    public FakeApplicationInstallationRepository ApplicationInstallationRepository => new(this);
 
     public FakeSecretStore SecretStore => new(this);
 
@@ -393,6 +397,21 @@ internal sealed class FakeApplicationRepository(FakeStore store) : IApplicationR
     public Task AddAsync(ApplicationDefinition application, CancellationToken cancellationToken = default)
     {
         store.Applications.Add(application);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeApplicationInstallationRepository(FakeStore store) : IApplicationInstallationRepository
+{
+    public Task<IReadOnlyList<ApplicationInstallation>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ApplicationInstallation>>(store.ApplicationInstallations.ToList());
+
+    public Task<ApplicationInstallation?> GetAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.ApplicationInstallations.SingleOrDefault(i => i.Id == installationId));
+
+    public Task AddAsync(ApplicationInstallation installation, CancellationToken cancellationToken = default)
+    {
+        store.ApplicationInstallations.Add(installation);
         return Task.CompletedTask;
     }
 }

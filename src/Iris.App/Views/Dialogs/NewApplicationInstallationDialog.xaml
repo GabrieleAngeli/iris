@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.NewApplicationInstallationDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ApplicationRowViewModel"
+    Title="New installation">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding Name, StringFormat='Install {0}'}" Style="{StaticResource Subtitle}" />
+                    <Label Text="Choose the release, launch unit and target server. Then bind the manifest placeholders to concrete Iris resources." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border IsVisible="{Binding HasInstallError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1"
+                        Padding="12,10"
+                        StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding InstallError}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="Release" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding VersionOptions}"
+                                        SelectedItem="{Binding SelectedInstallVersion}">
+                                    <Picker.ItemDisplayBinding>
+                                        <Binding Path="DisplayName" x:DataType="vm:ApplicationVersionOptionViewModel" />
+                                    </Picker.ItemDisplayBinding>
+                                </Picker>
+                            </Border>
+                            <Label Text="{Binding SelectedInstallVersion.Detail}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="5">
+                            <Label Text="Target server" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding InstallServerOptions}"
+                                        SelectedItem="{Binding SelectedInstallServer}">
+                                    <Picker.ItemDisplayBinding>
+                                        <Binding Path="DisplayName" x:DataType="vm:ServerOptionViewModel" />
+                                    </Picker.ItemDisplayBinding>
+                                </Picker>
+                            </Border>
+                            <Label Text="{Binding SelectedInstallServer.Detail}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding HasInstallUnitOptions}">
+                            <Label Text="Application unit" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding InstallUnitOptions}"
+                                        SelectedItem="{Binding SelectedInstallUnit}">
+                                    <Picker.ItemDisplayBinding>
+                                        <Binding Path="DisplayName" x:DataType="vm:ApplicationUnitOptionViewModel" />
+                                    </Picker.ItemDisplayBinding>
+                                </Picker>
+                            </Border>
+                            <Label Text="{Binding SelectedInstallUnit.Detail}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="5" IsVisible="{Binding HasInstallProfileOptions}">
+                            <Label Text="Install profile" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding InstallProfileOptions}"
+                                        SelectedItem="{Binding SelectedInstallProfile}">
+                                    <Picker.ItemDisplayBinding>
+                                        <Binding Path="DisplayName" x:DataType="vm:InstallationProfileOptionViewModel" />
+                                    </Picker.ItemDisplayBinding>
+                                </Picker>
+                            </Border>
+                            <Label Text="{Binding SelectedInstallProfile.Detail}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="2" Spacing="5">
+                            <Label Text="Installation name" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding InstallName}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="2" Grid.Column="1" Spacing="5">
+                            <Label Text="Notes" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Entry Text="{Binding InstallNotes}" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border IsVisible="{Binding HasInstallationBindings}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <VerticalStackLayout Spacing="12">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Bindings" FontFamily="{StaticResource FontSemibold}" FontSize="13" />
+                            <Label Text="Application links were resolved during manifest import; service references are selected for this concrete installation." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="10"
+                                             BindableLayout.ItemsSource="{Binding InstallationBindings}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InstallationBindingViewModel">
+                                    <Grid ColumnDefinitions="*,280" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                                        <VerticalStackLayout Spacing="3">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Title}" FontFamily="{StaticResource FontSemibold}" FontSize="12" />
+                                                <Border Style="{StaticResource Badge}">
+                                                    <Label Text="{Binding Category}" Style="{StaticResource Caption}" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge}">
+                                                    <Label Text="{Binding RequiredText}" Style="{StaticResource Caption}" />
+                                                </Border>
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding PlaceholderKey}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Description}" Style="{StaticResource Caption}" IsVisible="{Binding HasDescription}" />
+                                            <Label Text="{Binding TargetText}" Style="{StaticResource Caption}" />
+                                        </VerticalStackLayout>
+
+                                        <Border Grid.Column="1" Style="{StaticResource FieldBorder}" IsVisible="{Binding IsDataServiceBinding}">
+                                            <Picker ItemsSource="{Binding DataServiceOptions}"
+                                                    SelectedItem="{Binding SelectedDataService}">
+                                                <Picker.ItemDisplayBinding>
+                                                    <Binding Path="DisplayName" x:DataType="vm:DataServiceOptionViewModel" />
+                                                </Picker.ItemDisplayBinding>
+                                            </Picker>
+                                        </Border>
+
+                                        <Label Grid.Row="1" Grid.ColumnSpan="2"
+                                               Text="{Binding StatusText}"
+                                               Style="{StaticResource Caption}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border IsVisible="{Binding HasNoInstallationBindings}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                        StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                    <Label Text="This manifest has no service-reference bindings to complete for the selected release." Style="{StaticResource Caption}" />
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsPreparingInstallation}" IsVisible="{Binding IsPreparingInstallation}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Create" Command="{Binding CreateInstallationCommand}"
+                    IsEnabled="{Binding IsCreatingInstallation, Converter={StaticResource InvertBoolConverter}}" />
+        </Grid>
+    </Grid>
+</ContentPage>

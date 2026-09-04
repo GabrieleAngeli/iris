@@ -44,6 +44,29 @@ environment, server, data service, application collegate, profilo installativo e
    data service, eventuali istanze multiple, profili master/slave e collegamenti concreti.
 6. Il compiler compone i match mancanti e produce il file finale per ogni istanza.
 
+## Stato implementativo corrente
+
+Implementato un primo slice del punto 5:
+
+- dominio `ApplicationInstallation`, collegato a application, release/versione,
+  application unit, installation profile e server target;
+- binding per placeholder verso risorse Iris concrete, oggi applicazioni logiche e data
+  service;
+- endpoint:
+  - `GET /applications/installations`;
+  - `POST /applications/{applicationId}/installations`;
+- persistenza SQLite/PostgreSQL con migration dedicate;
+- transaction log in area `Deployments`;
+- UI per creare una nuova installazione dalla tile della singola application, scegliendo
+  release, unit, profile, server e binding dei service-reference verso data service
+  censiti.
+
+Da completare: il compiler che trasforma una `ApplicationInstallation` in file finali
+per istanza (`application.properties`, `AppSettings.config`, env, template Ansible,
+systemd/container config) e la selezione di una installazione provider quando una
+dependency applicativa deve puntare non solo all'application logica ma a una sua istanza
+specifica.
+
 Esempio:
 
 ```text

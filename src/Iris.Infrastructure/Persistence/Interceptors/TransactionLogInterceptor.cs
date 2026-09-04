@@ -135,6 +135,11 @@ public sealed class TransactionLogInterceptor(
             return "Applications";
         }
 
+        if (type == typeof(ApplicationInstallation) || type == typeof(ApplicationInstallationBinding))
+        {
+            return "Deployments";
+        }
+
         if (type == typeof(MailProviderSettings))
         {
             return "Settings";

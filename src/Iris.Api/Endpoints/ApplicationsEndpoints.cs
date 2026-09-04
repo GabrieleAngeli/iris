@@ -17,6 +17,12 @@ public static class ApplicationsEndpoints
             .WithSummary("The application catalog, with each version's configuration knowledge in summary form.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Read));
 
+        applications.MapGet("/installations", async (ListApplicationInstallationsHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.HandleAsync(new ListApplicationInstallationsQuery(), ct).ConfigureAwait(false)))
+            .WithName("ListApplicationInstallations")
+            .WithSummary("Application installations bound to infrastructure targets.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Read));
+
         applications.MapPost("", async (
                 CreateApplicationRequest body,
                 CreateApplicationHandler handler,
@@ -68,6 +74,44 @@ public static class ApplicationsEndpoints
             .WithName("UpdateApplication")
             .WithSummary("Update application inventory metadata. The slug remains stable.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Write));
+
+        applications.MapPost("/{applicationId:guid}/installations", async (
+                Guid applicationId,
+                CreateApplicationInstallationRequest body,
+                CreateApplicationInstallationHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new CreateApplicationInstallationCommand(
+                        applicationId,
+                        body.Name,
+                        body.ApplicationVersionId,
+                        body.ServerNodeId,
+                        body.Environment,
+                        body.ApplicationUnitKey,
+                        body.InstallationProfileKey,
+                        body.Notes,
+                        body.Bindings), ct)
+                    .ConfigureAwait(false);
+                return Results.Created($"/applications/installations/{result.Id}", result);
+            })
+            .WithName("CreateApplicationInstallation")
+            .WithSummary("Bind an application version/unit/profile to an infrastructure target.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Write));
+
+        applications.MapGet("/installations/{installationId:guid}/ansible-vars", async (
+                Guid installationId,
+                GetApplicationInstallationAnsiblePlanHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new GetApplicationInstallationAnsiblePlanQuery(installationId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("GetApplicationInstallationAnsibleVars")
+            .WithSummary("Variables and template targets for rendering this installation through Ansible Jinja2 templates.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Deployments.Read));
 
         applications.MapPost("/{applicationId:guid}/versions", async (
                 Guid applicationId,

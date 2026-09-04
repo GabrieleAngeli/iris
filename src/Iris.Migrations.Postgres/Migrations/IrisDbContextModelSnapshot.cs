@@ -344,6 +344,102 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.ToTable("Applications", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationInstallation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApplicationUnitKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("ApplicationVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("InstallationProfileKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("ServerNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.HasIndex("ApplicationVersionId");
+
+                    b.HasIndex("ServerNodeId");
+
+                    b.ToTable("ApplicationInstallations", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationInstallationBinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationInstallationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PlaceholderKey")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("TargetSlug")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ValuePreview")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationInstallationId");
+
+                    b.ToTable("ApplicationInstallationBindings", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationUnitDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1040,6 +1136,15 @@ namespace Iris.Migrations.Postgres.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationInstallationBinding", b =>
+                {
+                    b.HasOne("Iris.Domain.Applications.ApplicationInstallation", null)
+                        .WithMany("Bindings")
+                        .HasForeignKey("ApplicationInstallationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationUnitDefinition", b =>
                 {
                     b.HasOne("Iris.Domain.Applications.ApplicationVersion", null)
@@ -1222,6 +1327,11 @@ namespace Iris.Migrations.Postgres.Migrations
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationDefinition", b =>
                 {
                     b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.ApplicationInstallation", b =>
+                {
+                    b.Navigation("Bindings");
                 });
 
             modelBuilder.Entity("Iris.Domain.Applications.ApplicationVersion", b =>

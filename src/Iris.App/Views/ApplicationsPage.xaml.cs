@@ -23,6 +23,9 @@ public partial class ApplicationsPage : ContentPage
 
 		_vm.ImportManifestRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new ImportManifestDialog(row), "dlg.import-manifest", 720, 640);
+
+		_vm.NewApplicationInstallationRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new NewApplicationInstallationDialog(row), "dlg.new-application-installation", 820, 720);
 	}
 
 	protected override void OnAppearing()

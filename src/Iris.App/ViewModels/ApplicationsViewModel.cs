@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
 using Iris.Contracts.Applications;
+using Iris.Contracts.Infrastructure;
 
 namespace Iris.App.ViewModels;
 
@@ -12,6 +13,7 @@ public partial class ApplicationsViewModel : ObservableObject
 	private const string ReadPermission = "applications.read";
 	private const string WritePermission = "applications.write";
 	private const string ImportPermission = "applications.import";
+	private const string DeploymentsWritePermission = "deployments.write";
 
 	private readonly IIrisApiClient _api;
 	private readonly IAuthService _auth;
@@ -36,6 +38,8 @@ public partial class ApplicationsViewModel : ObservableObject
 	public bool CanManageApplications => _auth.Me?.EffectivePermissions.Contains(WritePermission) == true;
 
 	public bool CanImportApplicationKnowledge => _auth.Me?.EffectivePermissions.Contains(ImportPermission) == true;
+
+	public bool CanManageDeployments => _auth.Me?.EffectivePermissions.Contains(DeploymentsWritePermission) == true;
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
@@ -89,6 +93,10 @@ public partial class ApplicationsViewModel : ObservableObject
 	public event EventHandler<ApplicationRowViewModel>? ImportManifestRequested;
 
 	public void RaiseImportManifestRequested(ApplicationRowViewModel row) => ImportManifestRequested?.Invoke(this, row);
+
+	public event EventHandler<ApplicationRowViewModel>? NewApplicationInstallationRequested;
+
+	public void RaiseNewApplicationInstallationRequested(ApplicationRowViewModel row) => NewApplicationInstallationRequested?.Invoke(this, row);
 
 	internal Task ReloadAsync() => RefreshAsync();
 
@@ -418,6 +426,232 @@ public sealed partial class ManifestAssociationViewModel : ObservableObject
 		OnPropertyChanged(nameof(IsResolved));
 		OnPropertyChanged(nameof(IsUnresolvedRequired));
 		OnPropertyChanged(nameof(StatusText));
+	}
+}
+
+public sealed class ApplicationVersionOptionViewModel(ApplicationVersionSummaryResponse version)
+{
+	public Guid Id { get; } = version.Id;
+
+	public string Version { get; } = version.Version;
+
+	public string? SourceReference { get; } = version.SourceReference;
+
+	public RuntimeMetadataResponse RuntimeMetadata { get; } = version.RuntimeMetadata;
+
+	public DateTimeOffset? LastImportedAtUtc { get; } = version.LastImportedAtUtc;
+
+	public string DisplayName => string.IsNullOrWhiteSpace(SourceReference)
+		? Version
+		: $"{Version} - {SourceReference}";
+
+	public string Detail => $"{RuntimeMetadata.RuntimeName} | {version.ApplicationUnitCount} unit(s) | {version.InstallationProfileCount} profile(s)";
+}
+
+public sealed class ApplicationUnitOptionViewModel(ApplicationUnitResponse unit)
+{
+	public string Key { get; } = unit.Key;
+
+	public string DisplayName { get; } = string.IsNullOrWhiteSpace(unit.DisplayName)
+		? unit.Key
+		: $"{unit.DisplayName} ({unit.Key})";
+
+	public string Detail { get; } = string.Join(" | ", new[]
+	{
+		unit.Kind,
+		unit.EntryPoint,
+		unit.ArtifactPath,
+		unit.ExecutionTargets.Count == 0 ? null : string.Join(", ", unit.ExecutionTargets)
+	}.Where(value => !string.IsNullOrWhiteSpace(value)))!;
+}
+
+public sealed class InstallationProfileOptionViewModel(InstallationProfileResponse profile)
+{
+	public string Key { get; } = profile.Key;
+
+	public bool Required { get; } = profile.Required;
+
+	public string DisplayName { get; } = string.IsNullOrWhiteSpace(profile.DisplayName)
+		? profile.Key
+		: $"{profile.DisplayName} ({profile.Key})";
+
+	public string Detail => profile.ConfigurationKeys.Count == 0
+		? "No scoped keys"
+		: $"{profile.ConfigurationKeys.Count} scoped key(s)";
+}
+
+public sealed class ServerOptionViewModel(ServerResponse server)
+{
+	public Guid Id { get; } = server.Id;
+
+	public string Name { get; } = server.Name;
+
+	public string Environment { get; } = server.Environment;
+
+	public string DisplayName => $"{server.Name} - {server.Environment}";
+
+	public string Detail
+	{
+		get
+		{
+			var os = string.IsNullOrWhiteSpace(server.OsVersion)
+				? server.Os
+				: $"{server.Os} {server.OsVersion}";
+			var resources = server.Resources is null
+				? "resources unknown"
+				: $"{server.Resources.CpuCores?.ToString(CultureInfo.InvariantCulture) ?? "-"} CPU, {server.Resources.MemoryMb?.ToString(CultureInfo.InvariantCulture) ?? "-"} MB, {server.Resources.ApplicationDiskGb?.ToString(CultureInfo.InvariantCulture) ?? server.Resources.DiskGb?.ToString(CultureInfo.InvariantCulture) ?? "-"} GB app";
+			return $"{server.HostingType} | {os} | {resources}";
+		}
+	}
+}
+
+public sealed class DataServiceOptionViewModel(DataServiceResponse service)
+{
+	public Guid Id { get; } = service.Id;
+
+	public string Name { get; } = service.Name;
+
+	public string Kind { get; } = service.Kind;
+
+	public string DisplayName => $"{service.Name} - {service.Kind}";
+
+	public string Detail
+	{
+		get
+		{
+			var endpoint = service.Port is null
+				? service.Endpoint
+				: $"{service.Endpoint}:{service.Port}";
+			var version = string.IsNullOrWhiteSpace(service.Version) ? "version unknown" : service.Version;
+			return $"{service.Environment} | {endpoint} | {version}";
+		}
+	}
+}
+
+public sealed partial class InstallationBindingViewModel : ObservableObject
+{
+	private InstallationBindingViewModel(
+		string title,
+		string category,
+		string placeholderKey,
+		bool required,
+		string targetKind,
+		string? description,
+		string? providerApplicationSlug,
+		string? providerPlaceholderKey,
+		ObservableCollection<DataServiceOptionViewModel>? dataServiceOptions)
+	{
+		Title = title;
+		Category = category;
+		PlaceholderKey = placeholderKey;
+		Required = required;
+		TargetKind = targetKind;
+		Description = description;
+		ProviderApplicationSlug = providerApplicationSlug;
+		ProviderPlaceholderKey = providerPlaceholderKey;
+		DataServiceOptions = dataServiceOptions ?? [];
+	}
+
+	public string Title { get; }
+
+	public string Category { get; }
+
+	public string PlaceholderKey { get; }
+
+	public bool Required { get; }
+
+	public string TargetKind { get; }
+
+	public string? Description { get; }
+
+	public string? ProviderApplicationSlug { get; }
+
+	public string? ProviderPlaceholderKey { get; }
+
+	public ObservableCollection<DataServiceOptionViewModel> DataServiceOptions { get; }
+
+	[ObservableProperty] private DataServiceOptionViewModel? _selectedDataService;
+
+	public bool IsDataServiceBinding => string.Equals(TargetKind, "dataService", StringComparison.OrdinalIgnoreCase);
+
+	public bool IsApplicationBinding => string.Equals(TargetKind, "application", StringComparison.OrdinalIgnoreCase);
+
+	public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+	public bool IsMissingRequired => Required && IsDataServiceBinding && SelectedDataService is null;
+
+	public string RequiredText => Required ? "Required" : "Optional";
+
+	public string TargetText => IsApplicationBinding
+		? $"Application: {ProviderApplicationSlug ?? "not resolved"}"
+		: "Data service";
+
+	public string StatusText => IsApplicationBinding
+		? $"Resolved by manifest association ({ProviderPlaceholderKey ?? PlaceholderKey})"
+		: SelectedDataService is null
+			? "Select the concrete service for this installation"
+			: SelectedDataService.Detail;
+
+	partial void OnSelectedDataServiceChanged(DataServiceOptionViewModel? value)
+	{
+		OnPropertyChanged(nameof(IsMissingRequired));
+		OnPropertyChanged(nameof(StatusText));
+	}
+
+	public static InstallationBindingViewModel ForApplication(
+		string title,
+		string category,
+		string? placeholderKey,
+		bool required,
+		string? providerApplicationSlug,
+		string? providerPlaceholderKey) =>
+		new(
+			title,
+			category,
+			placeholderKey ?? providerPlaceholderKey ?? title,
+			required,
+			"application",
+			null,
+			providerApplicationSlug,
+			providerPlaceholderKey,
+			null);
+
+	public static InstallationBindingViewModel ForDataService(
+		string title,
+		string category,
+		string placeholderKey,
+		bool required,
+		string? description,
+		ObservableCollection<DataServiceOptionViewModel> dataServiceOptions) =>
+		new(title, category, placeholderKey, required, "dataService", description, null, null, dataServiceOptions);
+
+	public ApplicationInstallationBindingInput? ToInput()
+	{
+		if (IsApplicationBinding)
+		{
+			return string.IsNullOrWhiteSpace(ProviderApplicationSlug)
+				? null
+				: new ApplicationInstallationBindingInput(
+					PlaceholderKey,
+					"application",
+					null,
+					ProviderApplicationSlug,
+					ProviderPlaceholderKey,
+					null);
+		}
+
+		if (SelectedDataService is null)
+		{
+			return null;
+		}
+
+		return new ApplicationInstallationBindingInput(
+			PlaceholderKey,
+			"dataService",
+			SelectedDataService.Id,
+			null,
+			SelectedDataService.DisplayName,
+			Description);
 	}
 }
 
@@ -1807,6 +2041,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	public bool CanImportApplicationKnowledge => _parent.CanImportApplicationKnowledge;
 
+	public bool CanManageDeployments => _parent.CanManageDeployments;
+
 	[ObservableProperty] private string _name = string.Empty;
 	[ObservableProperty] private string _slug = string.Empty;
 	[ObservableProperty] private string _runtimeType = string.Empty;
@@ -1828,8 +2064,30 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private ManifestValidationViewModel? _manifestValidation;
 	[ObservableProperty] private bool _isImportingManifest;
 	[ObservableProperty] private string? _importManifestError;
+	[ObservableProperty] private ApplicationVersionOptionViewModel? _selectedInstallVersion;
+	[ObservableProperty] private ApplicationUnitOptionViewModel? _selectedInstallUnit;
+	[ObservableProperty] private InstallationProfileOptionViewModel? _selectedInstallProfile;
+	[ObservableProperty] private ServerOptionViewModel? _selectedInstallServer;
+	[ObservableProperty] private string _installName = string.Empty;
+	[ObservableProperty] private string _installNotes = string.Empty;
+	[ObservableProperty] private bool _isPreparingInstallation;
+	[ObservableProperty] private bool _isCreatingInstallation;
+	[ObservableProperty] private string? _installError;
+	private int _installationDetailRequestId;
 
 	public ObservableCollection<ManifestAssociationViewModel> ManifestAssociations { get; } = [];
+
+	public ObservableCollection<ApplicationVersionOptionViewModel> VersionOptions { get; } = [];
+
+	public ObservableCollection<ApplicationUnitOptionViewModel> InstallUnitOptions { get; } = [];
+
+	public ObservableCollection<InstallationProfileOptionViewModel> InstallProfileOptions { get; } = [];
+
+	public ObservableCollection<ServerOptionViewModel> InstallServerOptions { get; } = [];
+
+	public ObservableCollection<DataServiceOptionViewModel> InstallDataServiceOptions { get; } = [];
+
+	public ObservableCollection<InstallationBindingViewModel> InstallationBindings { get; } = [];
 
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
@@ -1850,6 +2108,18 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	public bool HasManifestAssociations => ManifestAssociations.Count > 0;
 
 	public bool HasUnresolvedRequiredManifestAssociations => ManifestAssociations.Any(association => association.IsUnresolvedRequired);
+
+	public bool HasInstallError => !string.IsNullOrWhiteSpace(InstallError);
+
+	public bool HasInstallUnitOptions => InstallUnitOptions.Count > 0;
+
+	public bool HasInstallProfileOptions => InstallProfileOptions.Count > 0;
+
+	public bool HasInstallationBindings => InstallationBindings.Count > 0;
+
+	public bool HasNoInstallationBindings => !HasInstallationBindings;
+
+	public bool CanRequestNewInstallation => CanManageDeployments && VersionOptions.Count > 0;
 
 	public bool HasArtifact => !string.IsNullOrWhiteSpace(ArtifactProvider) ||
 		!string.IsNullOrWhiteSpace(ArtifactFeed) ||
@@ -1881,6 +2151,23 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	partial void OnImportManifestErrorChanged(string? value) => OnPropertyChanged(nameof(HasImportManifestError));
 
+	partial void OnInstallErrorChanged(string? value) => OnPropertyChanged(nameof(HasInstallError));
+
+	partial void OnSelectedInstallVersionChanged(ApplicationVersionOptionViewModel? value)
+	{
+		SetDefaultInstallName();
+		if (value is not null)
+		{
+			_ = LoadInstallVersionDetailAsync(value);
+		}
+	}
+
+	partial void OnSelectedInstallUnitChanged(ApplicationUnitOptionViewModel? value) => SetDefaultInstallName();
+
+	partial void OnSelectedInstallProfileChanged(InstallationProfileOptionViewModel? value) => SetDefaultInstallName();
+
+	partial void OnSelectedInstallServerChanged(ServerOptionViewModel? value) => SetDefaultInstallName();
+
 	private void ApplyFrom(ApplicationResponse application)
 	{
 		Name = application.Name;
@@ -1903,11 +2190,293 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 			.Select(v => v.LastImportedAtUtc)
 			.Max();
 
+		VersionOptions.Clear();
+		foreach (var version in application.Versions
+			.OrderByDescending(v => v.LastImportedAtUtc ?? DateTimeOffset.MinValue)
+			.ThenByDescending(v => v.Version, StringComparer.OrdinalIgnoreCase))
+		{
+			VersionOptions.Add(new ApplicationVersionOptionViewModel(version));
+		}
+
 		OnPropertyChanged(nameof(VersionCountText));
 		OnPropertyChanged(nameof(KnowledgeSummary));
 		OnPropertyChanged(nameof(LastImportText));
 		OnPropertyChanged(nameof(HasArtifact));
 		OnPropertyChanged(nameof(ArtifactSummary));
+		OnPropertyChanged(nameof(CanRequestNewInstallation));
+		RequestNewInstallationCommand.NotifyCanExecuteChanged();
+	}
+
+	[RelayCommand(CanExecute = nameof(CanRequestNewInstallation))]
+	private async Task RequestNewInstallationAsync()
+	{
+		ResetInstallationDraft();
+		_parent.RaiseNewApplicationInstallationRequested(this);
+		await PrepareInstallationAsync();
+	}
+
+	private void ResetInstallationDraft()
+	{
+		InstallName = string.Empty;
+		InstallNotes = string.Empty;
+		InstallError = null;
+		SelectedInstallUnit = null;
+		SelectedInstallProfile = null;
+		SelectedInstallServer = null;
+		InstallUnitOptions.Clear();
+		InstallProfileOptions.Clear();
+		InstallServerOptions.Clear();
+		InstallDataServiceOptions.Clear();
+		InstallationBindings.Clear();
+		NotifyInstallationCollectionsChanged();
+		SelectedInstallVersion = VersionOptions.FirstOrDefault();
+	}
+
+	private async Task PrepareInstallationAsync()
+	{
+		IsPreparingInstallation = true;
+		InstallError = null;
+
+		try
+		{
+			var serversTask = _api.GetServersAsync();
+			var dataServicesTask = _api.GetDataServicesAsync();
+			var servers = await serversTask;
+			var dataServices = await dataServicesTask;
+
+			InstallServerOptions.Clear();
+			foreach (var server in servers.Where(s => s.IsActive).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
+			{
+				InstallServerOptions.Add(new ServerOptionViewModel(server));
+			}
+
+			InstallDataServiceOptions.Clear();
+			foreach (var service in dataServices.Where(s => s.IsActive).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
+			{
+				InstallDataServiceOptions.Add(new DataServiceOptionViewModel(service));
+			}
+
+			SelectedInstallServer = InstallServerOptions.FirstOrDefault();
+
+			if (SelectedInstallVersion is { } version)
+			{
+				await LoadInstallVersionDetailAsync(version);
+			}
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			InstallError = ex.Message;
+		}
+		finally
+		{
+			IsPreparingInstallation = false;
+		}
+	}
+
+	private async Task LoadInstallVersionDetailAsync(ApplicationVersionOptionViewModel version)
+	{
+		var requestId = Interlocked.Increment(ref _installationDetailRequestId);
+		IsPreparingInstallation = true;
+		InstallError = null;
+
+		try
+		{
+			var detail = await _api.GetApplicationVersionDetailAsync(_applicationId, version.Id);
+			if (requestId != _installationDetailRequestId)
+			{
+				return;
+			}
+
+			InstallUnitOptions.Clear();
+			foreach (var unit in detail.ApplicationUnits.OrderBy(u => u.Key, StringComparer.OrdinalIgnoreCase))
+			{
+				InstallUnitOptions.Add(new ApplicationUnitOptionViewModel(unit));
+			}
+
+			InstallProfileOptions.Clear();
+			foreach (var profile in detail.InstallationProfiles.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
+			{
+				InstallProfileOptions.Add(new InstallationProfileOptionViewModel(profile));
+			}
+
+			InstallationBindings.Clear();
+			foreach (var binding in BuildInstallationBindingRows(detail))
+			{
+				InstallationBindings.Add(binding);
+			}
+
+			SelectedInstallUnit = InstallUnitOptions.FirstOrDefault();
+			SelectedInstallProfile = InstallProfileOptions.FirstOrDefault(profile => profile.Required) ?? InstallProfileOptions.FirstOrDefault();
+			NotifyInstallationCollectionsChanged();
+			SetDefaultInstallName();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			if (requestId == _installationDetailRequestId)
+			{
+				InstallError = ex.Message;
+			}
+		}
+		finally
+		{
+			if (requestId == _installationDetailRequestId)
+			{
+				IsPreparingInstallation = false;
+			}
+		}
+	}
+
+	private IEnumerable<InstallationBindingViewModel> BuildInstallationBindingRows(ApplicationVersionDetailResponse detail)
+	{
+		var rows = new List<InstallationBindingViewModel>();
+		foreach (var dependency in detail.Dependencies.Where(IsApplicationDependencyResponse))
+		{
+			rows.Add(InstallationBindingViewModel.ForApplication(
+				dependency.Name,
+				dependency.Category,
+				dependency.PlaceholderKey,
+				dependency.Required,
+				dependency.ProviderApplicationSlug,
+				dependency.ProviderPlaceholderKey));
+		}
+
+		var dependencyPlaceholders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var dependency in detail.Dependencies.Where(IsDataServiceDependency))
+		{
+			if (string.IsNullOrWhiteSpace(dependency.PlaceholderKey))
+			{
+				continue;
+			}
+
+			dependencyPlaceholders.Add(dependency.PlaceholderKey);
+			rows.Add(InstallationBindingViewModel.ForDataService(
+				dependency.Name,
+				dependency.Category,
+				dependency.PlaceholderKey,
+				dependency.Required,
+				dependency.Description,
+				InstallDataServiceOptions));
+		}
+
+		foreach (var key in detail.ConfigurationKeys.Where(IsServiceReferenceKey))
+		{
+			if (string.IsNullOrWhiteSpace(key.PlaceholderKey) || dependencyPlaceholders.Contains(key.PlaceholderKey))
+			{
+				continue;
+			}
+
+			rows.Add(InstallationBindingViewModel.ForDataService(
+				key.Key,
+				key.ValueType ?? key.Scope ?? "serviceReference",
+				key.PlaceholderKey,
+				key.Required,
+				key.Description,
+				InstallDataServiceOptions));
+		}
+
+		return rows.OrderBy(row => row.TargetKind).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase);
+	}
+
+	private static bool IsApplicationDependencyResponse(DependencyResponse dependency) =>
+		string.Equals(dependency.Category, "application", StringComparison.OrdinalIgnoreCase) ||
+		!string.IsNullOrWhiteSpace(dependency.ProviderApplicationSlug);
+
+	private static bool IsDataServiceDependency(DependencyResponse dependency) =>
+		!IsApplicationDependencyResponse(dependency) &&
+		!string.IsNullOrWhiteSpace(dependency.PlaceholderKey);
+
+	private static bool IsServiceReferenceKey(ConfigurationKeyResponse key) =>
+		string.Equals(key.Scope, "serviceReference", StringComparison.OrdinalIgnoreCase) ||
+		(!string.IsNullOrWhiteSpace(key.ResolutionJson) &&
+		 key.ResolutionJson.Contains("serviceReference", StringComparison.OrdinalIgnoreCase));
+
+	private void NotifyInstallationCollectionsChanged()
+	{
+		OnPropertyChanged(nameof(HasInstallUnitOptions));
+		OnPropertyChanged(nameof(HasInstallProfileOptions));
+		OnPropertyChanged(nameof(HasInstallationBindings));
+		OnPropertyChanged(nameof(HasNoInstallationBindings));
+	}
+
+	private void SetDefaultInstallName()
+	{
+		if (!string.IsNullOrWhiteSpace(InstallName) ||
+			SelectedInstallVersion is null ||
+			SelectedInstallServer is null)
+		{
+			return;
+		}
+
+		var unit = SelectedInstallUnit?.Key;
+		var profile = SelectedInstallProfile?.Key;
+		var parts = new[] { Slug, unit, profile, SelectedInstallServer.Name }
+			.Where(part => !string.IsNullOrWhiteSpace(part))
+			.Select(part => part!.Trim().ToLowerInvariant());
+		InstallName = string.Join("-", parts);
+	}
+
+	public event EventHandler? ApplicationInstallationCompleted;
+
+	[RelayCommand]
+	private async Task CreateInstallationAsync()
+	{
+		if (SelectedInstallVersion is null)
+		{
+			InstallError = "Select the release to install.";
+			return;
+		}
+
+		if (SelectedInstallServer is null)
+		{
+			InstallError = "Select the server that will host this application.";
+			return;
+		}
+
+		var name = InstallName.Trim();
+		if (name.Length == 0)
+		{
+			InstallError = "Installation name is required.";
+			return;
+		}
+
+		var missing = InstallationBindings.Where(binding => binding.IsMissingRequired).ToArray();
+		if (missing.Length > 0)
+		{
+			InstallError = $"Resolve required binding: {missing[0].Title}.";
+			return;
+		}
+
+		IsCreatingInstallation = true;
+		InstallError = null;
+
+		try
+		{
+			var bindings = InstallationBindings
+				.Select(binding => binding.ToInput())
+				.Where(binding => binding is not null)
+				.Cast<ApplicationInstallationBindingInput>()
+				.ToArray();
+
+			await _api.CreateApplicationInstallationAsync(_applicationId, new CreateApplicationInstallationRequest(
+				name,
+				SelectedInstallVersion.Id,
+				SelectedInstallServer.Id,
+				SelectedInstallServer.Environment,
+				SelectedInstallUnit?.Key,
+				SelectedInstallProfile?.Key,
+				ApplicationsViewModel.Clean(InstallNotes),
+				bindings));
+
+			ApplicationInstallationCompleted?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			InstallError = ex.Message;
+		}
+		finally
+		{
+			IsCreatingInstallation = false;
+		}
 	}
 
 	[RelayCommand]

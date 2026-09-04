@@ -74,6 +74,14 @@ public interface IIrisApiClient
 	/// <summary>Imports the validated manifest package into an application version. Requires <c>applications.import</c>.</summary>
 	Task<ApplicationVersionDetailResponse> ImportConfigurationPackageAsync(Guid applicationId, Guid versionId, ImportConfigurationPackageRequest request, CancellationToken cancellationToken = default);
 
+	Task<ApplicationVersionDetailResponse> GetApplicationVersionDetailAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default);
+
+	Task<IReadOnlyList<ApplicationInstallationResponse>> GetApplicationInstallationsAsync(CancellationToken cancellationToken = default);
+
+	Task<ApplicationInstallationResponse> CreateApplicationInstallationAsync(Guid applicationId, CreateApplicationInstallationRequest request, CancellationToken cancellationToken = default);
+
+	Task<ApplicationInstallationAnsiblePlanResponse> GetApplicationInstallationAnsibleVarsAsync(Guid installationId, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -227,6 +235,18 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ApplicationVersionDetailResponse> ImportConfigurationPackageAsync(Guid applicationId, Guid versionId, ImportConfigurationPackageRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ApplicationVersionDetailResponse>($"/applications/{applicationId}/versions/{versionId}/import", request, cancellationToken);
+
+	public Task<ApplicationVersionDetailResponse> GetApplicationVersionDetailAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ApplicationVersionDetailResponse>(HttpMethod.Get, $"/applications/{applicationId}/versions/{versionId}", cancellationToken);
+
+	public Task<IReadOnlyList<ApplicationInstallationResponse>> GetApplicationInstallationsAsync(CancellationToken cancellationToken = default) =>
+		GetListAsync<ApplicationInstallationResponse>("/applications/installations", cancellationToken);
+
+	public Task<ApplicationInstallationResponse> CreateApplicationInstallationAsync(Guid applicationId, CreateApplicationInstallationRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<ApplicationInstallationResponse>($"/applications/{applicationId}/installations", request, cancellationToken);
+
+	public Task<ApplicationInstallationAnsiblePlanResponse> GetApplicationInstallationAnsibleVarsAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ApplicationInstallationAnsiblePlanResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/ansible-vars", cancellationToken);
 
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);
