@@ -1,9 +1,14 @@
 # Stato corrente
 
 Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
-(166/166 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
+(169/169 verdi) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
 -p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
 bloccato se l'app e' gia' aperta).
+
+Nota: il commit `11802b3` (Ansible plan + connettori) era stato committato senza
+compilare — un errore CS0411 in `OpenBaoSecretStore.StoreAsync` (ternario KV v1/v2 con
+due tipi diversi passato a `JsonContent.Create`). Corretto nel commit `39d769a`
+branchando il ternario sui due `JsonContent.Create`. Da qui i 169 test.
 
 ## Architettura
 
@@ -128,6 +133,52 @@ selezionabile e copiabile, per distinguere spiegazioni, comandi e manifest JSON.
 Ansible e' trattato come target sensato di standardizzazione futura tramite
 `targetKind = "ansible:j2"`.
 
+**Application installation / deployment (primo strato)** (`Iris.Domain.Applications`) -
+`ApplicationInstallation` (aggregate root) lega `ApplicationId` + `ApplicationVersionId` +
+`ApplicationUnitKey?` + `InstallationProfileKey?` + `ServerNodeId` + `Environment`
+(`ContextKind`) + `Notes`. Porta `ApplicationInstallationBinding` figlie
+(`ReplaceBindings`, replace-whole): ogni binding lega un `PlaceholderKey` a un target
+concreto tipizzato (`ApplicationInstallationTargetKinds`: `data-service`, `application`,
+ecc.) via `TargetId`/`TargetSlug` + `ValuePreview`. NB: le FK sono `Guid` semplici, non
+navigation EF verso `ApplicationVersion`/`ServerNode`/`CustomerContext`; non c'e' ancora
+un legame con `Customer`/`CustomerContext`. Endpoint in `ApplicationsEndpoints.cs`:
+`GET/POST /applications/installations` (perm `deployments.read`/`deployments.write`),
+handler `ListApplicationInstallations`/`CreateApplicationInstallation`. Client MAUI:
+`NewApplicationInstallationDialog` + metodi in `ApplicationsViewModel`. Migrazione
+`AddApplicationInstallations` per SQLite e Postgres. Mappato in
+`TransactionLogInterceptor.AreaFor` come `Applications`.
+
+**Ansible plan + connettori integrazione (mock-first, non collegati a esecuzione)** -
+decisione architetturale (in `docs/application-configuration-model-analysis.md`): Iris
+NON renderizza i file di configurazione finali; produce un piano di variabili `iris_*` e
+binding che Ansible/AWX consuma nei template Jinja2 (`.j2`), e ogni modifica infra la fa
+Ansible.
+- `GET /applications/installations/{id}/ansible-vars` (perm `deployments.read`) ->
+  `GetApplicationInstallationAnsiblePlanHandler`: compone variabili filtrate per profilo,
+  `templateTargets` normalizzati `ansible:j2:<target>`, `operations` ordinate (load plan
+  -> fetch artifact -> render template -> runtime service/container -> network apply),
+  `associations` risolte/non risolte, source per variabile (`iris:data-service`,
+  `iris:application`, `manifest:default`, `manual`) e warning per required non risolti.
+- `POST /applications/installations/{id}/awx/launch` (perm `deployments.write`) ->
+  `LaunchApplicationInstallationAwxJobHandler`: prende il piano, `IAnsibleExecutionPackageBuilder`
+  compone `extra_vars`, `IAwxClient` lancia il job template. Restituisce job
+  id/status/url + preview extra_vars. NON persiste la run e NON e' collegato a nessun
+  pulsante MAUI.
+- Porte in `Iris.Application/Abstractions`: `IIntegrationConnector` (status/health),
+  `IAwxClient`, `IAnsibleExecutionPackageBuilder`.
+- Adapter in `src/Iris.Infrastructure/Integrations`: `OpenBaoConnector` (probe
+  `/v1/sys/health`), `AwxClient` (`POST /api/v2/job_templates/{id}/launch/`, probe
+  `/api/v2/ping/`, `HttpClient` via `new()` come singleton),
+  `AnsibleExecutionPackageBuilder`. `OpenBaoSecretStore` (`src/Iris.Infrastructure/Secrets`,
+  KV v1/v2) sostituisce `InMemorySecretStore` come `ISecretStore` SOLO se
+  `Iris:Integrations:OpenBao:Endpoint` e `:Token` sono entrambi presenti; altrimenti resta
+  il mock in memoria (ora singleton con `ConcurrentDictionary`, quindi i segreti mock
+  persistono tra le request).
+- `GET /system/settings` ora aggrega lo stato reale dei connettori via
+  `IEnumerable<IIntegrationConnector>` (`GetStatusAsync(probe:false)`) e aggiunge il campo
+  `Message` a `IntegrationLinkResponse`, mostrato in `SystemSettingsPage`. Nessun endpoint
+  invoca ancora `GetStatusAsync(probe:true)` (test connection reale).
+
 **First-run setup / mail** - in produzione il seed demo è disattivo per default: dopo le
 migrazioni l'istanza resta vuota e il wizard first-run crea mail provider + primo
 super-admin. Endpoint anonimi: `GET /setup/status`, `POST /setup/test-mail`,
@@ -208,16 +259,26 @@ contro file segreti locali.
 
 ## Cosa NON è costruito
 
-**Deployments** (associazione Customer+Context+Application+Version+Server, placeholder
-binding, Validation Engine) e **Actions** (preparazione Ansible/AWX/OpenBao, monitoraggio
-azioni) non esistono ancora lato dominio/API/client. Il Validation Engine ha ora entrambi
-i lati pronti da confrontare (`ApplicationVersion.RuntimeMetadata` vs
-`ServerNode.Capabilities`/`Resources`/`UsedPorts`), ma le regole vere e proprie non sono
-ancora scritte.
+**Deployments - associazione completa**: `ApplicationInstallation` esiste (vedi sopra) ma
+e' parziale: nessun legame con `Customer`/`CustomerContext`, FK come `Guid` non navigation,
+nessuno stato di ciclo di vita, nessuna UI oltre al dialog di creazione, nessun update dei
+binding dopo la creazione.
 
-OpenBao/AWX/Ansible/Grafana restano mockati o non integrati per design. La pagina System
-settings mostra collegamenti/configurazioni dichiarate ma non esegue ancora test,
-salvataggio o chiamate reali verso OpenBao/Ansible.
+**Validation Engine**: non esiste ancora. Entrambi i lati sono pronti da confrontare
+(`ApplicationVersion.RuntimeMetadata`/configuration knowledge/`DependencyConstraintDefinition`
+vs `ServerNode.Capabilities`/`Resources`/`UsedPorts` + `DataServiceInstance`), ma nessun
+handler `ValidateDeployment`/`ValidateInstallation` con lista tipata di check e severita'.
+
+**Actions / run history**: nessuna entita' `PreparedAction`/`InstallationRun`. Il launch
+AWX (`POST .../awx/launch`) chiama il job template ma non registra nulla in Iris: niente
+storico, niente polling stato/log della run, niente step 5 del processo descritto nel doc
+("Iris registra esito e log della run"). Nessun pulsante Deploy nel client.
+
+OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
+`OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di
+test-connection (`probe:true`), nessun salvataggio della configurazione integrazioni da UI,
+e nessun adapter ha test dedicati (`AnsibleExecutionPackageBuilder` e' logica pura e
+andrebbe coperto). Grafana resta del tutto assente.
 
 ## Migrazioni applicate (ordine)
 
@@ -226,7 +287,7 @@ salvataggio o chiamate reali verso OpenBao/Ansible.
 `AddUserLocalPassword` -> `AddApplications` -> `AddServerCapacity` -> `AddUserSessions` ->
 `AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
 `AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery` ->
-`PersistApplicationManifestSemantics`.
+`PersistApplicationManifestSemantics` -> `AddApplicationInstallations`.
 Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

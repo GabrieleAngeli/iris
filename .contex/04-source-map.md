@@ -66,9 +66,11 @@ File da leggere prima di agire, per area.
 
 ## Applications
 
-- `src/Iris.Domain/Applications/{ApplicationDefinition,ApplicationVersion,ApplicationRuntimeType,RuntimeMetadata,ConfigurationKey,DependencyDefinition,PlaceholderDefinition,ApplicationUnitDefinition,InstallationProfileDefinition,DependencyConstraintDefinition}.cs`
-- `src/Iris.Application/Applications/*.cs`
-- `src/Iris.Application/Abstractions/IApplicationRepository.cs`
+- `src/Iris.Domain/Applications/{ApplicationDefinition,ApplicationVersion,ApplicationRuntimeType,RuntimeMetadata,ConfigurationKey,DependencyDefinition,PlaceholderDefinition,ApplicationUnitDefinition,InstallationProfileDefinition,DependencyConstraintDefinition,ApplicationInstallation,ApplicationInstallationBinding}.cs`
+- `src/Iris.Application/Applications/*.cs` - include
+  `CreateApplicationInstallation.cs`, `ListApplicationInstallations.cs`,
+  `GetApplicationInstallationAnsiblePlan.cs`, `LaunchApplicationInstallationAwxJob.cs`
+- `src/Iris.Application/Abstractions/{IApplicationRepository,IApplicationInstallationRepository}.cs`
 - `src/Iris.Contracts/Applications/*.cs`
 - `src/Iris.Api/Endpoints/ApplicationsEndpoints.cs`
 - `src/Iris.Infrastructure/Persistence/Configurations/{ApplicationDefinitionConfiguration,ApplicationVersionConfiguration,ConfigurationKeyConfiguration,DependencyDefinitionConfiguration,PlaceholderDefinitionConfiguration,ApplicationUnitDefinitionConfiguration,InstallationProfileDefinitionConfiguration,DependencyConstraintDefinitionConfiguration}.cs`
@@ -161,8 +163,26 @@ File da leggere prima di agire, per area.
 - `src/Iris.App/ViewModels/ApplicationsViewModel.cs` - pattern inventory applicazioni
   con create/edit dialog e lock `application`
 
-## Deployments/Actions (da costruire)
+## Integrazioni esterne (OpenBao / AWX / Ansible)
 
+- `src/Iris.Application/Abstractions/{IIntegrationConnector,IAnsibleAutomation}.cs` -
+  `IAnsibleAutomation.cs` contiene `IAwxClient`, `IAnsibleExecutionPackageBuilder`,
+  `AnsibleExecutionPackage`, `AwxJobLaunch(Result)`
+- `src/Iris.Infrastructure/Integrations/{OpenBaoConnector,OpenBaoOptions,AwxClient,AwxOptions,AnsibleExecutionPackageBuilder,AnsibleOptions}.cs`
+- `src/Iris.Infrastructure/Secrets/{InMemorySecretStore,OpenBaoSecretStore}.cs`
+- `src/Iris.Infrastructure/DependencyInjection.cs` - `RegisterIntegrations(...)`: fallback
+  mock non distruttivo, `ISecretStore` -> OpenBao solo con endpoint + token
+- `src/Iris.Application/Settings/GetSystemSettings.cs` - aggrega
+  `IEnumerable<IIntegrationConnector>`
+- config: chiavi `Iris:Integrations:{OpenBao,Ansible,AWX}:*` in
+  `src/Iris.Api/appsettings*.json`
+
+## Deployments/Actions (parziale + da costruire)
+
+- Fatto: `ApplicationInstallation`/`Binding` + `GET/POST /applications/installations` +
+  `GET .../ansible-vars` + `POST .../awx/launch` (vedi sezione Applications e Integrazioni)
+- Da costruire: legame `Customer`/`CustomerContext`, `ValidateDeployment`/`ValidateInstallation`,
+  `InstallationRun`/`PreparedAction` con stato + polling AWX, UI lista/dettaglio + Deploy
 - `F:\Work\Iris_v2\src\Iris.Domain\Models.cs`, `Enums.cs` - riferimento concettuale per
   `DeploymentAssociation`/`DeploymentCheck`/`PreparedAction`
 - `F:\Work\Iris_v2\src\Iris.Application\Services.cs` - regole di validazione deployment

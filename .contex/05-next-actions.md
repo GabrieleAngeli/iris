@@ -15,24 +15,48 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    server via port `IServerInventoryProbe`, inventory `/data-services` per MSSQL,
    PostgreSQL e Redis, artifact metadata su Applications, guida
    `docs/application-assimilation.md`.
-8. **Deployments - associazione**: introdurre `DeploymentAssociation` con Application +
-   Version + Customer + Context + ServerNode target + binding placeholder + stato. Usare FK
-   reali verso `Customer`/`CustomerContext`/`ServerNode`/`ApplicationVersion`; non duplicare
-   quei concetti. Includere target data service gestiti e binding provider/consumer dei
-   placeholder.
+8. **Deployments - associazione** *(parziale - fatto il primo strato)*: esiste
+   `ApplicationInstallation` + `ApplicationInstallationBinding` con endpoint
+   `GET/POST /applications/installations` e dialog MAUI di creazione. Manca: legame con
+   `Customer`/`CustomerContext`, FK come navigation EF (oggi `Guid` semplici), update dei
+   binding dopo la creazione, stato di ciclo di vita, UI di lista/dettaglio. Vedi anche il
+   piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
 9. **Validation Engine**: riscrivere le regole di Iris_v2 (`DeploymentService.ValidateInternal`)
-   come handler `ValidateDeployment`, producendo una lista tipata di check con severità.
-   Regole iniziali: placeholder non risolto, dipendenza non legata, OS incompatibile,
-   capability mancante, collisione porte, capacità insufficiente.
-10. **Actions - preparazione**: `PreparedAction` (tipo Ansible inventory/vars, AWX draft,
-   OpenBao plan: tutti mock), stato (Draft/Prepared/Pending/Running/Completed/Failed),
-   endpoint preview/prepare, storico azioni.
+   come handler `ValidateDeployment`/`ValidateInstallation`, producendo una lista tipata di
+   check con severità. Regole iniziali: placeholder non risolto, dipendenza non legata, OS
+   incompatibile, capability mancante, collisione porte, capacità insufficiente,
+   `DependencyConstraintDefinition` non soddisfatto dal `DataServiceInstance` legato. Input
+   naturale: una `ApplicationInstallation` + i suoi binding + server + data service.
+10. **Actions - preparazione / run history** *(connettori fatti, esecuzione non tracciata)*:
+   gli adapter `OpenBaoConnector`/`AwxClient`/`OpenBaoSecretStore` esistono e
+   `POST /applications/installations/{id}/awx/launch` lancia il job template AWX, ma non
+   c'e' nessuna entita' che registri la run. Introdurre `InstallationRun`/`PreparedAction`
+   (stato Draft/Prepared/Pending/Running/Completed/Failed), persistere il launch, aggiungere
+   `GET .../runs` + polling stato/log da AWX, endpoint `test-connection` (`probe:true`) e il
+   pulsante Deploy nel client MAUI. Aggiungere test per `AnsibleExecutionPackageBuilder`.
 11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
 12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-04 - ApplicationInstallation + connettori integrazione + fix build
+
+- `f53eb2d`: `ApplicationInstallation`/`ApplicationInstallationBinding`, repository,
+  `GET/POST /applications/installations`, dialog MAUI `NewApplicationInstallationDialog`,
+  migrazione `AddApplicationInstallations` (SQLite + Postgres).
+- `11802b3`: `GET /applications/installations/{id}/ansible-vars` (piano variabili `iris_*`
+  + operations + templateTargets), `POST .../awx/launch`, porte `IIntegrationConnector`/
+  `IAwxClient`/`IAnsibleExecutionPackageBuilder`, adapter `OpenBaoConnector`/`AwxClient`/
+  `AnsibleExecutionPackageBuilder`/`OpenBaoSecretStore`, `GET /system/settings` con stato
+  reale connettori + campo `Message`. Decisione: Iris produce il piano, Ansible/AWX
+  renderizza e applica (mai Iris direttamente sul server).
+- `11802b3` era stato committato senza compilare (CS0411 in `OpenBaoSecretStore`).
+  Corretto in `39d769a`. Build `Iris.sln` verde, `dotnet test Iris.sln` 169/169 verde,
+  build MAUI verde.
+- Aperto: nessuna run history / polling AWX, nessun pulsante Deploy, nessun
+  test-connection reale, Validation Engine ancora da scrivere. Vedi punti 8-10 sopra.
 
 ### 2026-09-01 - `.contex`, analisi Iris_v2/Iris_v3, security scanning
 

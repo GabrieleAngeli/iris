@@ -864,3 +864,85 @@ continuano a essere risolte dal wizard prima della chiamata API.
 **Verificato**: `dotnet test Iris.sln --no-restore -p:BaseOutputPath=...\artifacts\verify-test\`
 verde - 166/166 test; `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
 -p:BaseOutputPath=...\artifacts\verify-app-build\` verde - 0 warning/0 errori.
+
+---
+
+## 2026-09-04 - Application installation + binding (commit `f53eb2d`)
+
+**Classificazione**: feature domain/API/persistence/client - primo strato del modulo
+Deployments, sotto il nome "installation".
+
+**Cosa e' successo**: aggiunto l'aggregato `ApplicationInstallation` che lega una
+`ApplicationDefinition` + `ApplicationVersion` + `ApplicationUnitKey?` +
+`InstallationProfileKey?` + `ServerNodeId` + `Environment` (`ContextKind`), con entita'
+figlie `ApplicationInstallationBinding` (replace-whole via `ReplaceBindings`): ogni binding
+mappa un `PlaceholderKey` a un target concreto tipizzato
+(`ApplicationInstallationTargetKinds`: `data-service`, `application`, ...) via
+`TargetId`/`TargetSlug` + `ValuePreview`. Repository
+`ApplicationInstallationRepository`, handler `CreateApplicationInstallation` e
+`ListApplicationInstallations`, endpoint `GET/POST /applications/installations` con permessi
+`deployments.read`/`deployments.write`. Client MAUI: `NewApplicationInstallationDialog` e
+metodi in `ApplicationsViewModel`/`IrisApiClient`. Migrazione `AddApplicationInstallations`
+per SQLite e Postgres, mapping `Applications` in `TransactionLogInterceptor.AreaFor`.
+
+**Decisione**: le FK sono `Guid` semplici, non navigation EF; non c'e' ancora legame con
+`Customer`/`CustomerContext`. Sono scelte da rivedere quando si chiude l'associazione
+completa (punto 8 di `05-next-actions.md`), ma bastano al piano Ansible.
+
+**Rischi residui**: nessuna UI di lista/dettaglio, nessun update dei binding dopo la
+creazione, nessuno stato di ciclo di vita.
+
+---
+
+## 2026-09-04 - Ansible plan + connettori OpenBao/AWX/Ansible (commit `11802b3`, fix `39d769a`)
+
+**Classificazione**: feature domain/API/infrastructure - port/adapter verso i sistemi di
+esecuzione esterni, ancora mock-first.
+
+**Cosa e' successo**: fissata in `docs/application-configuration-model-analysis.md` la
+decisione architetturale: **Iris non genera i file di configurazione finali**. Iris
+produce un piano di variabili `iris_*` + binding + operations; il rendering `.j2` e ogni
+modifica infrastrutturale (servizi, container, firewall, reverse proxy, TLS, DNS) le fa
+Ansible/AWX tramite ruoli e task `template`.
+
+- `GET /applications/installations/{id}/ansible-vars` ->
+  `GetApplicationInstallationAnsiblePlanHandler`: variabili filtrate per
+  `InstallationProfileKey`, `templateTargets` normalizzati `ansible:j2:<target>`,
+  `operations` ordinate (load plan -> fetch artifact -> render template -> runtime
+  service/container -> network apply), `associations` risolte/non risolte, `source` per
+  variabile (`iris:data-service`, `iris:application`, `manifest:default`, `manual`),
+  warning per required non risolti e per il fatto che Iris non renderizza i file.
+- `POST /applications/installations/{id}/awx/launch` ->
+  `LaunchApplicationInstallationAwxJobHandler`: compone il piano, `IAnsibleExecutionPackageBuilder`
+  costruisce `extra_vars`, `IAwxClient` lancia il job template. Non persiste la run, non
+  collegato a UI.
+- Porte in `Iris.Application/Abstractions`: `IIntegrationConnector`, `IAwxClient`,
+  `IAnsibleExecutionPackageBuilder`. Adapter in `src/Iris.Infrastructure/Integrations`:
+  `OpenBaoConnector`, `AwxClient`, `AnsibleExecutionPackageBuilder`; `OpenBaoSecretStore`
+  in `src/Iris.Infrastructure/Secrets`. DI non distruttivo: `ISecretStore` -> OpenBao solo
+  con `Endpoint` + `Token`, altrimenti `InMemorySecretStore` (ora singleton). AWX/Ansible
+  options da `Iris:Integrations:*`.
+- `GET /system/settings` aggrega lo stato reale via `IEnumerable<IIntegrationConnector>`
+  (`GetStatusAsync(probe:false)`) e aggiunge `Message` a `IntegrationLinkResponse`,
+  mostrato in `SystemSettingsPage`.
+
+**Bug bloccante trovato in questa sessione**: `11802b3` era stato committato senza
+compilare. `OpenBaoSecretStore.StoreAsync` sceglieva il payload KV v1/v2 dentro un unico
+`JsonContent.Create` con un ternario che produceva due tipi diversi (tipo anonimo
+`{ data = ... }` vs `Dictionary<string,string>`), quindi `T` non inferibile - CS0411,
+`Iris.sln` non buildava. Corretto in `39d769a` branchando il ternario sui due
+`JsonContent.Create`, ognuno con il proprio `T`.
+
+**Verificato**: `dotnet build Iris.sln` verde - 0 warning/0 errori; `dotnet test Iris.sln`
+verde - 169/169; `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\scratchpad\verify-app-build\` verde.
+
+**Rischi residui / cosa resta aperto**: nessuna run history / persistenza del launch AWX,
+nessun polling stato o log della run, nessun endpoint test-connection (`probe:true`),
+nessun pulsante Deploy nel client, nessun test sugli adapter nuovi
+(`AnsibleExecutionPackageBuilder` e' logica pura e andrebbe coperto). Il Validation Engine
+resta il pezzo centrale non ancora scritto.
+
+**Prossimo step**: da decidere - (A) chiudere il loop connettori con `InstallationRun`/
+`PreparedAction` + polling + pulsante Deploy, oppure (B) Validation Engine
+(`05-next-actions.md` punto 9), che non dipende da un AWX reale.
