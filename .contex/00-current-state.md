@@ -306,7 +306,18 @@ semplici. Da estendere insieme all'associazione completa dei Deployments.
 **Actions / run history**: `InstallationRun` + `GET .../runs` esistono (vedi sopra). Manca:
 `PreparedAction` per la fase di preparazione (draft prima del launch), log completo della
 run oltre a `job_explanation`, polling di background (oggi si aggiorna solo quando qualcuno
-apre il dettaglio), e il pulsante Deploy + UI storico nel client MAUI.
+apre il dettaglio).
+
+**UI MAUI Validation Engine/run history/Deploy**: `ApplicationsPage` ora mostra, sotto ogni
+application tile, la lista delle sue `Installations` (`ApplicationInstallationRowViewModel`,
+badge ambiente, `DetailText` versione/unit/profilo/server, bottone `Manage`). Il bottone apre
+`InstallationOpsDialog` (`dlg.installation-ops`), console read-mostly non a edit-lock con tre
+sezioni indipendenti: Validation (`ValidateCommand` -> report con badge severità
+error/warning/info per check), Deploy (`DeployCommand` -> `LaunchApplicationInstallationAwxJobAsync`,
+poi ricarica lo storico), Run history (`LoadRunsCommand`, badge stato). Auto-eseguiti
+all'apertura: validate + load runs. **Non ancora verificata manualmente nell'app Windows in
+esecuzione** (solo `dotnet build Iris.App.sln` verde) — vedi evidence gate in
+`03-iteration-guardrails.md`.
 
 OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
 `OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di

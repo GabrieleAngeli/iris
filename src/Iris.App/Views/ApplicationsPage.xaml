@@ -372,6 +372,39 @@
                                         </Border>
                                     </VerticalStackLayout>
 
+                                    <VerticalStackLayout Spacing="10" IsVisible="{Binding HasInstallations}">
+                                        <BoxView HeightRequest="1" />
+                                        <Label Text="Installations" Style="{StaticResource Subtitle}" />
+
+                                        <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Installations}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ApplicationInstallationRowViewModel">
+                                                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
+                                                            Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                                                            StrokeThickness="1" Padding="12" StrokeShape="RoundRectangle 6">
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                            <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                                                                <HorizontalStackLayout Spacing="8">
+                                                                    <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="13"
+                                                                           LineBreakMode="TailTruncation" />
+                                                                    <Border Style="{StaticResource Badge}">
+                                                                        <Label Text="{Binding Environment}" Style="{StaticResource Caption}" />
+                                                                    </Border>
+                                                                    <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                                        <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                                    </Border>
+                                                                </HorizontalStackLayout>
+                                                                <Label Text="{Binding DetailText}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                                                            </VerticalStackLayout>
+                                                            <Button Grid.Column="1" Text="Manage" Style="{StaticResource SecondaryButton}"
+                                                                    Command="{Binding OpenOpsCommand}" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>

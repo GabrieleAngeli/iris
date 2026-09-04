@@ -1051,3 +1051,55 @@ verde - 192/192 (12 nuovi: 5 Domain `InstallationRunTests`, 4 Application handle
 **Prossimo step**: portare in UI (MAUI) sia il report di validazione sia lo storico run +
 un pulsante Deploy; oppure `PreparedAction` + endpoint `test-connection` (`probe:true`).
 Poi l'associazione completa Deployments con `Customer`/`CustomerContext`.
+
+---
+
+## 2026-09-04 - UI MAUI: lista installazioni, Validate, Deploy, Run history
+
+**Classificazione**: feature UX client Applications/Deployments - porta in UI il
+Validation Engine e il run history costruiti nelle iterazioni precedenti.
+
+**Cosa e' successo**: `ApplicationsPage` mostra ora, sotto ogni application tile, la
+sezione `Installations` (righe con nome, badge ambiente/inattivo, `DetailText`
+versione/unit/profilo/server e bottone `Manage`); popolata da
+`ApplicationsViewModel.RefreshAsync` con una seconda chiamata a
+`GetApplicationInstallationsAsync()` raggruppata per `ApplicationId` sui row gia' caricati.
+Il bottone `Manage` apre `InstallationOpsDialog` (nuovo, `dlg.installation-ops`, 720x680):
+console read-mostly con tre sezioni indipendenti, non protetta da edit-lock (non muta il
+record installation):
+
+- **Validation** - `ValidateCommand` chiama `GET .../validate`, mostra badge
+  Deployable/Not deployable, conteggi error/warning/info e la lista dei check con badge
+  severita' colorati (stesso linguaggio visivo gia' usato per gli issue di validazione
+  manifest in questa stessa pagina).
+- **Deploy** - `DeployCommand` chiama `POST .../awx/launch` (nessun campo, richiesta di
+  default), mostra messaggio/errore inline e ricarica lo storico run al termine (successo
+  o fallimento).
+- **Run history** - `LoadRunsCommand` chiama `GET .../runs`, lista con badge stato
+  (Succeeded/Failed-Canceled/in corso), job id e messaggio.
+
+Il dialog esegue automaticamente `ValidateCommand` e `LoadRunsCommand` in `OnAppearing`,
+cosi' l'operatore vede subito lo stato corrente senza dover premere due bottoni. Nuove
+view-model: `ApplicationInstallationRowViewModel` (proprieta' Validate/Deploy/Runs +
+collezioni), `ValidationCheckRowViewModel`, `InstallationRunRowViewModel`. L'installazione
+appena creata dal wizard esistente viene ora inserita anche in
+`ApplicationRowViewModel.Installations`, cosi' compare subito nella lista senza refresh.
+
+**Decisione di layout**: a differenza dei dialog form (Cancel + Save nel footer), questo
+e' un pannello operativo con tre azioni indipendenti; il footer porta solo `Close` e
+`Deploy now` resta un bottone primario inline nella sezione Deploy - scelta deliberata,
+coerente con "workflow-first" (§1.2 di `ui-standards.md`) ma diversa dal pattern-footer
+standard dei dialog di creazione/modifica; segnalata qui per revisione esplicita.
+
+**Verificato**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false
+-p:BaseOutputPath=...\scratchpad\verify-app-build2\` verde - 0 warning/0 errori (i binding
+compilati `x:DataType` avrebbero fallito la build su un path/proprieta' sbagliati).
+**Nessuna verifica manuale nell'app Windows in esecuzione in questa sessione** - per le
+regole del progetto un flusso UI non si considera chiuso senza quel passaggio; farlo prima
+di dare per buono definitivamente questo incremento.
+
+**Rischi residui / cosa resta aperto**: nessun test automatico (previsto, MAUI non ne ha
+oggi); nessuna conferma prima del Deploy (nessun dialog di conferma - discutibile per
+un'azione che lancia un job reale); nessuna UI per gestire/rimuovere binding dopo la
+creazione dell'installazione; nessuna UI per `PreparedAction` (non esiste ancora lato
+backend).

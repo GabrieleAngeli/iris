@@ -21,25 +21,46 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    `Customer`/`CustomerContext`, FK come navigation EF (oggi `Guid` semplici), update dei
    binding dopo la creazione, stato di ciclo di vita, UI di lista/dettaglio. Vedi anche il
    piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
-9. ~~**Validation Engine**~~ *(v1 fatto)*: `ValidateApplicationInstallationHandler` +
-   `GET /applications/installations/{id}/validate` (perm `deployments.validate`).
-   Regole coperte: placeholder/configuration key non risolti, dependency non legata /
-   provider mancante, OS non testato, capability `ServiceHost` assente, collisione porte,
-   capacità CPU/RAM insufficiente, vincoli servizio/versione sul data service legato.
-   Da fare più avanti: UI MAUI del report, capability derivata dal runtime (non sempre
-   `ServiceHost`), check disco, parser di versioni più completo, legame Customer/Context.
-10. **Actions - preparazione / run history** *(run history v1 fatto)*: `InstallationRun` +
-   `GET /applications/installations/{id}/runs` + `GET .../runs/{runId}` (polling AWX
-   on-read). Il launch AWX persiste sempre una riga (Pending -> Submitted/Failed). Resta da
-   fare: `PreparedAction` (draft di preparazione prima del launch), polling di background,
-   log completo della run, endpoint `test-connection` (`probe:true`), pulsante Deploy +
-   storico nel client MAUI, test per `AnsibleExecutionPackageBuilder`.
+9. ~~**Validation Engine**~~ *(v1 fatto, UI MAUI fatta ma non verificata a mano)*:
+   `ValidateApplicationInstallationHandler` + `GET /applications/installations/{id}/validate`
+   (perm `deployments.validate`), report mostrato in `InstallationOpsDialog`. Regole
+   coperte: placeholder/configuration key non risolti, dependency non legata / provider
+   mancante, OS non testato, capability `ServiceHost` assente, collisione porte, capacità
+   CPU/RAM insufficiente, vincoli servizio/versione sul data service legato. Da fare più
+   avanti: capability derivata dal runtime (non sempre `ServiceHost`), check disco, parser
+   di versioni più completo, legame Customer/Context.
+10. **Actions - preparazione / run history** *(run history v1 fatto, UI MAUI fatta ma non
+   verificata a mano)*: `InstallationRun` + `GET /applications/installations/{id}/runs` +
+   `GET .../runs/{runId}` (polling AWX on-read). Il launch AWX persiste sempre una riga
+   (Pending -> Submitted/Failed). `ApplicationsPage` mostra ora la lista installazioni per
+   app + `InstallationOpsDialog` (Validate/Deploy/Run history) — **da verificare avviando
+   l'app Windows** prima di considerarla chiusa. Resta da fare: `PreparedAction` (draft di
+   preparazione prima del launch), polling di background, log completo della run, endpoint
+   `test-connection` (`probe:true`), test per `AnsibleExecutionPackageBuilder`.
 11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
 12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-04 - UI MAUI installazioni: lista, Validate, Deploy, Run history
+
+- `ApplicationsPage`: sotto ogni application tile, sezione `Installations` (visibile se
+  `HasInstallations`) con badge ambiente/inattivo, `DetailText` e bottone `Manage`.
+- Nuovo `Views/Dialogs/InstallationOpsDialog` (`dlg.installation-ops`, 720x680): console
+  read-mostly non a edit-lock con tre sezioni - Validation (`ValidateCommand`, report con
+  badge severità), Deploy (`DeployCommand` -> `awx/launch`, poi ricarica lo storico), Run
+  history (`LoadRunsCommand`, badge stato). Auto-eseguiti all'apertura: validate + load
+  runs.
+- Nuove VM: `ApplicationInstallationRowViewModel` (su `ApplicationRowViewModel.Installations`,
+  popolata in `ApplicationsViewModel.RefreshAsync` da `GetApplicationInstallationsAsync`
+  raggruppata per app; anche l'installazione appena creata viene inserita in testa),
+  `ValidationCheckRowViewModel`, `InstallationRunRowViewModel`.
+- **Verificato solo con build**: `dotnet build Iris.App.sln --no-restore -p:UseAppHost=false`
+  verde - 0 warning/0 errori. Nessuna verifica manuale end-to-end nell'app Windows in questa
+  sessione - da fare prima di considerare il flusso chiuso (evidence gate
+  `03-iteration-guardrails.md`).
 
 ### 2026-09-04 - Run history AWX v1
 

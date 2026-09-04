@@ -71,6 +71,15 @@ public partial class ApplicationsViewModel : ObservableObject
 			{
 				Applications.Add(new ApplicationRowViewModel(application, _api, this));
 			}
+
+			var installations = await _api.GetApplicationInstallationsAsync();
+			foreach (var row in Applications)
+			{
+				foreach (var installation in installations.Where(i => i.ApplicationId == row.Id))
+				{
+					row.Installations.Add(new ApplicationInstallationRowViewModel(installation, _api, row));
+				}
+			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -97,6 +106,10 @@ public partial class ApplicationsViewModel : ObservableObject
 	public event EventHandler<ApplicationRowViewModel>? NewApplicationInstallationRequested;
 
 	public void RaiseNewApplicationInstallationRequested(ApplicationRowViewModel row) => NewApplicationInstallationRequested?.Invoke(this, row);
+
+	public event EventHandler<ApplicationInstallationRowViewModel>? InstallationOpsRequested;
+
+	public void RaiseInstallationOpsRequested(ApplicationInstallationRowViewModel row) => InstallationOpsRequested?.Invoke(this, row);
 
 	internal Task ReloadAsync() => RefreshAsync();
 
@@ -2031,6 +2044,7 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		_api = api;
 		_parent = parent;
 		ApplyFrom(application);
+		Installations.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasInstallations));
 	}
 
 	public Guid Id => _applicationId;
@@ -2088,6 +2102,12 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	public ObservableCollection<DataServiceOptionViewModel> InstallDataServiceOptions { get; } = [];
 
 	public ObservableCollection<InstallationBindingViewModel> InstallationBindings { get; } = [];
+
+	public ObservableCollection<ApplicationInstallationRowViewModel> Installations { get; } = [];
+
+	public bool HasInstallations => Installations.Count > 0;
+
+	public void RaiseInstallationOpsRequested(ApplicationInstallationRowViewModel row) => _parent.RaiseInstallationOpsRequested(row);
 
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
@@ -2457,7 +2477,7 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				.Cast<ApplicationInstallationBindingInput>()
 				.ToArray();
 
-			await _api.CreateApplicationInstallationAsync(_applicationId, new CreateApplicationInstallationRequest(
+			var created = await _api.CreateApplicationInstallationAsync(_applicationId, new CreateApplicationInstallationRequest(
 				name,
 				SelectedInstallVersion.Id,
 				SelectedInstallServer.Id,
@@ -2467,6 +2487,7 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				ApplicationsViewModel.Clean(InstallNotes),
 				bindings));
 
+			Installations.Insert(0, new ApplicationInstallationRowViewModel(created, _api, this));
 			ApplicationInstallationCompleted?.Invoke(this, EventArgs.Empty);
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -2817,4 +2838,222 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 			IsEditBusy = false;
 		}
 	}
+}
+
+/// <summary>
+/// One deployment target bound to an application: the row shown under an application tile,
+/// and the ops console (validate / deploy / run history) opened from it.
+/// </summary>
+public sealed partial class ApplicationInstallationRowViewModel : ObservableObject
+{
+	private readonly IIrisApiClient _api;
+	private readonly ApplicationRowViewModel _parent;
+
+	public ApplicationInstallationRowViewModel(ApplicationInstallationResponse installation, IIrisApiClient api, ApplicationRowViewModel parent)
+	{
+		_api = api;
+		_parent = parent;
+		ApplyFrom(installation);
+	}
+
+	public Guid Id { get; private set; }
+
+	[ObservableProperty] private string _name = string.Empty;
+	[ObservableProperty] private string _environment = string.Empty;
+	[ObservableProperty] private string _serverName = string.Empty;
+	[ObservableProperty] private string _version = string.Empty;
+	[ObservableProperty] private string? _applicationUnitKey;
+	[ObservableProperty] private string? _installationProfileKey;
+	[ObservableProperty] private bool _isActive;
+
+	public bool CanManageDeployments => _parent.CanManageDeployments;
+
+	public string DetailText
+	{
+		get
+		{
+			var parts = new[] { Version, ApplicationUnitKey, InstallationProfileKey }
+				.Where(part => !string.IsNullOrWhiteSpace(part));
+			return $"{string.Join(" | ", parts)} on {ServerName}";
+		}
+	}
+
+	public void ApplyFrom(ApplicationInstallationResponse installation)
+	{
+		Id = installation.Id;
+		Name = installation.Name;
+		Environment = installation.Environment;
+		ServerName = installation.ServerName;
+		Version = installation.Version;
+		ApplicationUnitKey = installation.ApplicationUnitKey;
+		InstallationProfileKey = installation.InstallationProfileKey;
+		IsActive = installation.IsActive;
+		OnPropertyChanged(nameof(DetailText));
+	}
+
+	[RelayCommand]
+	private void OpenOps() => _parent.RaiseInstallationOpsRequested(this);
+
+	// ---- Validation Engine ----
+
+	[ObservableProperty] private bool _isValidating;
+	[ObservableProperty] private string? _validateError;
+	[ObservableProperty] private ApplicationInstallationValidationResponse? _validation;
+
+	public bool HasValidateError => !string.IsNullOrWhiteSpace(ValidateError);
+
+	public bool HasValidation => Validation is not null;
+
+	public ObservableCollection<ValidationCheckRowViewModel> ValidationChecks { get; } = [];
+
+	partial void OnValidateErrorChanged(string? value) => OnPropertyChanged(nameof(HasValidateError));
+
+	[RelayCommand]
+	private async Task ValidateAsync()
+	{
+		IsValidating = true;
+		ValidateError = null;
+
+		try
+		{
+			var result = await _api.ValidateApplicationInstallationAsync(Id);
+			Validation = result;
+			ValidationChecks.Clear();
+			foreach (var check in result.Checks)
+			{
+				ValidationChecks.Add(new ValidationCheckRowViewModel(check));
+			}
+
+			OnPropertyChanged(nameof(HasValidation));
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			ValidateError = ex.Message;
+		}
+		finally
+		{
+			IsValidating = false;
+		}
+	}
+
+	// ---- Deploy (AWX launch) ----
+
+	[ObservableProperty] private bool _isDeploying;
+	[ObservableProperty] private string? _deployError;
+	[ObservableProperty] private string? _deployMessage;
+
+	public bool HasDeployError => !string.IsNullOrWhiteSpace(DeployError);
+
+	public bool HasDeployMessage => !string.IsNullOrWhiteSpace(DeployMessage);
+
+	partial void OnDeployErrorChanged(string? value) => OnPropertyChanged(nameof(HasDeployError));
+
+	partial void OnDeployMessageChanged(string? value) => OnPropertyChanged(nameof(HasDeployMessage));
+
+	[RelayCommand]
+	private async Task DeployAsync()
+	{
+		IsDeploying = true;
+		DeployError = null;
+		DeployMessage = null;
+
+		try
+		{
+			var result = await _api.LaunchApplicationInstallationAwxJobAsync(Id, new ApplicationInstallationAwxLaunchRequest());
+			DeployMessage = $"Launched (status: {result.Status}).";
+			await LoadRunsAsync();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			DeployError = ex.Message;
+			await LoadRunsAsync();
+		}
+		finally
+		{
+			IsDeploying = false;
+		}
+	}
+
+	// ---- Run history ----
+
+	[ObservableProperty] private bool _isLoadingRuns;
+	[ObservableProperty] private string? _runsError;
+
+	public bool HasRunsError => !string.IsNullOrWhiteSpace(RunsError);
+
+	public bool HasRuns => Runs.Count > 0;
+
+	public ObservableCollection<InstallationRunRowViewModel> Runs { get; } = [];
+
+	partial void OnRunsErrorChanged(string? value) => OnPropertyChanged(nameof(HasRunsError));
+
+	[RelayCommand]
+	private async Task LoadRunsAsync()
+	{
+		IsLoadingRuns = true;
+		RunsError = null;
+
+		try
+		{
+			var runs = await _api.GetInstallationRunsAsync(Id);
+			Runs.Clear();
+			foreach (var run in runs)
+			{
+				Runs.Add(new InstallationRunRowViewModel(run));
+			}
+
+			OnPropertyChanged(nameof(HasRuns));
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			RunsError = ex.Message;
+		}
+		finally
+		{
+			IsLoadingRuns = false;
+		}
+	}
+}
+
+/// <summary>One check from the Validation Engine report (<c>GET .../installations/{id}/validate</c>).</summary>
+public sealed class ValidationCheckRowViewModel(ApplicationInstallationValidationCheckResponse check)
+{
+	public string Severity => check.Severity;
+
+	public bool IsError => string.Equals(check.Severity, "error", StringComparison.OrdinalIgnoreCase);
+
+	public bool IsWarning => string.Equals(check.Severity, "warning", StringComparison.OrdinalIgnoreCase);
+
+	public bool IsInfo => string.Equals(check.Severity, "info", StringComparison.OrdinalIgnoreCase);
+
+	public string Category => check.Category;
+
+	public string Target => check.Target;
+
+	public string Message => check.Message;
+}
+
+/// <summary>One recorded deployment attempt (<c>GET .../installations/{id}/runs</c>).</summary>
+public sealed class InstallationRunRowViewModel(InstallationRunResponse run)
+{
+	public string Status => run.Status;
+
+	public bool IsSucceeded => string.Equals(run.Status, "Succeeded", StringComparison.OrdinalIgnoreCase);
+
+	public bool IsFailed => string.Equals(run.Status, "Failed", StringComparison.OrdinalIgnoreCase) ||
+		string.Equals(run.Status, "Canceled", StringComparison.OrdinalIgnoreCase);
+
+	public bool IsInProgress => !IsSucceeded && !IsFailed;
+
+	public string? ExternalJobId => run.ExternalJobId;
+
+	public string? ExternalUrl => run.ExternalUrl;
+
+	public bool HasExternalUrl => !string.IsNullOrWhiteSpace(run.ExternalUrl);
+
+	public string? Message => run.Message;
+
+	public bool HasMessage => !string.IsNullOrWhiteSpace(run.Message);
+
+	public string CreatedAtText => run.CreatedAtUtc.ToLocalTime().ToString("g");
 }

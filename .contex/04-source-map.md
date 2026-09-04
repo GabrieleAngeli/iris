@@ -108,6 +108,11 @@ File da leggere prima di agire, per area.
   master/slave, typed values, liste, secret/service reference, link a `augeg4-web` e
   vincoli versione MongoDB/Redis
 - `src/Iris.App/Views/Dialogs/{NewApplicationDialog,EditApplicationDialog}.xaml`
+- `src/Iris.App/Views/Dialogs/InstallationOpsDialog.xaml` - console read-mostly per
+  installazione (`Manage` su ogni riga `Installations` della application tile): Validate
+  (Validation Engine), Deploy (`awx/launch`), Run history. Non a edit-lock.
+  `ApplicationInstallationRowViewModel`/`ValidationCheckRowViewModel`/`InstallationRunRowViewModel`
+  in `ApplicationsViewModel.cs`
 - `docs/application-assimilation.md` - guida pipeline/tecnologie, artifact, placeholder e
   procedura manuale per produrre/importare `iris-package.json` per `.NET`,
   Node/JavaScript, Java/Spring, Docker/container e Ansible Jinja2 (`targetKind =

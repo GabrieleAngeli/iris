@@ -26,6 +26,9 @@ public partial class ApplicationsPage : ContentPage
 
 		_vm.NewApplicationInstallationRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new NewApplicationInstallationDialog(row), "dlg.new-application-installation", 820, 720);
+
+		_vm.InstallationOpsRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new InstallationOpsDialog(row), "dlg.installation-ops", 720, 680);
 	}
 
 	protected override void OnAppearing()
