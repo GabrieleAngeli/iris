@@ -94,3 +94,9 @@ typed concepts in `.knowledge/`.
 ## Start here for Applications
 
 → [`domains/applications.md`](domains/applications.md)
+
+## Maintaining this layer
+
+CI (`.github/workflows/knowledge-layer.yml`) validates every concept file and
+checks for drift on every PR/push to `main`. See [`MAINTENANCE.md`](MAINTENANCE.md)
+for what's checked, what isn't yet, and how to respond to a drift report.

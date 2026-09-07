@@ -126,3 +126,51 @@ scaffolding content (no measured payoff yet, possibly closable — see
 
 **Still not claimed**: a rollout-sized sample, a repo-size-independent result,
 or any single blended savings percentage.
+
+---
+
+## 2026-09-07 — Phase 4 (Hardening): CI, drift detection, manual-content protection
+
+**Created**:
+- `.github/workflows/knowledge-layer.yml` — runs `Validate-Knowledge.ps1`
+  (blocking) and `Detect-Drift.ps1` (advisory, always exits 0) on every
+  PR/push to `main`, no path filter (a filter would miss drift on PRs that
+  never touch `.knowledge/`). Uploads both reports as build artifacts.
+- `tools/Detect-Drift.ps1` — for each concept, runs `git log
+  <source.commit>..HEAD -- <path>` per `source.paths` entry; reports which
+  concepts reference paths that changed since they were last verified.
+  Deliberately advisory only — no drift-ratio threshold exists yet to fail
+  the build on, since inventing one with 8 files and one benchmark's worth
+  of data would be an unverified assumption, not a measured one.
+- `MAINTENANCE.md` — CI behaviour, the GENERATED/CURATED marker contract (and
+  what it does *not* yet enforce — no regenerator exists to check generated
+  content against), how to respond to a drift report, rollback (plain
+  `git revert` — nothing here is a live system with external state).
+- Added a marker-balance check to `Validate-Knowledge.ps1` (blocking): every
+  `BEGIN <KIND> SECTION` must have a matching `END <KIND> SECTION`.
+
+**Verified, not just declared**:
+- Ran `Detect-Drift.ps1` against real history: `HEAD` had moved from
+  `7e011bf` (Phase 2/3 generation) to `f71240c` by the time Phase 4 started
+  (three auto-commits of this session's own `.knowledge/` work — no source
+  code changed). Result: 0 drifted / 8 clean / 0 unverifiable — correct,
+  since nothing in any concept's `source.paths` actually changed, only
+  `.knowledge/` itself did, and `.knowledge/` isn't in any concept's own
+  `source.paths`.
+- Proved the marker-balance check isn't a no-op: temporarily broke
+  `architecture/module-graph.md`'s `END GENERATED SECTION` marker, re-ran
+  the validator (1 blocking error, as expected), restored the marker, and
+  confirmed via `git diff` that the file matched its committed content
+  exactly afterward.
+- Confirmed the drift mechanism itself finds real history when given an
+  older commit (manually checked `git log` on
+  `ApplicationsEndpoints.cs` against an older revision — returned 7 real
+  commits — without relying on the drift script's own self-report).
+
+**Updated**: `manifest.yaml` (`source_commit`/`generated_at` bumped to this
+pass, added `drift_status`), `index.md` (points to `MAINTENANCE.md`).
+
+**Explicitly not done** (see `MAINTENANCE.md` "What's deliberately not done
+yet" for the full list): no drift-ratio CI failure threshold, no
+generated-vs-actual diff tool, no per-concept schema versioning, no real
+YAML parser (still regex-based — flagged in both scripts' headers).

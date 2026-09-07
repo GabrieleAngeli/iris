@@ -29,11 +29,11 @@ $requiredTopLevel = @('type', 'name', 'title', 'description', 'status')
 $allowedStatus = @('active', 'draft', 'deprecated', 'accepted', 'superseded')
 $allowedConfidence = @('verified', 'inferred', 'curated', 'stale', 'conflicting')
 
-# Concept files only - index.md/log.md/benchmark-report.md are meta pages,
-# validation-report.md is this script's own output. None of these carry
-# frontmatter by design.
+# Concept files only - index.md/log.md/benchmark-report.md/MAINTENANCE.md are
+# meta pages, validation-report.md/drift-report.md are this pipeline's own
+# output. None of these carry frontmatter by design.
 $conceptFiles = Get-ChildItem -Path $knowledgeRoot -Recurse -Filter '*.md' |
-    Where-Object { $_.FullName -notmatch '\\(index|log|validation-report|benchmark-report)\.md$' }
+    Where-Object { $_.FullName -notmatch '\\(index|log|validation-report|benchmark-report|drift-report|MAINTENANCE)\.md$' }
 
 $errors = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
@@ -93,6 +93,19 @@ foreach ($file in $conceptFiles) {
         $resolved = Join-Path $repoRoot $evidencePath
         if (-not (Test-Path -LiteralPath $resolved)) {
             $warnings.Add("$rel : evidence path not found in repo -> $evidencePath (may be a relation target picked up by the same regex - verify by hand)") | Out-Null
+        }
+    }
+
+    # Manual-content protection: every BEGIN marker in the body (not the
+    # frontmatter) must have a matching END of the same kind, in equal count.
+    # This only checks structural balance, not nesting order or that a
+    # regenerator actually respected the boundary - that needs a real
+    # generator to exist first (none does yet, see MAINTENANCE.md).
+    foreach ($kind in @('GENERATED', 'CURATED')) {
+        $beginCount = ([regex]::Matches($text, [regex]::Escape("BEGIN $kind SECTION"))).Count
+        $endCount = ([regex]::Matches($text, [regex]::Escape("END $kind SECTION"))).Count
+        if ($beginCount -ne $endCount) {
+            $errors.Add("$rel : unbalanced '$kind' section markers (BEGIN=$beginCount, END=$endCount)") | Out-Null
         }
     }
 }

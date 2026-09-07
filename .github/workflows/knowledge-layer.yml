@@ -1,0 +1,46 @@
+name: Knowledge layer validation
+
+# Validates .knowledge/ (structural checks + drift detection) on every PR/push to
+# main. Deliberately NO path filter, unlike security.yml's paths-ignore: a path
+# filter here would miss the exact case drift detection exists to catch — source
+# code changing in a PR that never touches .knowledge/ at all. Both scripts are
+# fast (regex + a handful of `git log` calls), so running them unconditionally is
+# cheap. See .knowledge/MAINTENANCE.md for what each check does and does not cover.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate .knowledge/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Detect-Drift.ps1 needs history, not just the tip commit
+
+      - name: Run concept validator (blocking)
+        shell: pwsh
+        run: ./.knowledge/tools/Validate-Knowledge.ps1
+
+      - name: Run drift detector (advisory only)
+        if: always()
+        shell: pwsh
+        run: ./.knowledge/tools/Detect-Drift.ps1
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-layer-reports
+          path: |
+            .knowledge/validation-report.md
+            .knowledge/drift-report.md
+          if-no-files-found: warn
