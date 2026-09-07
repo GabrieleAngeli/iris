@@ -91,3 +91,38 @@ arms (not constructed — see `benchmark-report.md` "What this does NOT test").
 **Recommendation carried forward**: repeat on 2-3 differently-shaped tasks
 (pure navigation, pure comprehension) with more than one trial each before
 Phase 4/5 resourcing decisions.
+
+---
+
+## 2026-09-07 — Phase 3 benchmark extended: 2 more task shapes (n=3 tasks total)
+
+**What**: ran the same blind two-agent method on a pure navigation task ("add
+`GET /applications/{id}/versions`") and a pure comprehension task ("is the
+`Deployments.Read` vs `Applications.Read` split on `/applications/installations`
+a bug?"). Full tables in `benchmark-report.md`.
+
+**Headline, stated plainly, including the uncomfortable part**: the knowledge
+layer's payoff is **task-shape-dependent, not a blanket property**:
+
+- Navigation task: knowledge-layer was **worse on every metric** (+56% tool
+  calls, +19% tokens, +28% time) for no quality gain — both agents reached the
+  identical conclusion, and the layer currently has no endpoint-scaffolding
+  content to shortcut a "find the existing pattern" task that grep already
+  handles cheaply at this repo's size.
+- Comprehension task: knowledge-layer was **better on every metric** (-55%
+  tool calls, -22% tokens, -53% time) plus a quality gain (an extra insight,
+  and explicit verification of the layer's own claim against source) —
+  because `domains/applications.md`'s "Boundaries" section had already stated,
+  with evidence, the exact fact the baseline had to reconstruct from five
+  different subsystems by hand.
+- Aggregated across all 3 tasks so far: tool calls -18%, tokens **+0.06% (a
+  wash)**, time -10%. The aggregate number is not the useful output here — the
+  per-task-shape split is.
+
+**Decision this drives**: when extending to more domains, prioritise writing
+"why/boundary/gotcha" content (proven payoff) over "where do I add code"
+scaffolding content (no measured payoff yet, possibly closable — see
+`benchmark-report.md` recommendation 2 for a cheap follow-up experiment).
+
+**Still not claimed**: a rollout-sized sample, a repo-size-independent result,
+or any single blended savings percentage.

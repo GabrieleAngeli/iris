@@ -107,18 +107,102 @@ was already stated as a fact with evidence in `domains/applications.md`. That is
 plausible, real mechanism, not an artifact of prompt luck — but n=1 cannot separate
 "the knowledge layer helped" from "this particular agent happened to reason better."
 
+## Task 2 — pure navigation ("add `GET /applications/{id}/versions`")
+
+Same method, different question shape: "which files do I create/change to add this
+endpoint, which permission, which test file" — a lookup-the-existing-pattern task,
+not an impact-analysis or comprehension task.
+
+| Metric | Baseline | Knowledge-layer | Delta |
+|---|---:|---:|---:|
+| Tool uses (harness-counted) | 18 | 28 | **+56%** |
+| Tokens | 57,254 | 67,947 | **+19%** |
+| Duration | 82.6s | 106.0s | **+28%** |
+| Lines read | ~780 | ~1,384 | **+77%** |
+| Distinct files | 10 | 14 (4 `.knowledge/` + 10 repo) | **+40%** |
+| Turns | 5 | 9 | **+80%** |
+
+**Knowledge-layer was worse on every single axis here — stated plainly, not
+softened.** Both agents reached the same core finding (the exact response DTO,
+`ApplicationVersionSummaryResponse`, already exists and just needs a new route),
+found independently via grep by the baseline in 5 turns. The knowledge-layer agent
+still had to open essentially the same source files as the baseline, plus 4
+`.knowledge/` files on top, for no compensating shortcut — the layer currently has
+no "if you're adding a read endpoint, follow this shape" scaffolding content, so it
+added pure overhead on a task that plain grep already handles cheaply at this repo's
+size.
+
+## Task 3 — pure comprehension ("is this permission split a bug?")
+
+"Why does `GET /applications/installations` need `Deployments.Read` instead of
+`Applications.Read`, despite sharing a file and a C# namespace with `GET
+/applications` — bug or intentional?"
+
+| Metric | Baseline | Knowledge-layer | Delta |
+|---|---:|---:|---:|
+| Tool uses (harness-counted) | 29 | 13 | **-55%** |
+| Tokens | 67,862 | 52,729 | **-22%** |
+| Duration | 174.0s | 81.7s | **-53%** |
+| Lines read | ~980 | ~600 | **-39%** |
+| Distinct files | 10 | 6 (3 `.knowledge/` + 3 repo) | **-40%** |
+| Turns | ~21 | ~4-6 | **-71%..-76%** |
+
+**Knowledge-layer was clearly better on every axis here.** The baseline had to
+reconstruct the boundary from scratch by independently checking five different
+subsystems (permission catalog comments, `TransactionLogInterceptor.AreaFor`, seed
+roles, the MAUI client's nav gating, and the founding product brief) before
+concluding "intentional." The knowledge-layer agent went almost straight to
+verifying a claim already stated in `domains/applications.md` ("Boundaries": *"treat
+that split as the real domain boundary, not the C# folder"*) against source, then
+spent its remaining turns gathering corroborating evidence rather than building the
+argument from zero. It also found an extra insight neither prompt asked for (the
+`ApplicationInstallation.cs` file is arguably mis-filed relative to the boundary the
+rest of the system enforces) and explicitly cross-checked the knowledge layer's own
+claim against source before trusting it — exactly the verification discipline
+`index.md` asks for.
+
+## Aggregate across all 3 tasks (n=3 tasks, still 1 trial each — not statistically robust)
+
+| Metric | Baseline (sum) | Knowledge-layer (sum) | Delta |
+|---|---:|---:|---:|
+| Tool uses | 112 | 92 | -18% |
+| Tokens | 250,288 | 250,443 | **+0.06% (a wash)** |
+| Duration | 691.2s | 622.5s | -10% |
+
+**The aggregate hides the real finding, and the real finding is more useful than a
+single percentage would be.** Total tokens across three tasks are, for practical
+purposes, identical between conditions — there is no blanket "knowledge layer saves
+tokens" effect here. What varies enormously is *which task shape* benefits:
+
+- **Comprehension / "why" / boundary questions** (Task 3): large, consistent win on
+  every metric, because a fact that's expensive to *reconstruct* by cross-referencing
+  several subsystems was already stated once, with evidence, in one place.
+- **Impact analysis across many files** (Task 1): mixed — fewer tool calls/turns,
+  flat-to-higher tokens/lines, but a real, attributable quality gain (respected a
+  domain boundary the baseline violated; caught an extra bug).
+- **Pure code-pattern navigation** (Task 2): the knowledge layer added cost with no
+  offsetting benefit, because the layer doesn't yet encode "how to add a new
+  endpoint" scaffolding knowledge, and grep already finds the analogous existing
+  code quickly at this repo's size.
+
 ## Recommendation before Phase 4/5
 
-Do not generalize from this run. Before committing engineering time to
-CI/drift-detection/extension:
+Do not generalize a single percentage from this data. What it does support:
 
-1. Repeat this comparison on **2-3 more tasks of different shapes** — at minimum a
-   pure navigation task ("which files do I touch to add endpoint X") and a pure
-   comprehension question ("why does `/applications/installations` need a different
-   permission than the rest of `/applications`") — the current n=1 task is an
-   impact-analysis task specifically, the shape the layer should be best at.
-2. Run each task **more than once per condition** if the result is close, since a
-   single LLM trial carries real sampling variance.
-3. Treat the "fewer tool calls / turns, same-or-more tokens" pattern from this run as
-   the working hypothesis to confirm or refute, not as an established property of the
-   layer.
+1. **Prioritize "why/boundary/gotcha" content over "where do I add code" content**
+   when extending to new domains — that's where the measured payoff is, not a
+   general property of having a `.knowledge/` directory.
+2. **Try closing the Task-2-style gap cheaply**: add a short "to add a new read
+   endpoint in this domain, follow the shape of X" scaffolding note to
+   `domains/applications.md` and re-run Task 2 once to see if that specific gap
+   closes, before assuming navigation tasks are just a bad fit for this layer.
+3. **Repo-size caveat**: this repository is small enough that baseline grep-based
+   discovery is already fast. The comprehension-task win (Task 3) plausibly grows
+   with codebase size (more subsystems to cross-reference by hand); the
+   navigation-task loss (Task 2) plausibly shrinks or reverses once grep-based
+   discovery itself becomes expensive. Neither is tested here.
+4. Still no RAG or text-search-only arm — see "What this does NOT test" above,
+   unchanged.
+5. Three tasks, one trial each, is enough to form a hypothesis (task-shape-dependent
+   payoff), not enough to size a rollout. Widening to more domains should keep
+   measuring per-task-shape rather than reporting a single blended number.
