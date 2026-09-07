@@ -39,7 +39,6 @@ public partial class DeploymentsViewModel : ObservableObject
 
 	[ObservableProperty] private bool _isLoading;
 	[ObservableProperty] private string? _error;
-	[ObservableProperty] private ApplicationRowViewModel? _selectedNewDeploymentApplication;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
 
@@ -142,33 +141,65 @@ public partial class DeploymentsViewModel : ObservableObject
 
 	public event EventHandler<ApplicationInstallationRowViewModel>? InstallationOpsRequested;
 
+	/// <summary>
+	/// Raised to ask the view to open a small "pick an application" dialog (there is no
+	/// page-level application picker anymore — every entry point into composing a deployment
+	/// asks for the application as its first step instead).
+	/// </summary>
+	public event EventHandler<SelectApplicationDialogViewModel>? SelectApplicationRequested;
+
 	private void RaiseInstallationOpsRequested(ApplicationInstallationRowViewModel row) =>
 		InstallationOpsRequested?.Invoke(this, row);
 
 	[RelayCommand]
-	private async Task RequestNewDeployment() => await StartComposingAsync(null, null);
+	private void RequestNewDeployment() => RequestApplicationPicker(null, null);
 
 	/// <summary>
-	/// Opens the existing installation wizard for the picked application, then — once it has
-	/// finished loading its server/context options — pre-selects <paramref name="presetServerId"/>
+	/// Asks the operator which application to deploy (only those with an imported release are
+	/// offered). Only *raises the request* — does not wait for an answer here. The view is
+	/// responsible for fully closing the picker window (via <see cref="IDialogService.ShowAsync"/>,
+	/// which only returns once the native window is actually closed) before calling
+	/// <see cref="HandleApplicationPickedAsync"/>. Do not resolve/await this in-place with a
+	/// second, independent completion signal (an earlier version did, via a TaskCompletionSource
+	/// racing the window's own close) — that let the next dialog start opening while this one was
+	/// still closing and crashed the app.
+	/// </summary>
+	private void RequestApplicationPicker(Guid? presetServerId, Guid? presetContextId)
+	{
+		var deployable = Applications.Where(a => a.CanRequestNewInstallation).ToArray();
+		if (deployable.Length == 0)
+		{
+			Error = "No application has an imported release yet — import configuration knowledge on the Applications page first.";
+			return;
+		}
+
+		var picker = new SelectApplicationDialogViewModel(deployable, presetServerId, presetContextId);
+		SelectApplicationRequested?.Invoke(this, picker);
+	}
+
+	/// <summary>
+	/// Called by the view strictly after the picker window has fully closed
+	/// (<c>await IDialogService.ShowAsync(...)</c> returned) — never from inside the window's own
+	/// Confirm/Cancel handling. Only then is it safe to open the next window.
+	/// </summary>
+	public async Task HandleApplicationPickedAsync(SelectApplicationDialogViewModel picker)
+	{
+		if (!picker.WasConfirmed || picker.SelectedApplication is not { } application)
+		{
+			return;
+		}
+
+		await StartComposingAsync(application, picker.PresetServerId, picker.PresetContextId);
+	}
+
+	/// <summary>
+	/// Opens the existing installation wizard for <paramref name="application"/>, then — once it
+	/// has finished loading its server/context options — pre-selects <paramref name="presetServerId"/>
 	/// and <paramref name="presetContextId"/> when given. The wizard still lets the operator change
 	/// them; this only saves the obvious re-selection when composing from a server row.
 	/// </summary>
-	private async Task StartComposingAsync(Guid? presetServerId, Guid? presetContextId)
+	private async Task StartComposingAsync(ApplicationRowViewModel application, Guid? presetServerId, Guid? presetContextId)
 	{
-		var application = SelectedNewDeploymentApplication;
-		if (application is null)
-		{
-			Error = "Select an application to deploy first.";
-			return;
-		}
-
-		if (!application.RequestNewInstallationCommand.CanExecute(null))
-		{
-			Error = $"'{application.Name}' has no imported release yet — import its configuration knowledge on the Applications page first.";
-			return;
-		}
-
 		await application.RequestNewInstallationCommand.ExecuteAsync(null);
 
 		if (presetServerId is { } serverId)
@@ -190,8 +221,8 @@ public partial class DeploymentsViewModel : ObservableObject
 		}
 	}
 
-	private async void RequestAddApplication(DeploymentServerGroupViewModel serverGroup) =>
-		await StartComposingAsync(serverGroup.ServerNodeId, serverGroup.CustomerContextId);
+	private void RequestAddApplication(DeploymentServerGroupViewModel serverGroup) =>
+		RequestApplicationPicker(serverGroup.ServerNodeId, serverGroup.CustomerContextId);
 
 	private async Task RequestAssignServerAsync(DeploymentContextGroupViewModel contextGroup)
 	{
@@ -350,4 +381,74 @@ public sealed partial class DeploymentServerGroupViewModel : ObservableObject
 
 	[RelayCommand]
 	private void AddApplication() => _addApplication(this);
+}
+
+/// <summary>
+/// Backs the small "which application?" dialog shown before composing a new deployment —
+/// the only place that choice is made now that the page itself has no application picker.
+/// Only applications with an imported release (<see cref="ApplicationRowViewModel.CanRequestNewInstallation"/>)
+/// are offered; the caller is expected to have filtered the list before constructing this.
+///
+/// Deliberately exposes a single <see cref="CloseRequested"/> signal (not separate
+/// Confirmed/Cancelled events carrying the "what happens next" logic): the view's job on
+/// that signal is only to close its window, nothing else. Whatever should happen after a
+/// confirmed pick (opening the next wizard) must wait until the window is verifiably closed
+/// — read <see cref="WasConfirmed"/>/<see cref="SelectedApplication"/> only after
+/// <c>await IDialogService.ShowAsync(...)</c> for this dialog has returned
+/// (<see cref="DeploymentsViewModel.HandleApplicationPickedAsync"/>). An earlier version
+/// resolved a separate TaskCompletionSource on the same Confirmed event that also closed the
+/// window, which let the next window start opening before this one had finished closing and
+/// crashed the app — do not reintroduce that shape.
+/// </summary>
+public sealed partial class SelectApplicationDialogViewModel : ObservableObject
+{
+	public SelectApplicationDialogViewModel(IReadOnlyList<ApplicationRowViewModel> applications, Guid? presetServerId, Guid? presetContextId)
+	{
+		Applications = applications;
+		SelectedApplication = applications.FirstOrDefault();
+		PresetServerId = presetServerId;
+		PresetContextId = presetContextId;
+	}
+
+	public IReadOnlyList<ApplicationRowViewModel> Applications { get; }
+
+	public Guid? PresetServerId { get; }
+
+	public Guid? PresetContextId { get; }
+
+	/// <summary>Set only by <see cref="Confirm"/>. False for Cancel and for the window being
+	/// closed any other way (native close button), which is the correct "do nothing further"
+	/// outcome in both those cases.</summary>
+	public bool WasConfirmed { get; private set; }
+
+	[ObservableProperty] private ApplicationRowViewModel? _selectedApplication;
+	[ObservableProperty] private string? _error;
+
+	public bool HasError => !string.IsNullOrWhiteSpace(Error);
+
+	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	/// <summary>The view's only reaction to this must be closing its window — see the class
+	/// remarks for why nothing else may hang off this event.</summary>
+	public event EventHandler? CloseRequested;
+
+	[RelayCommand]
+	private void Confirm()
+	{
+		if (SelectedApplication is null)
+		{
+			Error = "Select an application to continue.";
+			return;
+		}
+
+		WasConfirmed = true;
+		CloseRequested?.Invoke(this, EventArgs.Empty);
+	}
+
+	[RelayCommand]
+	private void Cancel()
+	{
+		WasConfirmed = false;
+		CloseRequested?.Invoke(this, EventArgs.Empty);
+	}
 }

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.SelectApplicationForDeploymentDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:SelectApplicationDialogViewModel"
+    Title="New deployment">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Which application?" Style="{StaticResource Subtitle}" />
+                    <Label Text="Pick the application to deploy. Only applications with an imported release are listed." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1"
+                        Padding="12,10"
+                        StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Application" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}" HorizontalOptions="Fill">
+                        <Picker ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
+                                HorizontalOptions="Fill">
+                            <Picker.ItemDisplayBinding>
+                                <Binding Path="Name" x:DataType="vm:ApplicationRowViewModel" />
+                            </Picker.ItemDisplayBinding>
+                        </Picker>
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Continue" Command="{Binding ConfirmCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

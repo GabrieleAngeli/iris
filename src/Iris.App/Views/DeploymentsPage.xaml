@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:Iris.App.ViewModels"
     xmlns:controls="clr-namespace:Iris.App.Controls"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:DataType="vm:DeploymentsViewModel"
     Title="Deployments">
 
@@ -12,24 +13,15 @@
         <ScrollView>
             <VerticalStackLayout Padding="28" Spacing="18" MaximumWidthRequest="1080" HorizontalOptions="Fill">
 
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Deployments" Style="{StaticResource TitleLarge}" />
                         <Label Text="This application, for this customer's environment, on this server — grouped by customer." Style="{StaticResource Caption}" />
                     </VerticalStackLayout>
 
-                    <Border Grid.Column="1" Style="{StaticResource FieldBorder}" IsVisible="{Binding CanManageDeployments}"
-                            VerticalOptions="Start" WidthRequest="220">
-                        <Picker ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedNewDeploymentApplication}" Title="Application">
-                            <Picker.ItemDisplayBinding>
-                                <Binding Path="Name" x:DataType="vm:ApplicationRowViewModel" />
-                            </Picker.ItemDisplayBinding>
-                        </Picker>
-                    </Border>
-
-                    <Button Grid.Column="2" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
+                    <Button Grid.Column="1" Text="&#xE72C;  Refresh" FontFamily="{StaticResource FontIcons}"
                             Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" VerticalOptions="Start" />
-                    <Button Grid.Column="3" Text="New deployment" Command="{Binding RequestNewDeploymentCommand}"
+                    <Button Grid.Column="2" Text="New deployment" Command="{Binding RequestNewDeploymentCommand}"
                             IsVisible="{Binding CanManageDeployments}" VerticalOptions="Start" />
                 </Grid>
 
@@ -45,16 +37,20 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeploymentCustomerGroupViewModel">
                             <Border Style="{StaticResource Card}">
-                                <VerticalStackLayout Spacing="14">
+                                <toolkit:Expander IsExpanded="True">
+                                    <toolkit:Expander.Header>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
+                                                <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
+                                                    <Label Text="Inactive" Style="{StaticResource Caption}" />
+                                                </Border>
+                                            </HorizontalStackLayout>
+                                            <Label Grid.Column="1" Text="&#xE70D;" FontFamily="{StaticResource FontIcons}" FontSize="12" VerticalOptions="Center" />
+                                        </Grid>
+                                    </toolkit:Expander.Header>
 
-                                    <HorizontalStackLayout Spacing="8">
-                                        <Label Text="{Binding Name}" FontFamily="{StaticResource FontSemibold}" FontSize="16" />
-                                        <Border Style="{StaticResource Badge}" IsVisible="{Binding IsActive, Converter={StaticResource InvertBoolConverter}}">
-                                            <Label Text="Inactive" Style="{StaticResource Caption}" />
-                                        </Border>
-                                    </HorizontalStackLayout>
-
-                                    <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Contexts}">
+                                    <VerticalStackLayout Spacing="10" Padding="0,14,0,0" BindableLayout.ItemsSource="{Binding Contexts}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="vm:DeploymentContextGroupViewModel">
                                                 <Border BackgroundColor="{AppThemeBinding Light={StaticResource LayerAltLight}, Dark={StaticResource LayerAltDark}}"
@@ -71,23 +67,27 @@
                                                             </Border>
                                                         </HorizontalStackLayout>
 
-                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="40" ColumnSpacing="8"
                                                               IsVisible="{Binding CanManageDeployments}">
-                                                            <Border Style="{StaticResource FieldBorder}" IsVisible="{Binding HasAvailableServers}">
+                                                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldBorder}"
+                                                                    IsVisible="{Binding HasAvailableServers}"
+                                                                    HorizontalOptions="Fill" VerticalOptions="Fill" HeightRequest="40">
                                                                 <Picker ItemsSource="{Binding AvailableServers}" SelectedItem="{Binding SelectedServerToAssign}"
-                                                                        Title="Assign a server">
+                                                                        Title="Assign a server" HorizontalOptions="Fill" VerticalOptions="Center">
                                                                     <Picker.ItemDisplayBinding>
                                                                         <Binding Path="DisplayName" x:DataType="vm:ServerOptionViewModel" />
                                                                     </Picker.ItemDisplayBinding>
                                                                 </Picker>
                                                             </Border>
-                                                            <Label Grid.Column="0" Text="No more active servers available to assign." Style="{StaticResource Caption}"
+                                                            <Label Grid.Row="0" Grid.Column="0" Text="No more active servers available to assign." Style="{StaticResource Caption}"
                                                                    IsVisible="{Binding HasAvailableServers, Converter={StaticResource InvertBoolConverter}}"
+                                                                   LineBreakMode="TailTruncation" MaxLines="1"
                                                                    VerticalOptions="Center" />
-                                                            <Button Grid.Column="1" Text="Assign" Style="{StaticResource SecondaryButton}"
+                                                            <Button Grid.Row="0" Grid.Column="1" Text="Assign" Style="{StaticResource SecondaryButton}"
                                                                     Command="{Binding AssignServerCommand}"
                                                                     IsVisible="{Binding HasAvailableServers}"
-                                                                    IsEnabled="{Binding IsAssigningServer, Converter={StaticResource InvertBoolConverter}}" />
+                                                                    IsEnabled="{Binding IsAssigningServer, Converter={StaticResource InvertBoolConverter}}"
+                                                                    HeightRequest="40" VerticalOptions="Fill" />
                                                         </Grid>
                                                         <Label Text="{Binding AssignServerError}" IsVisible="{Binding HasAssignServerError}" Style="{StaticResource Caption}"
                                                                TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
@@ -150,8 +150,7 @@
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
-
-                                </VerticalStackLayout>
+                                </toolkit:Expander>
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
