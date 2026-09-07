@@ -1067,6 +1067,62 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("Servers", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Settings.IntegrationSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnsibleEndpoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnsibleInventory")
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnsiblePlaybook")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AwxEndpoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AwxJobTemplateId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AwxTokenSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OpenBaoEndpoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OpenBaoMountPath")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OpenBaoTokenSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("OpenBaoUseKvV2")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IntegrationSettings", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Settings.MailProviderSettings", b =>
                 {
                     b.Property<Guid>("Id")

@@ -43,6 +43,8 @@ internal sealed class FakeStore
 
     public List<MailProviderSettings> MailSettings { get; } = [];
 
+    public List<IntegrationSettings> IntegrationSettings { get; } = [];
+
     public Dictionary<string, string> SecretsByReference { get; } = [];
 
     public int SaveChangesCalls { get; set; }
@@ -115,6 +117,8 @@ internal sealed class FakeStore
 
     public FakeMailProviderSettingsRepository MailProviderSettingsRepository => new(this);
 
+    public FakeIntegrationSettingsRepository IntegrationSettingsRepository => new(this);
+
     /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
     public UserAccessService AccessService => new(UserRepository, RoleAssignmentRepository, RoleRepository);
 }
@@ -177,6 +181,25 @@ internal sealed class FakeMailProviderSettingsRepository(FakeStore store) : IMai
         store.MailSettings.Clear();
         store.MailSettings.Add(settings);
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeIntegrationSettingsRepository(FakeStore store) : IIntegrationSettingsRepository
+{
+    public Task<IntegrationSettings?> GetAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.IntegrationSettings.SingleOrDefault());
+
+    public Task<IntegrationSettings> GetOrCreateAsync(CancellationToken cancellationToken = default)
+    {
+        var existing = store.IntegrationSettings.SingleOrDefault();
+        if (existing is not null)
+        {
+            return Task.FromResult(existing);
+        }
+
+        var created = IntegrationSettings.CreateEmpty();
+        store.IntegrationSettings.Add(created);
+        return Task.FromResult(created);
     }
 }
 

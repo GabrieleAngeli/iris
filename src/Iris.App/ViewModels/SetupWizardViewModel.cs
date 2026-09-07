@@ -3,10 +3,11 @@ using Iris.Contracts.Setup;
 namespace Iris.App.ViewModels;
 
 /// <summary>
-/// First-run wizard: step 1 configures the mail relay Iris sends invitations through, step 2
-/// creates the first super-admin. Runs once — <see cref="LoginPage"/> only routes here while
-/// <c>GetSetupStatusAsync</c> says it's still needed. On success the new admin is signed in
-/// straight to the dashboard, no separate login step.
+/// First-run wizard: steps 1-2 collect OpenBao/AWX configuration or intent, step 3 configures
+/// the mail relay Iris sends invitations through, step 4 creates the first super-admin. Runs
+/// once — <see cref="LoginPage"/> only routes here while <c>GetSetupStatusAsync</c> says it's
+/// still needed. On success the new admin is signed in straight to the dashboard, no separate
+/// login step.
 /// </summary>
 public partial class SetupWizardViewModel : ObservableObject
 {
@@ -23,17 +24,99 @@ public partial class SetupWizardViewModel : ObservableObject
 
 	[ObservableProperty] private int _currentStep = 1;
 
-	public bool IsMailStep => CurrentStep == 1;
+	public bool IsOpenBaoStep => CurrentStep == 1;
 
-	public bool IsAdminStep => CurrentStep == 2;
+	public bool IsAwxStep => CurrentStep == 2;
+
+	public bool IsMailStep => CurrentStep == 3;
+
+	public bool IsAdminStep => CurrentStep == 4;
 
 	partial void OnCurrentStepChanged(int value)
 	{
+		OnPropertyChanged(nameof(IsOpenBaoStep));
+		OnPropertyChanged(nameof(IsAwxStep));
 		OnPropertyChanged(nameof(IsMailStep));
 		OnPropertyChanged(nameof(IsAdminStep));
 	}
 
-	// ----- Step 1: mail provider -----
+	// ----- Step 1: OpenBao -----
+
+	/// <summary>Options shown in the OpenBao/AWX mode <c>Picker</c>s — same three choices for
+	/// both, index-matched to <see cref="OpenBaoModeIndex"/>/<see cref="AwxModeIndex"/>
+	/// (0 = use existing, 1 = install for me, 2 = skip for now).</summary>
+	public IReadOnlyList<string> IntegrationModeOptions { get; } =
+	[
+		"Use an existing instance",
+		"Install/start one for me",
+		"Skip for now — configure later in System settings",
+	];
+
+	private const int ModeUseExisting = 0;
+	private const int ModeInstallForMe = 1;
+
+	[ObservableProperty] private int _openBaoModeIndex;
+	[ObservableProperty] private string _openBaoEndpoint = string.Empty;
+	[ObservableProperty] private string _openBaoToken = string.Empty;
+	[ObservableProperty] private string? _openBaoError;
+
+	public bool IsOpenBaoUseExisting => OpenBaoModeIndex == ModeUseExisting;
+
+	public bool HasOpenBaoError => !string.IsNullOrEmpty(OpenBaoError);
+
+	partial void OnOpenBaoModeIndexChanged(int value) => OnPropertyChanged(nameof(IsOpenBaoUseExisting));
+
+	partial void OnOpenBaoErrorChanged(string? value) => OnPropertyChanged(nameof(HasOpenBaoError));
+
+	[RelayCommand]
+	private void GoToAwxStep()
+	{
+		if (OpenBaoModeIndex == ModeUseExisting && string.IsNullOrWhiteSpace(OpenBaoEndpoint))
+		{
+			OpenBaoError = "Enter the OpenBao endpoint, or choose a different option.";
+			return;
+		}
+
+		OpenBaoError = null;
+		CurrentStep = 2;
+	}
+
+	[RelayCommand]
+	private void BackToOpenBaoStep() => CurrentStep = 1;
+
+	// ----- Step 2: AWX -----
+
+	[ObservableProperty] private int _awxModeIndex;
+	[ObservableProperty] private string _awxEndpoint = string.Empty;
+	[ObservableProperty] private string _awxToken = string.Empty;
+	[ObservableProperty] private string _awxJobTemplateId = string.Empty;
+	[ObservableProperty] private string? _awxError;
+
+	public bool IsAwxUseExisting => AwxModeIndex == ModeUseExisting;
+
+	public bool HasAwxError => !string.IsNullOrEmpty(AwxError);
+
+	partial void OnAwxModeIndexChanged(int value) => OnPropertyChanged(nameof(IsAwxUseExisting));
+
+	partial void OnAwxErrorChanged(string? value) => OnPropertyChanged(nameof(HasAwxError));
+
+	[RelayCommand]
+	private void GoToMailStep()
+	{
+		if (AwxModeIndex == ModeUseExisting && string.IsNullOrWhiteSpace(AwxEndpoint))
+		{
+			AwxError = "Enter the AWX endpoint, or choose a different option.";
+			return;
+		}
+
+		AwxError = null;
+		CurrentStep = 3;
+	}
+
+	[RelayCommand]
+	private void BackToAwxStep() => CurrentStep = 2;
+
+	// ----- Step 3: mail provider -----
 
 	[ObservableProperty] private string _smtpHost = string.Empty;
 	[ObservableProperty] private string _smtpPort = "587";
@@ -70,13 +153,13 @@ public partial class SetupWizardViewModel : ObservableObject
 		}
 
 		MailError = null;
-		CurrentStep = 2;
+		CurrentStep = 4;
 	}
 
 	[RelayCommand]
-	private void BackToMailStep() => CurrentStep = 1;
+	private void BackToMailStep() => CurrentStep = 3;
 
-	// ----- Step 2: super-admin -----
+	// ----- Step 4: super-admin -----
 
 	[ObservableProperty] private string _adminEmail = string.Empty;
 	[ObservableProperty] private string _adminDisplayName = string.Empty;
@@ -136,8 +219,30 @@ public partial class SetupWizardViewModel : ObservableObject
 				string.IsNullOrWhiteSpace(FromDisplayName) ? null : FromDisplayName.Trim(),
 				EnableSsl);
 
+			var openBao = OpenBaoModeIndex switch
+			{
+				ModeUseExisting => new OpenBaoSetupInput(
+					Skip: false, InstallForMe: false,
+					Endpoint: OpenBaoEndpoint.Trim(),
+					Token: string.IsNullOrEmpty(OpenBaoToken) ? null : OpenBaoToken),
+				ModeInstallForMe => new OpenBaoSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null),
+				_ => new OpenBaoSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null),
+			};
+
+			var awxJobTemplateId = int.TryParse(AwxJobTemplateId, out var parsedJobTemplateId) ? parsedJobTemplateId : (int?)null;
+			var awx = AwxModeIndex switch
+			{
+				ModeUseExisting => new AwxSetupInput(
+					Skip: false, InstallForMe: false,
+					Endpoint: AwxEndpoint.Trim(),
+					Token: string.IsNullOrEmpty(AwxToken) ? null : AwxToken,
+					JobTemplateId: awxJobTemplateId),
+				ModeInstallForMe => new AwxSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null, JobTemplateId: null),
+				_ => new AwxSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null, JobTemplateId: null),
+			};
+
 			var result = await _api.CompleteSetupAsync(new CompleteSetupRequest(
-				mail, AdminEmail.Trim(), AdminDisplayName.Trim(), AdminPassword));
+				mail, AdminEmail.Trim(), AdminDisplayName.Trim(), AdminPassword, openBao, awx));
 
 			var signedIn = await _auth.ApplySessionAsync(result.Token);
 			if (!signedIn.Success)
@@ -145,6 +250,14 @@ public partial class SetupWizardViewModel : ObservableObject
 				AdminError = signedIn.Error;
 				return;
 			}
+
+			// Phase 2/3 hand-off point: once the platform.admin-gated provisioning endpoints
+			// exist, call them here (POST /system/integrations/openbao/provision,
+			// /awx/provision) when the corresponding flag is set — never from the anonymous
+			// /setup/complete call itself. For now this is intentionally a no-op; the operator
+			// can configure/provision OpenBao/AWX later from System settings.
+			_ = result.OpenBaoProvisionRequested;
+			_ = result.AwxProvisionRequested;
 
 			AdminPassword = string.Empty;
 			ConfirmPassword = string.Empty;

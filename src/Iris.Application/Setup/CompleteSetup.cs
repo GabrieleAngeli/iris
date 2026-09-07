@@ -1,6 +1,7 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Application.Common;
+using Iris.Application.Settings;
 using Iris.Contracts.Setup;
 using Iris.Domain.Access;
 using Iris.Domain.Settings;
@@ -8,15 +9,19 @@ using Iris.Domain.Settings;
 namespace Iris.Application.Setup;
 
 /// <summary>
-/// Command for <c>POST /setup/complete</c> — the whole first-run wizard: configures the mail
-/// relay and creates the first super-admin, in one call. Anonymous, but only usable once — see
-/// the replay guard in <see cref="HandleAsync"/>.
+/// Command for <c>POST /setup/complete</c> — the whole first-run wizard: configures OpenBao/AWX
+/// (optional — "use existing" only, see <see cref="OpenBaoSetupInput"/>), the mail relay, and
+/// creates the first super-admin, in one call. Anonymous, but only usable once — see the replay
+/// guard in <see cref="HandleAsync"/>. <see cref="OpenBao"/>/<see cref="Awx"/> default to
+/// <c>null</c> so existing callers that predate these two wizard steps keep compiling.
 /// </summary>
 public sealed record CompleteSetupCommand(
     MailProviderInput Mail,
     string AdminEmail,
     string AdminDisplayName,
-    string AdminPassword);
+    string AdminPassword,
+    OpenBaoSetupInput? OpenBao = null,
+    AwxSetupInput? Awx = null);
 
 public sealed class CompleteSetupHandler(
     IRoleRepository roles,
@@ -28,7 +33,9 @@ public sealed class CompleteSetupHandler(
     IPasswordHasher passwordHasher,
     SessionIssuer sessionIssuer,
     IClock clock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    SaveOpenBaoIntegrationSettingsHandler saveOpenBao,
+    SaveAwxIntegrationSettingsHandler saveAwx)
 {
     public async Task<CompleteSetupResponse> HandleAsync(
         CompleteSetupCommand command,
@@ -106,8 +113,33 @@ public sealed class CompleteSetupHandler(
 
         var (token, expiresAtUtc) = await sessionIssuer.IssueAsync(admin.Id, cancellationToken).ConfigureAwait(false);
 
+        // "Use existing" (endpoint given, not skipped, not asking Iris to provision it) is the
+        // only mode handled here — it's just data persistence, safe to do from this anonymous,
+        // one-shot endpoint. "Install for me" only sets the *ProvisionRequested flags below;
+        // there is no anonymous provisioning endpoint to call — the client calls the
+        // authenticated one (once it exists) after signing in with the token issued above.
+        var openBaoProvisionRequested = command.OpenBao is { Skip: false, InstallForMe: true };
+        if (command.OpenBao is { Skip: false, InstallForMe: false, Endpoint: { Length: > 0 } openBaoEndpoint })
+        {
+            await saveOpenBao.HandleAsync(
+                new SaveOpenBaoIntegrationSettingsCommand(openBaoEndpoint, command.OpenBao.Token, "secret", UseKvV2: true),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var awxProvisionRequested = command.Awx is { Skip: false, InstallForMe: true };
+        if (command.Awx is { Skip: false, InstallForMe: false, Endpoint: { Length: > 0 } awxEndpoint })
+        {
+            await saveAwx.HandleAsync(
+                new SaveAwxIntegrationSettingsCommand(awxEndpoint, command.Awx.Token, command.Awx.JobTemplateId),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        // The two SaveXxxIntegrationSettingsHandler calls above already flush every change
+        // pending on this same tracked context (admin/mail settings included) via their own
+        // SaveChangesAsync — this call is what actually persists everything in the common case
+        // where neither OpenBao nor AWX "use existing" was selected.
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new CompleteSetupResponse(admin.Id, admin.Email, token, expiresAtUtc);
+        return new CompleteSetupResponse(admin.Id, admin.Email, token, expiresAtUtc, openBaoProvisionRequested, awxProvisionRequested);
     }
 }

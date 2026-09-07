@@ -16,6 +16,7 @@ public partial class SystemSettingsViewModel(
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
 	[ObservableProperty] private bool _canManageSystem;
+	[ObservableProperty] private bool _restartRequired;
 	[ObservableProperty] private string _smtpSummary = "Not configured";
 	[ObservableProperty] private bool _smtpConfigured;
 	[ObservableProperty] private string _smtpHost = "-";
@@ -64,6 +65,7 @@ public partial class SystemSettingsViewModel(
 		{
 			var settings = await api.GetSystemSettingsAsync();
 			CanManageSystem = settings.CanManageSystem;
+			RestartRequired = settings.RestartRequired;
 			ApplyMail(settings.Mail);
 
 			Integrations.Clear();

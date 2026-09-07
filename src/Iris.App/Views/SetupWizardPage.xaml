@@ -23,16 +23,95 @@
                                 <FormattedString>
                                     <Span Text="Step " />
                                     <Span Text="{Binding CurrentStep}" />
-                                    <Span Text=" of 2 — " />
+                                    <Span Text=" of 4 — " />
+                                    <Span Text="OpenBao" />
+                                    <Span Text=", " />
+                                    <Span Text="AWX" />
+                                    <Span Text=", " />
                                     <Span Text="mail relay" />
-                                    <Span Text=" then " />
+                                    <Span Text=", then " />
                                     <Span Text="your administrator account" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
                     </VerticalStackLayout>
 
-                    <!-- ===== Step 1: mail provider ===== -->
+                    <!-- ===== Step 1: OpenBao ===== -->
+                    <VerticalStackLayout Spacing="12" IsVisible="{Binding IsOpenBaoStep}">
+                        <Label Style="{StaticResource Body}"
+                               Text="Iris stores secrets (SMTP password, integration tokens, credentials) in OpenBao, never in its own database. Do you already have an OpenBao instance?" />
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="What should Iris do?" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding IntegrationModeOptions}" SelectedIndex="{Binding OpenBaoModeIndex}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10" IsVisible="{Binding IsOpenBaoUseExisting}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Endpoint" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding OpenBaoEndpoint}" Placeholder="https://openbao.internal:8200" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Token" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding OpenBaoToken}" IsPassword="True" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="{Binding OpenBaoError}" IsVisible="{Binding HasOpenBaoError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Button Text="Next" Command="{Binding GoToAwxStepCommand}" HorizontalOptions="Fill" Margin="0,4,0,0" />
+                    </VerticalStackLayout>
+
+                    <!-- ===== Step 2: AWX ===== -->
+                    <VerticalStackLayout Spacing="12" IsVisible="{Binding IsAwxStep}">
+                        <Label Style="{StaticResource Body}"
+                               Text="AWX runs the Ansible jobs Iris prepares for deployments. Do you already have an AWX instance?" />
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="What should Iris do?" Style="{StaticResource Caption}" />
+                            <Border Style="{StaticResource FieldBorder}">
+                                <Picker ItemsSource="{Binding IntegrationModeOptions}" SelectedIndex="{Binding AwxModeIndex}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="2*,1*,1*" ColumnSpacing="10" IsVisible="{Binding IsAwxUseExisting}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Endpoint" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding AwxEndpoint}" Placeholder="https://awx.internal" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Token" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding AwxToken}" IsPassword="True" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="4">
+                                <Label Text="Job template id" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding AwxJobTemplateId}" Keyboard="Numeric" Placeholder="1" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="{Binding AwxError}" IsVisible="{Binding HasAwxError}" FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,4,0,0">
+                            <Button Text="Back" Style="{StaticResource SecondaryButton}" Command="{Binding BackToOpenBaoStepCommand}" />
+                            <Button Grid.Column="1" Text="Next" Command="{Binding GoToMailStepCommand}" HorizontalOptions="Fill" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- ===== Step 3: mail provider ===== -->
                     <VerticalStackLayout Spacing="12" IsVisible="{Binding IsMailStep}">
                         <Label Style="{StaticResource Body}"
                                Text="Where should Iris send invitation emails from? Any SMTP relay works — Office 365, Gmail, SendGrid…" />
@@ -93,7 +172,7 @@
                         <Button Text="Next" Command="{Binding GoToAdminStepCommand}" HorizontalOptions="Fill" Margin="0,4,0,0" />
                     </VerticalStackLayout>
 
-                    <!-- ===== Step 2: super-admin ===== -->
+                    <!-- ===== Step 4: super-admin ===== -->
                     <VerticalStackLayout Spacing="12" IsVisible="{Binding IsAdminStep}">
                         <Label Style="{StaticResource Body}"
                                Text="Now create your administrator account — full access to every customer and setting." />

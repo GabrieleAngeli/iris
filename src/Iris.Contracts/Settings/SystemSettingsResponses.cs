@@ -19,4 +19,5 @@ public sealed record IntegrationLinkResponse(
 public sealed record SystemSettingsResponse(
     bool CanManageSystem,
     MailProviderSettingsResponse? Mail,
-    IReadOnlyList<IntegrationLinkResponse> Integrations);
+    IReadOnlyList<IntegrationLinkResponse> Integrations,
+    bool RestartRequired = false);

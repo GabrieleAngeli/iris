@@ -311,7 +311,34 @@ assignment `platform-admin`. Esiste anche bootstrap SSO controllato:
 `Iris:Setup:AdminClaimEmails` e database senza platform-admin; il client MAUI lo chiama
 automaticamente dopo SSO se `/setup/status` indica setup necessario. SMTP reale via
 MailKit (`SmtpEmailSender`), password SMTP conservata solo via `ISecretStore`. Il client
-MAUI ha `SetupWizardPage` e `AcceptInvitationPage`.
+MAUI ha `SetupWizardPage` e `AcceptInvitationPage`, ora a **4 step**: OpenBao, AWX, mail,
+admin (era 2 - mail, admin).
+
+**Integration settings persistite (OpenBao/AWX/Ansible)** - prima di questo incremento
+`Iris:Integrations:*` era solo `appsettings.json`/env, letto una volta all'avvio, senza
+alcun endpoint di salvataggio (gap già segnalato più sotto). Aggiunto `IntegrationSettings`
+(`Iris.Domain.Settings`, riga singola come `MailProviderSettings` ma con tre mutator
+indipendenti `ConfigureOpenBao`/`ConfigureAwx`/`ConfigureAnsible` così un salvataggio non
+cancella gli altri due gruppi) + `IIntegrationSettingsRepository` +
+`PUT /system/integrations/{openbao|awx|ansible}` (perm `platform.admin`, mai anonimi). I
+token passano da `ISecretStore` come per la password SMTP; un token vuoto in una PUT
+successiva mantiene il riferimento già salvato invece di cancellarlo.
+`RegisterIntegrations` (`Iris.Infrastructure/DependencyInjection.cs`) ora fa una lettura
+sincrona best-effort del DB *prima* di `builder.Build()` (stesso pattern di
+`IrisDbContextFactory`, nessun DI ancora disponibile) per far vincere i valori persistiti
+su quelli di config, con fallback silenzioso se il DB non è ancora migrato o raggiungibile.
+**Limite noto e voluto, non un bug**: il token di OpenBao stesso non è mai risolvibile da un
+riferimento persistito al riavvio (richiederebbe una connessione OpenBao già funzionante
+autenticata con quello stesso token - circolare); l'operatore deve reinserirlo una volta
+dopo il primo riavvio che attiva OpenBao reale. Il token AWX invece è risolvibile una volta
+che OpenBao è reale. `GET /system/settings` espone `RestartRequired` (confronta
+`ActiveIntegrationSnapshot`, catturato all'avvio, con una lettura fresca del DB) - vero ogni
+volta che una PUT ha salvato qualcosa che il processo in esecuzione non ha ancora caricato;
+`SystemSettingsPage` mostra un banner giallo quando è vero. Il wizard di setup raccoglie
+solo intento/config per OpenBao/AWX (nessun comando di sistema da un endpoint anonimo);
+`CompleteSetupResponse` porta `OpenBaoProvisionRequested`/`AwxProvisionRequested` per un
+futuro hand-off post-login verso endpoint di provisioning reali (non ancora costruiti - vedi
+`05-next-actions.md`).
 
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
@@ -408,10 +435,14 @@ dettagli di `InstallationOpsDialog` (Validate/Deploy/Run history) e dello stato 
 manuale.
 
 OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
-`OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di
-salvataggio della configurazione integrazioni da UI, e nessun adapter ha test dedicati
-(`AnsibleExecutionPackageBuilder` e' logica pura e andrebbe coperto). Grafana resta del
-tutto assente.
+`OpenBaoSecretStore`) con fallback mock non distruttivo. **Fatto** in questa sessione:
+endpoint di salvataggio configurazione da UI (`PUT /system/integrations/*`, vedi sopra
+"Integration settings persistite"). **Resta da fare**: nessun adapter ha test dedicati
+(`AnsibleExecutionPackageBuilder` e' logica pura e andrebbe coperto); Iris non installa/avvia
+OpenBao o AWX lei stessa - il wizard raccoglie solo l'intento (`InstallForMe`), non esiste
+ancora nessun endpoint `platform.admin` che esegua `docker run`/`ansible-playbook` (nessuna
+capacità di eseguire processi di sistema esiste nel repo - da costruire da zero, vedi
+`05-next-actions.md`). Grafana resta del tutto assente.
 
 ## Migrazioni applicate (ordine)
 

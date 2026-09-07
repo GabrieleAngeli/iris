@@ -59,6 +59,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 
+    public DbSet<IntegrationSettings> IntegrationSettings => Set<IntegrationSettings>();
+
     public DbSet<TransactionLogEntry> TransactionLogEntries => Set<TransactionLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

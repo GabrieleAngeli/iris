@@ -19,18 +19,46 @@ public sealed record MailProviderInput(
 /// </summary>
 public sealed record TestMailConnectionRequest(MailProviderInput Mail, string TestRecipient);
 
-/// <summary>Body of <c>POST /setup/complete</c> — the whole first-run wizard in one call.</summary>
+/// <summary>
+/// OpenBao/AWX intent collected in the wizard's new steps, before the mail relay step.
+/// <see cref="InstallForMe"/> only records the operator's *intent* — the anonymous setup
+/// endpoint never itself provisions anything (that needs a `platform.admin`-gated call, made
+/// by the client after sign-in, once that capability exists). <see cref="Endpoint"/>/
+/// <see cref="Token"/> are only used when neither <see cref="Skip"/> nor
+/// <see cref="InstallForMe"/> is set — i.e. "use an instance I already have."
+/// </summary>
+public sealed record OpenBaoSetupInput(bool Skip, bool InstallForMe, string? Endpoint, string? Token);
+
+/// <summary>Same shape as <see cref="OpenBaoSetupInput"/>, plus the AWX job template id.</summary>
+public sealed record AwxSetupInput(bool Skip, bool InstallForMe, string? Endpoint, string? Token, int? JobTemplateId);
+
+/// <summary>
+/// Body of <c>POST /setup/complete</c> — the whole first-run wizard in one call.
+/// <see cref="OpenBao"/>/<see cref="Awx"/> default to <c>null</c> (treated as "skip") so
+/// existing callers that predate these two wizard steps keep compiling/working unchanged.
+/// </summary>
 public sealed record CompleteSetupRequest(
     MailProviderInput Mail,
     string AdminEmail,
     string AdminDisplayName,
-    string AdminPassword);
+    string AdminPassword,
+    OpenBaoSetupInput? OpenBao = null,
+    AwxSetupInput? Awx = null);
 
 /// <summary>
 /// Result of <c>POST /setup/complete</c>. <see cref="Token"/> signs the new super-admin straight
 /// in — no separate login step for the very first interaction with a fresh install.
+/// <see cref="OpenBaoProvisionRequested"/>/<see cref="AwxProvisionRequested"/> tell the client
+/// whether it should call the (not-yet-built) authenticated provisioning endpoint right after
+/// signing in with <see cref="Token"/>.
 /// </summary>
-public sealed record CompleteSetupResponse(Guid UserId, string Email, string Token, DateTimeOffset ExpiresAtUtc);
+public sealed record CompleteSetupResponse(
+    Guid UserId,
+    string Email,
+    string Token,
+    DateTimeOffset ExpiresAtUtc,
+    bool OpenBaoProvisionRequested = false,
+    bool AwxProvisionRequested = false);
 
 /// <summary>
 /// Result of <c>POST /setup/claim-admin</c>: the authenticated SSO identity that claimed the

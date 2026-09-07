@@ -1,6 +1,7 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Application.Common;
+using Iris.Application.Settings;
 using Iris.Application.Setup;
 using Iris.Application.Tests.Fakes;
 using Iris.Contracts.Setup;
@@ -28,7 +29,9 @@ public sealed class SetupHandlerTests
         new FakePasswordHasher(),
         new SessionIssuer(store.UserSessionRepository, new FakeClock(Now)),
         new FakeClock(Now),
-        store.UnitOfWork);
+        store.UnitOfWork,
+        new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork),
+        new SaveAwxIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork));
 
     private static TestMailConnectionHandler TestMailHandler(FakeStore store) => new(store.EmailSender);
 
@@ -89,6 +92,60 @@ public sealed class SetupHandlerTests
         Assert.Equal("smtp.example.com", tested.SmtpHost);
 
         Assert.False((await StatusHandler(store).HandleAsync(new GetSetupStatusQuery())).NeedsSetup);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_persists_OpenBao_and_Awx_settings_when_using_an_existing_instance()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+
+        var result = await CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            OpenBao: new OpenBaoSetupInput(Skip: false, InstallForMe: false, Endpoint: "https://openbao.example.com", Token: "root-token"),
+            Awx: new AwxSetupInput(Skip: false, InstallForMe: false, Endpoint: "https://awx.example.com", Token: "awx-token", JobTemplateId: 7)));
+
+        Assert.False(result.OpenBaoProvisionRequested);
+        Assert.False(result.AwxProvisionRequested);
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("https://openbao.example.com", settings.OpenBaoEndpoint);
+        Assert.Equal("root-token", store.SecretsByReference[settings.OpenBaoTokenSecretReference!]);
+        Assert.Equal("https://awx.example.com", settings.AwxEndpoint);
+        Assert.Equal("awx-token", store.SecretsByReference[settings.AwxTokenSecretReference!]);
+        Assert.Equal(7, settings.AwxJobTemplateId);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_persists_nothing_and_flags_intent_when_asked_to_install_for_me()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+
+        var result = await CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            OpenBao: new OpenBaoSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null),
+            Awx: new AwxSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null, JobTemplateId: null)));
+
+        Assert.True(result.OpenBaoProvisionRequested);
+        Assert.True(result.AwxProvisionRequested);
+        Assert.Empty(store.IntegrationSettings);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_persists_nothing_and_flags_nothing_when_openbao_and_awx_are_skipped()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+
+        var result = await CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            OpenBao: new OpenBaoSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null),
+            Awx: new AwxSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null, JobTemplateId: null)));
+
+        Assert.False(result.OpenBaoProvisionRequested);
+        Assert.False(result.AwxProvisionRequested);
+        Assert.Empty(store.IntegrationSettings);
     }
 
     [Fact]

@@ -43,6 +43,9 @@ public static class DependencyInjection
         services.TryAddScoped<ListUsersHandler>();
         services.TryAddScoped<ListAccessibleCustomersHandler>();
         services.TryAddScoped<GetSystemSettingsHandler>();
+        services.TryAddScoped<SaveOpenBaoIntegrationSettingsHandler>();
+        services.TryAddScoped<SaveAwxIntegrationSettingsHandler>();
+        services.TryAddScoped<SaveAnsibleIntegrationSettingsHandler>();
         services.TryAddScoped<ListTransactionLogHandler>();
 
         // Governance commands

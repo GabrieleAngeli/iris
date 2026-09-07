@@ -24,9 +24,6 @@ public static class SystemSettingsEndpoints
                 var result = await handler
                     .HandleAsync(new GetSystemSettingsQuery(
                         canManageSystem,
-                        configuration["Iris:Integrations:OpenBao:Endpoint"],
-                        configuration["Iris:Integrations:Ansible:Endpoint"],
-                        configuration["Iris:Integrations:AWX:Endpoint"],
                         configuration["Iris:Integrations:AzureDevOps:Endpoint"],
                         configuration["Iris:Integrations:Nexus:Endpoint"]),
                         ct)
@@ -36,6 +33,48 @@ public static class SystemSettingsEndpoints
             .WithName("GetSystemSettings")
             .WithSummary("Current system settings visible to the signed-in user.")
             .RequireAuthorization();
+
+        system.MapPut("/integrations/openbao", async (
+                SaveOpenBaoIntegrationSettingsRequest body,
+                SaveOpenBaoIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveOpenBaoIntegrationSettingsCommand(body.Endpoint, body.Token, body.MountPath, body.UseKvV2), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveOpenBaoIntegrationSettings")
+            .WithSummary("Persist the OpenBao endpoint/token. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPut("/integrations/awx", async (
+                SaveAwxIntegrationSettingsRequest body,
+                SaveAwxIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveAwxIntegrationSettingsCommand(body.Endpoint, body.Token, body.JobTemplateId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveAwxIntegrationSettings")
+            .WithSummary("Persist the AWX endpoint/token/job template. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPut("/integrations/ansible", async (
+                SaveAnsibleIntegrationSettingsRequest body,
+                SaveAnsibleIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveAnsibleIntegrationSettingsCommand(body.Endpoint, body.Playbook, body.Inventory), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveAnsibleIntegrationSettings")
+            .WithSummary("Persist the Ansible endpoint/playbook/inventory. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapGet("/integrations/{key}/status", async (
                 string key,
