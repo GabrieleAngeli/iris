@@ -63,3 +63,31 @@ Phase 1 assessment and the two decisions taken before starting
 set — every `verified`/`inferred` fact should be treated as agent-produced
 and spot-checked against the code before being trusted for anything
 consequential, exactly as `index.md` instructs.
+
+---
+
+## 2026-09-07 — Phase 3 benchmark (n=1)
+
+**What**: two fresh, isolated sub-agents given the identical impact-analysis
+task ("retype `ConfigurationKeyInput.DefaultValue`"), one forbidden from
+reading `.knowledge/`, one instructed to start there. Full results in
+`benchmark-report.md`.
+
+**Headline finding, stated as measured, not as hoped for**: tokens, lines
+read and wall-clock time were flat-to-slightly-higher with the knowledge
+layer (it added 5 extra files to read on top of the same repo files);
+tool-call count and reasoning turns were ~18-22% and ~16% lower. The
+knowledge-layer agent also produced a materially better-scoped answer,
+directly attributable to one sentence in `domains/applications.md`
+("Boundaries") that stopped it from proposing changes to Deployments-area
+files the current branch is actively touching, and it caught an extra real
+bug (`AppSettingsScanner.Flatten`'s `.ToString()` boolean-casing defect) the
+baseline missed.
+
+**Explicitly not claimed**: any percentage cost saving, any statistically
+significant result (n=1), any comparison against text-search-only or RAG
+arms (not constructed — see `benchmark-report.md` "What this does NOT test").
+
+**Recommendation carried forward**: repeat on 2-3 differently-shaped tasks
+(pure navigation, pure comprehension) with more than one trial each before
+Phase 4/5 resourcing decisions.

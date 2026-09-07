@@ -29,10 +29,11 @@ $requiredTopLevel = @('type', 'name', 'title', 'description', 'status')
 $allowedStatus = @('active', 'draft', 'deprecated', 'accepted', 'superseded')
 $allowedConfidence = @('verified', 'inferred', 'curated', 'stale', 'conflicting')
 
-# Concept files only - index.md/log.md are meta pages, validation-report.md is
-# this script's own output. None of the three carry frontmatter by design.
+# Concept files only - index.md/log.md/benchmark-report.md are meta pages,
+# validation-report.md is this script's own output. None of these carry
+# frontmatter by design.
 $conceptFiles = Get-ChildItem -Path $knowledgeRoot -Recurse -Filter '*.md' |
-    Where-Object { $_.FullName -notmatch '\\(index|log|validation-report)\.md$' }
+    Where-Object { $_.FullName -notmatch '\\(index|log|validation-report|benchmark-report)\.md$' }
 
 $errors = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
