@@ -15,27 +15,23 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    server via port `IServerInventoryProbe`, inventory `/data-services` per MSSQL,
    PostgreSQL e Redis, artifact metadata su Applications, guida
    `docs/application-assimilation.md`.
-8. **Deployments - associazione** *(FK Customer/Context fatta, UI dedicata fatta)*: esiste
-   `ApplicationInstallation` + `ApplicationInstallationBinding` con
-   **`CustomerContextId` reale** (FK a `Customer`/`CustomerContext`, non piu' un
-   `ContextKind` libero — fatto 2026-09-04 su richiesta esplicita dell'utente: "non ha
-   senso che l'installation sia sotto le application"), endpoint
-   `GET/POST /applications/installations`, e sezione MAUI **Deployments** dentro
-   **Governance** (`DeploymentsPage`/`DeploymentsViewModel`, non piu' sotto Applications,
-   non piu' standalone nel flyout — spostata su richiesta esplicita 2026-09-04) organizzata
-   a tre livelli Customer -> Context -> **Server** -> installazioni (raggruppamento sui
-   dati esistenti, nessuna nuova persistenza "server di un environment"), con wizard di
-   creazione riusato da `ApplicationsViewModel`. **APERTO**: l'utente ha chiesto che la
-   *creazione* segua lo stesso ordine (prima scegliere il/i server per l'environment, poi
-   per ciascun server scegliere applicativi e modalita' installazione) — oggi il wizard
-   resta App -> Version -> Server -> Unit/Profile in un unico dialog. Decidere se
-   riordinare il wizard esistente o introdurre una vera associazione persistita
-   "server assegnati a un environment" prima di implementarlo. **Da verificare avviando
-   l'app Windows** prima di considerare l'intera sezione chiusa. Manca ancora: FK come
-   navigation EF (oggi `Guid` semplice, coerente con le altre FK del modulo), update dei
-   binding dopo la creazione, stato di ciclo di vita, check che `ServerNode.Environment`
-   sia coerente col `CustomerContext.Kind` scelto. Vedi anche il
-   piano Ansible (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
+8. ~~**Deployments - associazione**~~ *(FK Customer/Context fatta, topologia server fatta,
+   UI dedicata fatta)*: `ApplicationInstallation` + `ApplicationInstallationBinding` con
+   **`CustomerContextId` reale** (FK a `Customer`/`CustomerContext`), endpoint
+   `GET/POST /applications/installations`; nuovo `EnvironmentServerAssignment`
+   (`Iris.Domain.Deployments`, endpoint `/deployments/server-assignments*`) risponde a
+   "quali server usa questo environment" prima ancora di installarci qualcosa - fatto
+   2026-09-04 su richiesta esplicita: composizione top-down Customer -> Context -> Server
+   (assegnato) -> applicativi+modalita'. Sezione MAUI **Deployments** dentro **Governance**
+   (`DeploymentsPage`/`DeploymentsViewModel`) organizzata a tre livelli, con assegna/rimuovi
+   server per ambiente e "+ Application" per server (riusa il wizard `ApplicationsViewModel`/
+   `NewApplicationInstallationDialog` esistente, pre-selezionando server+context dopo il
+   caricamento delle opzioni). **Da verificare avviando l'app Windows** prima di considerare
+   la sezione chiusa. Manca ancora: FK come navigation EF (oggi `Guid` semplice, coerente
+   con le altre FK del modulo), update dei binding dopo la creazione di una installazione,
+   stato di ciclo di vita, check che `ServerNode.Environment` sia coerente col
+   `CustomerContext.Kind` scelto quando si assegna un server. Vedi anche il piano Ansible
+   (`GET .../ansible-vars`) gia' implementato che consuma questi binding.
 9. ~~**Validation Engine**~~ *(v1 fatto, UI MAUI fatta ma non verificata a mano)*:
    `ValidateApplicationInstallationHandler` + `GET /applications/installations/{id}/validate`
    (perm `deployments.validate`), report mostrato in `InstallationOpsDialog` (ora aperto da
@@ -52,7 +48,7 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    customer/context + `InstallationOpsDialog` (Validate/Deploy/Run history) — **da
    verificare avviando l'app Windows** prima di considerarla chiusa. Resta da fare:
    `PreparedAction` (draft di preparazione prima del launch), polling di background, log
-   completo della run, endpoint `test-connection` (`probe:true`), test per
+   completo della run, test dedicati per gli adapter/connettori e per
    `AnsibleExecutionPackageBuilder`.
 11. **Applications version detail/import UI**: esporre aggiunta versione, dettaglio
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
@@ -60,6 +56,19 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    Matrix, generazione runtime config materializzata su disco.
 
 ## Stato recente delle sessioni
+
+### 2026-09-07 - Probe connettori da System settings
+
+- Aggiunto endpoint `GET /system/integrations/{key}/status?probe=true` protetto da
+  `platform.admin`: usa `IIntegrationConnector.GetStatusAsync(probe)` e risponde con lo
+  stesso `IntegrationLinkResponse` gia' usato da `/system/settings`.
+- Client MAUI: `IIrisApiClient.GetIntegrationStatusAsync` + righe
+  `IntegrationConnectionRow` in `SystemSettingsViewModel`; nella card Service connections
+  ogni connettore ha il pulsante `Test`, aggiorna stato/messaggio della singola riga e
+  segnala errori come `Unreachable`.
+- Verifica: `dotnet build src\Iris.Api\Iris.Api.csproj -p:UseAppHost=false --no-restore`,
+  `dotnet build src\Iris.App\Iris.App.csproj -p:UseAppHost=false --no-restore` e
+  `dotnet test Iris.sln --no-restore -p:UseAppHost=false` verdi (206/206).
 
 ### 2026-09-04 - CustomerContext FK reale + sezione Deployments (rework su feedback utente)
 

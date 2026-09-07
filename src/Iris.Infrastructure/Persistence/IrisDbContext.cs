@@ -1,6 +1,7 @@
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Audit;
+using Iris.Domain.Deployments;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
@@ -53,6 +54,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
     public DbSet<ApplicationInstallationBinding> ApplicationInstallationBindings => Set<ApplicationInstallationBinding>();
 
     public DbSet<InstallationRun> InstallationRuns => Set<InstallationRun>();
+
+    public DbSet<EnvironmentServerAssignment> EnvironmentServerAssignments => Set<EnvironmentServerAssignment>();
 
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 

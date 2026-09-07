@@ -142,6 +142,21 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
     }
 
     [Fact]
+    public async Task Platform_admin_can_probe_integration_status()
+    {
+        var adminStatus = await Admin()
+            .GetFromJsonAsync<IntegrationLinkDto>("/system/integrations/ansible/status?probe=false");
+        Assert.NotNull(adminStatus);
+        Assert.Equal("ansible", adminStatus!.Key);
+
+        var readerStatus = await Reader().GetAsync("/system/integrations/ansible/status?probe=false");
+        Assert.Equal(HttpStatusCode.Forbidden, readerStatus.StatusCode);
+
+        var missingStatus = await Admin().GetAsync("/system/integrations/missing/status?probe=false");
+        Assert.Equal(HttpStatusCode.NotFound, missingStatus.StatusCode);
+    }
+
+    [Fact]
     public async Task Platform_admin_can_see_transaction_log_filtered_by_area()
     {
         var admin = Admin();

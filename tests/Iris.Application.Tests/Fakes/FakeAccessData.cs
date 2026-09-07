@@ -3,6 +3,7 @@ using Iris.Application.Access;
 using Iris.Application.Common;
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
+using Iris.Domain.Deployments;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
@@ -29,6 +30,8 @@ internal sealed class FakeStore
     public List<ApplicationInstallation> ApplicationInstallations { get; } = [];
 
     public List<InstallationRun> InstallationRuns { get; } = [];
+
+    public List<EnvironmentServerAssignment> EnvironmentServerAssignments { get; } = [];
 
     public List<UserInvitation> Invitations { get; } = [];
 
@@ -99,6 +102,8 @@ internal sealed class FakeStore
     public FakeApplicationInstallationRepository ApplicationInstallationRepository => new(this);
 
     public FakeInstallationRunRepository InstallationRunRepository => new(this);
+
+    public FakeEnvironmentServerAssignmentRepository EnvironmentServerAssignmentRepository => new(this);
 
     public FakeSecretStore SecretStore => new(this);
 
@@ -440,6 +445,27 @@ internal sealed class FakeInstallationRunRepository(FakeStore store) : IInstalla
         store.InstallationRuns.Add(run);
         return Task.CompletedTask;
     }
+}
+
+internal sealed class FakeEnvironmentServerAssignmentRepository(FakeStore store) : IEnvironmentServerAssignmentRepository
+{
+    public Task<IReadOnlyList<EnvironmentServerAssignment>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<EnvironmentServerAssignment>>(store.EnvironmentServerAssignments.ToList());
+
+    public Task<EnvironmentServerAssignment?> GetAsync(Guid assignmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.EnvironmentServerAssignments.SingleOrDefault(assignment => assignment.Id == assignmentId));
+
+    public Task<bool> ExistsAsync(Guid customerContextId, Guid serverNodeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.EnvironmentServerAssignments.Any(assignment =>
+            assignment.CustomerContextId == customerContextId && assignment.ServerNodeId == serverNodeId));
+
+    public Task AddAsync(EnvironmentServerAssignment assignment, CancellationToken cancellationToken = default)
+    {
+        store.EnvironmentServerAssignments.Add(assignment);
+        return Task.CompletedTask;
+    }
+
+    public void Remove(EnvironmentServerAssignment assignment) => store.EnvironmentServerAssignments.Remove(assignment);
 }
 
 /// <summary>Configurable stand-in for the AWX HTTP client.</summary>

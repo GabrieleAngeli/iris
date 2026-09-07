@@ -1,9 +1,9 @@
 # Stato corrente
 
-Aggiornato: 2026-09-04. Verificato in questa sessione con `dotnet test Iris.sln`
-(192/192 verdi, invariati dopo il rework FK) e build MAUI verde con `dotnet build Iris.App.sln --no-restore
--p:UseAppHost=false -p:BaseOutputPath=...\artifacts\verify-app-build\` (output standard
-bloccato se l'app e' gia' aperta).
+Aggiornato: 2026-09-07. Verificato in questa sessione con `dotnet test Iris.sln --no-restore -p:UseAppHost=false`
+(206/206 verdi), `dotnet build src\Iris.Api\Iris.Api.csproj -p:UseAppHost=false --no-restore`
+verde e `dotnet build src\Iris.App\Iris.App.csproj -p:UseAppHost=false --no-restore`
+verde.
 
 Nota: il commit `11802b3` (Ansible plan + connettori) era stato committato senza
 compilare — un errore CS0411 in `OpenBaoSecretStore.StoreAsync` (ternario KV v1/v2 con
@@ -168,13 +168,23 @@ Customers), route `//deployments`, icona rocket, riga gated `CanSeeDeployments` 
 organizzata a **tre livelli**: Customer -> Context -> **Server** -> installazioni
 (non piu' Context -> installazioni piatto: l'utente ha chiesto esplicitamente "per
 enviroment lo step e' scegliere i server, una volta scelti i server, per ogni server
-si scelgono gli applicativi e le modalita' di installazione"). Il livello Server
-(`DeploymentServerGroupViewModel`) e' costruito raggruppando le installazioni esistenti
-per `ServerNodeId`/`ServerName` - nessuna nuova persistenza, e nessun modo ancora per
-"aggiungere un server vuoto" a un environment prima che ci sia una prima installazione
-li' (vedi `05-next-actions.md` per l'opzione di riordinare anche il wizard di creazione
-server-first). `GetCustomersAsync()` + `GetApplicationInstallationsAsync()` restano la
-fonte dati. Ogni installazione mostra `ApplicationName` (aggiunto a
+si scelgono gli applicativi e le modalita' di installazione"): il livello Server
+(`DeploymentServerGroupViewModel`) e' ora guidato da `EnvironmentServerAssignment` (vedi
+sopra), non piu' dedotto dalle installazioni esistenti. Ogni `DeploymentContextGroupViewModel`
+espone `AvailableServers` (server attivi non ancora assegnati a quel context) +
+`SelectedServerToAssign` + `AssignServerCommand` (picker inline + bottone `Assign` nella
+card ambiente); ogni `DeploymentServerGroupViewModel` espone `UnassignCommand` (icona
+`✕`, chiama `DELETE /deployments/server-assignments/{id}`, il 409 del backend se ci sono
+ancora installazioni li' arriva in chiaro come errore) e `AddApplicationCommand` (`+
+Application`): quest'ultimo riusa il wizard esistente (vedi sotto) ma pre-seleziona
+server e customer/context DOPO che `PrepareInstallationAsync` ha popolato le opzioni (il
+dialog e' gia' aperto/bindato quando arriva la pre-selezione, quindi si aggiorna a vista -
+vedi `DeploymentsViewModel.StartComposingAsync`). Un server compare quindi anche con zero
+applicazioni ("No applications on this server yet."), e un ambiente senza server assegnati
+mostra "No servers chosen for this environment yet." `GetCustomersAsync()` +
+`GetApplicationInstallationsAsync()` + `GetEnvironmentServerAssignmentsAsync()` +
+`GetServersAsync()` sono la fonte dati, tutte ricaricate insieme in
+`DeploymentsViewModel.RefreshAsync`. Ogni installazione mostra `ApplicationName` (aggiunto a
 `ApplicationInstallationRowViewModel`, decoupled da `ApplicationRowViewModel`: ora prende
 `canManageDeployments`/`openOps` come parametri invece di un parent tipizzato, cosi'
 riusabile sia da Deployments sia in futuro altrove) e apre lo stesso `InstallationOpsDialog`
@@ -199,7 +209,33 @@ chiude davvero la `Window` del dialog, verificarlo durante il test manuale - il 
 `DeploymentsViewModel` non dipende comunque da quella chiusura (si aggancia all'evento
 `ApplicationInstallationCompleted`, non al completamento di `ShowAsync`).
 
-**Ansible plan + connettori integrazione (mock-first, non collegati a esecuzione)** -
+**Topologia ambiente: server assegnati (`EnvironmentServerAssignment`)** - nuovo aggregato
+(`Iris.Domain.Deployments`, primo file in quella cartella dominio): lega `CustomerContextId`
++ `ServerNodeId` + `Notes` opzionali - "quali server usa questo ambiente", indipendente da
+avere gia' installato qualcosa li'. Coppia (context, server) unica (indice EF). Endpoint
+`src/Iris.Api/Endpoints/DeploymentsEndpoints.cs` (nuovo file, gruppo `/deployments`, non
+`/applications`): `GET /deployments/server-assignments` (tutte, perm `deployments.read`),
+`POST /deployments/contexts/{customerContextId:guid}/server-assignments` (perm
+`deployments.write`, 409 se gia' assegnato), `DELETE /deployments/server-assignments/{id}`
+(perm `deployments.write`, 409 se esistono ancora `ApplicationInstallation` su quel
+server+context - blocco esplicito, non cascade). Handler in
+`Iris.Application/Deployments/`: `AssignServerToEnvironment`, `ListEnvironmentServerAssignments`,
+`UnassignServerFromEnvironment`. Migrazione `AddEnvironmentServerAssignments` per SQLite e
+Postgres, area `Deployments` nel `TransactionLogInterceptor`.
+
+**Trappola di routing scoperta e corretta in questa sessione**: `PermissionAuthorizationHandler`
+legge i valori di route/query chiamati **letteralmente** `customerId`/`contextId` per decidere
+lo scope della richiesta (`ScopeFactory.From`); un parametro di route chiamato `contextId`
+SENZA un `customerId` gemello fa fallire `ScopeFactory.From` con `InvalidScopeRequestException`,
+che il gestore interpreta come "nega silenziosamente" -> **403 per chiunque, incluso
+`platform-admin`**. Il primo tentativo di endpoint (`/deployments/contexts/{contextId:guid}/...`)
+ci e' caduto dentro; corretto rinominando il parametro in `customerContextId`, restando
+Global-scoped come gia' fanno gli endpoint `/applications/installations/*` (nessun
+`customerId`/`contextId` in route). **Da tenere a mente per qualunque nuovo endpoint**: mai
+chiamare un parametro di route/query `contextId` (o `customerId`) a meno di voler
+esplicitamente lo scope-check automatico, e in quel caso serve sempre la coppia completa.
+
+**Ansible plan + connettori integrazione (mock-first, execution bridge AWX)** -
 decisione architetturale (in `docs/application-configuration-model-analysis.md`): Iris
 NON renderizza i file di configurazione finali; produce un piano di variabili `iris_*` e
 binding che Ansible/AWX consuma nei template Jinja2 (`.j2`), e ogni modifica infra la fa
@@ -240,8 +276,10 @@ Ansible.
   persistono tra le request).
 - `GET /system/settings` ora aggrega lo stato reale dei connettori via
   `IEnumerable<IIntegrationConnector>` (`GetStatusAsync(probe:false)`) e aggiunge il campo
-  `Message` a `IntegrationLinkResponse`, mostrato in `SystemSettingsPage`. Nessun endpoint
-  invoca ancora `GetStatusAsync(probe:true)` (test connection reale).
+  `Message` a `IntegrationLinkResponse`, mostrato in `SystemSettingsPage`. `GET
+  /system/integrations/{key}/status?probe=true` (perm `platform.admin`) invoca la probe
+  reale del connettore; la UI System settings espone il pulsante `Test` per ogni riga
+  OpenBao/Ansible/AWX.
 
 **Validation Engine (deployment)** - `GET /applications/installations/{id}/validate`
 (perm `deployments.validate`) -> `ValidateApplicationInstallationHandler`: solo lettura,
@@ -371,9 +409,9 @@ manuale.
 
 OpenBao/AWX/Ansible/Grafana: gli adapter HTTP esistono (`OpenBaoConnector`, `AwxClient`,
 `OpenBaoSecretStore`) con fallback mock non distruttivo, ma non c'e' ancora un endpoint di
-test-connection (`probe:true`), nessun salvataggio della configurazione integrazioni da UI,
-e nessun adapter ha test dedicati (`AnsibleExecutionPackageBuilder` e' logica pura e
-andrebbe coperto). Grafana resta del tutto assente.
+salvataggio della configurazione integrazioni da UI, e nessun adapter ha test dedicati
+(`AnsibleExecutionPackageBuilder` e' logica pura e andrebbe coperto). Grafana resta del
+tutto assente.
 
 ## Migrazioni applicate (ordine)
 
@@ -383,7 +421,8 @@ andrebbe coperto). Grafana resta del tutto assente.
 `AddMailProviderSettings` -> `AddTransactionLog` -> `AddServerDiskReservations` ->
 `AddInfrastructureDiscoveryDataServicesAndArtifacts` -> `AddDataServiceCredentialsAndDiscovery` ->
 `PersistApplicationManifestSemantics` -> `AddApplicationInstallations` -> `AddInstallationRuns` ->
-`AddApplicationInstallationCustomerContext` (drop `Environment`, add `CustomerContextId`).
+`AddApplicationInstallationCustomerContext` (drop `Environment`, add `CustomerContextId`) ->
+`AddEnvironmentServerAssignments`.
 Ogni migrazione esiste in entrambi i provider
 (`src/Iris.Infrastructure/Persistence/Migrations` per SQLite,
 `src/Iris.Migrations.Postgres/Migrations` per Postgres).

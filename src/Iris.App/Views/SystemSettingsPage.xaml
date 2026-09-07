@@ -3,7 +3,6 @@
     x:Class="Iris.App.Views.SystemSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:settings="clr-namespace:Iris.Contracts.Settings;assembly=Iris.Contracts"
     xmlns:vm="clr-namespace:Iris.App.ViewModels"
     x:DataType="vm:SystemSettingsViewModel"
     Title="System settings">
@@ -73,16 +72,21 @@
                             <Label Text="Service connections" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
                             <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="220">
                                 <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="settings:IntegrationLinkResponse">
-                                        <Grid ColumnDefinitions="*,Auto" Padding="0,7" ColumnSpacing="12">
+                                    <DataTemplate x:DataType="vm:IntegrationConnectionRow">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,7" ColumnSpacing="12">
                                             <VerticalStackLayout Spacing="0">
                                                 <Label Text="{Binding Name}" Style="{StaticResource Body}" />
                                                 <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
-                                                <Label Text="{Binding Message}" Style="{StaticResource Caption}" />
+                                                <Label Text="{Binding Message}" Style="{StaticResource Caption}"
+                                                       IsVisible="{Binding HasMessage}" />
                                             </VerticalStackLayout>
                                             <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
                                                 <Label Text="{Binding Status}" Style="{StaticResource Caption}" />
                                             </Border>
+                                            <Button Grid.Column="2"
+                                                    Text="Test"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding TestCommand}" />
                                         </Grid>
                                     </DataTemplate>
                                 </CollectionView.ItemTemplate>

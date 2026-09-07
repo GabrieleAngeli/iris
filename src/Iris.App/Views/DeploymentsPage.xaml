@@ -71,6 +71,27 @@
                                                             </Border>
                                                         </HorizontalStackLayout>
 
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                                                              IsVisible="{Binding CanManageDeployments}">
+                                                            <Border Style="{StaticResource FieldBorder}" IsVisible="{Binding HasAvailableServers}">
+                                                                <Picker ItemsSource="{Binding AvailableServers}" SelectedItem="{Binding SelectedServerToAssign}"
+                                                                        Title="Assign a server">
+                                                                    <Picker.ItemDisplayBinding>
+                                                                        <Binding Path="DisplayName" x:DataType="vm:ServerOptionViewModel" />
+                                                                    </Picker.ItemDisplayBinding>
+                                                                </Picker>
+                                                            </Border>
+                                                            <Label Grid.Column="0" Text="No more active servers available to assign." Style="{StaticResource Caption}"
+                                                                   IsVisible="{Binding HasAvailableServers, Converter={StaticResource InvertBoolConverter}}"
+                                                                   VerticalOptions="Center" />
+                                                            <Button Grid.Column="1" Text="Assign" Style="{StaticResource SecondaryButton}"
+                                                                    Command="{Binding AssignServerCommand}"
+                                                                    IsVisible="{Binding HasAvailableServers}"
+                                                                    IsEnabled="{Binding IsAssigningServer, Converter={StaticResource InvertBoolConverter}}" />
+                                                        </Grid>
+                                                        <Label Text="{Binding AssignServerError}" IsVisible="{Binding HasAssignServerError}" Style="{StaticResource Caption}"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+
                                                         <Label Text="No servers chosen for this environment yet." Style="{StaticResource Caption}"
                                                                IsVisible="{Binding HasServers, Converter={StaticResource InvertBoolConverter}}" />
 
@@ -78,12 +99,23 @@
                                                             <BindableLayout.ItemTemplate>
                                                                 <DataTemplate x:DataType="vm:DeploymentServerGroupViewModel">
                                                                     <VerticalStackLayout Spacing="6">
-                                                                        <HorizontalStackLayout Spacing="6">
+                                                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                                                                             <Label Text="&#xE7F4;" FontFamily="{StaticResource FontIcons}" FontSize="12"
                                                                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                                                                    VerticalOptions="Center" />
-                                                                            <Label Text="{Binding ServerName}" FontFamily="{StaticResource FontSemibold}" FontSize="12" />
-                                                                        </HorizontalStackLayout>
+                                                                            <Label Grid.Column="1" Text="{Binding ServerName}" FontFamily="{StaticResource FontSemibold}" FontSize="12"
+                                                                                   VerticalOptions="Center" />
+                                                                            <Button Grid.Column="2" Text="+ Application" Style="{StaticResource SecondaryButton}"
+                                                                                    Command="{Binding AddApplicationCommand}" IsVisible="{Binding CanManageDeployments}"
+                                                                                    FontSize="12" Padding="10,4" HeightRequest="30" />
+                                                                            <Button Grid.Column="3" Text="&#xE711;" FontFamily="{StaticResource FontIcons}"
+                                                                                    Style="{StaticResource IconButton}" Command="{Binding UnassignCommand}"
+                                                                                    IsVisible="{Binding CanManageDeployments}"
+                                                                                    ToolTipProperties.Text="Unassign this server from the environment" />
+                                                                        </Grid>
+
+                                                                        <Label Text="No applications on this server yet." Style="{StaticResource Caption}"
+                                                                               IsVisible="{Binding HasInstallations, Converter={StaticResource InvertBoolConverter}}" />
 
                                                                         <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Installations}">
                                                                             <BindableLayout.ItemTemplate>

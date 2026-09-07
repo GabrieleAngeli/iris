@@ -5,6 +5,7 @@ using System.Text.Json;
 using Iris.Contracts.Access;
 using Iris.Contracts.Applications;
 using Iris.Contracts.Audit;
+using Iris.Contracts.Deployments;
 using Iris.Contracts.Governance;
 using Iris.Contracts.Infrastructure;
 using Iris.Contracts.Settings;
@@ -93,6 +94,15 @@ public interface IIrisApiClient
 	/// <summary>One recorded deployment attempt; refreshes its status from AWX when still running. Requires <c>deployments.read</c>.</summary>
 	Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default);
 
+	/// <summary>Servers assigned to every visible customer environment. Requires <c>deployments.read</c>.</summary>
+	Task<IReadOnlyList<EnvironmentServerAssignmentResponse>> GetEnvironmentServerAssignmentsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Assigns a server to host workloads for a customer environment. Requires <c>deployments.write</c>.</summary>
+	Task<EnvironmentServerAssignmentResponse> AssignServerToEnvironmentAsync(Guid customerContextId, AssignServerToEnvironmentRequest request, CancellationToken cancellationToken = default);
+
+	/// <summary>Unassigns a server from a customer environment. Requires <c>deployments.write</c>.</summary>
+	Task UnassignServerFromEnvironmentAsync(Guid assignmentId, CancellationToken cancellationToken = default);
+
 	/// <summary>Registers a new customer. Requires <c>governance.customers.manage</c>.</summary>
 	Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
@@ -142,6 +152,11 @@ public interface IIrisApiClient
 	Task<IReadOnlyList<DataServiceResponse>> GetDataServicesAsync(CancellationToken cancellationToken = default);
 
 	Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default);
+
+	Task<IntegrationLinkResponse> GetIntegrationStatusAsync(
+		string key,
+		bool probe = true,
+		CancellationToken cancellationToken = default);
 
 	Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
 		string? area = null,
@@ -271,6 +286,15 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<InstallationRunResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/runs/{runId}", cancellationToken);
 
+	public Task<IReadOnlyList<EnvironmentServerAssignmentResponse>> GetEnvironmentServerAssignmentsAsync(CancellationToken cancellationToken = default) =>
+		GetListAsync<EnvironmentServerAssignmentResponse>("/deployments/server-assignments", cancellationToken);
+
+	public Task<EnvironmentServerAssignmentResponse> AssignServerToEnvironmentAsync(Guid customerContextId, AssignServerToEnvironmentRequest request, CancellationToken cancellationToken = default) =>
+		PostAsync<EnvironmentServerAssignmentResponse>($"/deployments/contexts/{customerContextId}/server-assignments", request, cancellationToken);
+
+	public Task UnassignServerFromEnvironmentAsync(Guid assignmentId, CancellationToken cancellationToken = default) =>
+		DeleteAsync($"/deployments/server-assignments/{assignmentId}", cancellationToken);
+
 	public Task<CustomerSummaryResponse> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<CustomerSummaryResponse>("/customers", request, cancellationToken);
 
@@ -324,6 +348,15 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<SystemSettingsResponse> GetSystemSettingsAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<SystemSettingsResponse>(HttpMethod.Get, "/system/settings", cancellationToken);
+
+	public Task<IntegrationLinkResponse> GetIntegrationStatusAsync(
+		string key,
+		bool probe = true,
+		CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<IntegrationLinkResponse>(
+			HttpMethod.Get,
+			$"/system/integrations/{Uri.EscapeDataString(key)}/status?probe={probe.ToString().ToLowerInvariant()}",
+			cancellationToken);
 
 	public Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
 		string? area = null,

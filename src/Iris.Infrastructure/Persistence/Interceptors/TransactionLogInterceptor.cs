@@ -2,6 +2,7 @@ using Iris.Application.Abstractions;
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Audit;
+using Iris.Domain.Deployments;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
@@ -137,7 +138,8 @@ public sealed class TransactionLogInterceptor(
 
         if (type == typeof(ApplicationInstallation)
             || type == typeof(ApplicationInstallationBinding)
-            || type == typeof(InstallationRun))
+            || type == typeof(InstallationRun)
+            || type == typeof(EnvironmentServerAssignment))
         {
             return "Deployments";
         }

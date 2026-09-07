@@ -1,5 +1,6 @@
 using Iris.Application.Access;
 using Iris.Application.Applications;
+using Iris.Application.Deployments;
 using Iris.Application.Audit;
 using Iris.Application.Governance;
 using Iris.Application.Infrastructure;
@@ -88,6 +89,11 @@ public static class DependencyInjection
         services.TryAddScoped<LaunchApplicationInstallationAwxJobHandler>();
         services.TryAddScoped<ListInstallationRunsHandler>();
         services.TryAddScoped<GetInstallationRunHandler>();
+
+        // Deployments - environment topology (server assignment, prerequisite of composing installations)
+        services.TryAddScoped<AssignServerToEnvironmentHandler>();
+        services.TryAddScoped<ListEnvironmentServerAssignmentsHandler>();
+        services.TryAddScoped<UnassignServerFromEnvironmentHandler>();
 
         return services;
     }

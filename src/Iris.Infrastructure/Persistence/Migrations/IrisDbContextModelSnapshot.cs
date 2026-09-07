@@ -853,6 +853,37 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("TransactionLog", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Deployments.EnvironmentServerAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CustomerContextId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ServerNodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerNodeId");
+
+                    b.HasIndex("CustomerContextId", "ServerNodeId")
+                        .IsUnique();
+
+                    b.ToTable("EnvironmentServerAssignments", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.DataServiceInstance", b =>
                 {
                     b.Property<Guid>("Id")

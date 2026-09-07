@@ -29,7 +29,7 @@ public partial class SystemSettingsViewModel(
 
 	public IReadOnlyList<string> ActivityAreas => _activityAreas;
 
-	public ObservableCollection<IntegrationLinkResponse> Integrations { get; } = [];
+	public ObservableCollection<IntegrationConnectionRow> Integrations { get; } = [];
 
 	public ObservableCollection<TransactionLogRow> Activity { get; } = [];
 
@@ -69,7 +69,7 @@ public partial class SystemSettingsViewModel(
 			Integrations.Clear();
 			foreach (var integration in settings.Integrations)
 			{
-				Integrations.Add(integration);
+				Integrations.Add(new IntegrationConnectionRow(integration, TestIntegrationAsync));
 			}
 
 			await LoadActivityAsync();
@@ -85,6 +85,9 @@ public partial class SystemSettingsViewModel(
 	}
 
 	private bool CanLoad() => !IsBusy;
+
+	private Task<IntegrationLinkResponse> TestIntegrationAsync(IntegrationConnectionRow row) =>
+		api.GetIntegrationStatusAsync(row.Key, probe: true);
 
 	[RelayCommand(CanExecute = nameof(CanLoad))]
 	private async Task RefreshActivityAsync()
@@ -147,6 +150,68 @@ public partial class SystemSettingsViewModel(
 		SmtpFromAddress = mail.FromAddress ?? "-";
 		SmtpFromDisplayName = mail.FromDisplayName ?? "-";
 		SmtpEnableSsl = mail.EnableSsl ? "Enabled" : "Disabled";
+	}
+}
+
+public sealed partial class IntegrationConnectionRow : ObservableObject
+{
+	private readonly Func<IntegrationConnectionRow, Task<IntegrationLinkResponse>> _tester;
+
+	[ObservableProperty] private string _key;
+	[ObservableProperty] private string _name;
+	[ObservableProperty] private string _status;
+	[ObservableProperty] private string _endpoint;
+	[ObservableProperty] private string _message;
+	[ObservableProperty] private bool _isBusy;
+
+	public IntegrationConnectionRow(
+		IntegrationLinkResponse response,
+		Func<IntegrationConnectionRow, Task<IntegrationLinkResponse>> tester)
+	{
+		_tester = tester;
+		_key = response.Key;
+		_name = response.Name;
+		_status = response.Status;
+		_endpoint = string.IsNullOrWhiteSpace(response.Endpoint) ? "-" : response.Endpoint;
+		_message = response.Message ?? string.Empty;
+	}
+
+	public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
+
+	partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+	partial void OnIsBusyChanged(bool value) => TestCommand.NotifyCanExecuteChanged();
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestAsync()
+	{
+		IsBusy = true;
+		Status = "Testing...";
+		Message = string.Empty;
+
+		try
+		{
+			Apply(await _tester(this));
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Status = "Unreachable";
+			Message = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
+
+	private void Apply(IntegrationLinkResponse response)
+	{
+		Name = response.Name;
+		Status = response.Status;
+		Endpoint = string.IsNullOrWhiteSpace(response.Endpoint) ? "-" : response.Endpoint;
+		Message = response.Message ?? string.Empty;
 	}
 }
 
