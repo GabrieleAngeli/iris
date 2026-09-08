@@ -174,8 +174,35 @@ public partial class SetupWizardViewModel : ObservableObject
 
 	partial void OnIsBusyChanged(bool value) => CompleteCommand.NotifyCanExecuteChanged();
 
-	/// <summary>Raised once setup completes — the page has already been signed straight in.</summary>
+	/// <summary>Bound to the Back/Finish setup row's visibility — the inverse of
+	/// <see cref="SetupCompleted"/>, exposed as its own property since there is no
+	/// inverted-bool XAML converter anywhere in this project (checked: none exists).</summary>
+	public bool ShowSetupControls => !SetupCompleted;
+
+	partial void OnSetupCompletedChanged(bool value)
+	{
+		CompleteCommand.NotifyCanExecuteChanged();
+		OnPropertyChanged(nameof(ShowSetupControls));
+	}
+
+	/// <summary>True once the admin account is created and signed in — <c>/setup/complete</c> is
+	/// one-shot, so <see cref="CompleteCommand"/> must not be offered again after this. Gates
+	/// whether the page shows "Finish setup" or "Continue to dashboard" (see remarks on
+	/// <see cref="Completed"/> for why those are two different buttons, not one auto-navigate).</summary>
+	[ObservableProperty] private bool _setupCompleted;
+
+	/// <summary>Raised to actually leave the wizard for the dashboard. NOT raised automatically
+	/// the instant setup succeeds when there's an OpenBao provisioning warning to show — the
+	/// page navigates away as soon as this fires, which was silently discarding that warning
+	/// (real bug: "installa per me dopo la login non fa partire il container", reported
+	/// 2026-09-08 — provisioning failures were being swallowed because nothing kept the wizard
+	/// on screen long enough for <see cref="AdminError"/> to be read). When there's no warning,
+	/// <see cref="CompleteAsync"/> still raises this immediately for the smooth single-step
+	/// flow that already works correctly.</summary>
 	public event EventHandler? Completed;
+
+	[RelayCommand]
+	private void ContinueToDashboard() => Completed?.Invoke(this, EventArgs.Empty);
 
 	[RelayCommand(CanExecute = nameof(NotBusy))]
 	private async Task CompleteAsync()
@@ -251,17 +278,42 @@ public partial class SetupWizardViewModel : ObservableObject
 				return;
 			}
 
-			// Phase 2/3 hand-off point: once the platform.admin-gated provisioning endpoints
-			// exist, call them here (POST /system/integrations/openbao/provision,
-			// /awx/provision) when the corresponding flag is set — never from the anonymous
-			// /setup/complete call itself. For now this is intentionally a no-op; the operator
-			// can configure/provision OpenBao/AWX later from System settings.
-			_ = result.OpenBaoProvisionRequested;
+			// Hand-off point: this only runs once ApplySessionAsync succeeded above, so it's
+			// always an authenticated, platform.admin-gated call — never from the anonymous
+			// /setup/complete call itself. A provisioning failure here must not undo/block
+			// setup itself (the admin account already exists and is signed in) — swallow it
+			// and let the operator retry from System settings, which already surfaces status.
+			string? openBaoProvisionWarning = null;
+			if (result.OpenBaoProvisionRequested)
+			{
+				try
+				{
+					await _api.ProvisionOpenBaoAsync();
+				}
+				catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+				{
+					// Surfaced via AdminError, not OpenBaoError: the wizard is on step 4 by now
+					// (step 1's OpenBaoError label isn't visible), and the wizard is about to
+					// close regardless — this is a best-effort notice, not a blocker.
+					openBaoProvisionWarning = $"Signed in, but OpenBao provisioning failed: {ex.Message}. Retry from System settings.";
+				}
+			}
+
+			// Phase 3 (AWX self-provisioning via Ansible) doesn't exist yet — nothing to call.
 			_ = result.AwxProvisionRequested;
 
 			AdminPassword = string.Empty;
 			ConfirmPassword = string.Empty;
-			Completed?.Invoke(this, EventArgs.Empty);
+			AdminError = openBaoProvisionWarning; // null clears it — setup itself still succeeded either way
+			SetupCompleted = true;
+
+			// Only auto-navigate when there's nothing the operator needs to read first — a
+			// warning here must stay on screen (see Completed's remarks) until they dismiss it
+			// themselves via ContinueToDashboardCommand.
+			if (openBaoProvisionWarning is null)
+			{
+				Completed?.Invoke(this, EventArgs.Empty);
+			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -273,5 +325,5 @@ public partial class SetupWizardViewModel : ObservableObject
 		}
 	}
 
-	private bool NotBusy => !IsBusy;
+	private bool NotBusy => !IsBusy && !SetupCompleted;
 }

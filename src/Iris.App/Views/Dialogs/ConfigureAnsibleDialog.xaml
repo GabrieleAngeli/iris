@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.ConfigureAnsibleDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ConfigureAnsibleDialogViewModel"
+    Title="Configure Ansible">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Configure Ansible" Style="{StaticResource Subtitle}" />
+                    <Label Text="The playbook/inventory target Iris prepares deployment variables for." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1"
+                        Padding="12,10"
+                        StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Endpoint" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Endpoint}" Placeholder="http://localhost:8043" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Playbook" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding Playbook}" Placeholder="iris-deploy-application.yml" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5">
+                        <Label Text="Inventory (optional)" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding Inventory}" Placeholder="iris-dev" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" HorizontalOptions="End" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Save" Command="{Binding SaveCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -584,3 +584,63 @@ internal sealed class StubCurrentUser(string externalId, string email, string di
 
     public string? DisplayName { get; } = displayName;
 }
+
+/// <summary>Same shape as <see cref="StubCurrentUser"/> but with a settable <see cref="UserId"/> —
+/// needed by anything keyed on the caller's id (e.g. <c>UnlockFallbackSecretsHandler</c>,
+/// <c>GetSystemSettingsHandler</c>'s fallback-secret status).</summary>
+internal sealed class FakeCurrentUser(Guid? userId = null) : ICurrentUser
+{
+    public bool IsAuthenticated => UserId is not null;
+
+    public Guid? UserId { get; set; } = userId;
+
+    public string? ExternalId => null;
+
+    public string? Email => null;
+
+    public string? DisplayName => null;
+}
+
+/// <summary>Returns a fixed <see cref="User"/> regardless of the principal passed in — for tests
+/// that need <em>some</em> resolvable current user (e.g. <c>GetSystemSettingsHandler</c>'s
+/// fallback-secret status lookup) without exercising real provisioning/matching logic (see
+/// <c>Iris.Application.Access.UserProvisioningService</c> for that).</summary>
+internal sealed class FakeUserProvisioningService(User user) : IUserProvisioningService
+{
+    public Task<User> EnsureProvisionedAsync(ICurrentUser principal, CancellationToken cancellationToken = default) =>
+        Task.FromResult(user);
+}
+
+internal sealed class FakeIntegrationHealthMonitor : IIntegrationHealthMonitor
+{
+    private readonly Dictionary<string, IntegrationHealthSnapshot> _snapshots = new(StringComparer.OrdinalIgnoreCase);
+
+    public FakeIntegrationHealthMonitor Seed(string key, string status, string? message, DateTimeOffset checkedAtUtc)
+    {
+        _snapshots[key] = new IntegrationHealthSnapshot(status, message, checkedAtUtc);
+        return this;
+    }
+
+    public IntegrationHealthSnapshot? GetSnapshot(string key) => _snapshots.GetValueOrDefault(key);
+
+    public void Record(string key, string status, string? message, DateTimeOffset checkedAtUtc) =>
+        _snapshots[key] = new IntegrationHealthSnapshot(status, message, checkedAtUtc);
+}
+
+internal sealed class FakeFallbackSecretVault : IFallbackSecretVault
+{
+    public FallbackSecretVaultStatus Status { get; set; } = FallbackSecretVaultStatus.None;
+
+    public FallbackSecretUnlockResult UnlockResult { get; set; } = new(0, 0, 0);
+
+    public List<(Guid UserId, string Password)> UnlockCalls { get; } = [];
+
+    public Task<FallbackSecretVaultStatus> GetStatusAsync(Guid? currentUserId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Status);
+
+    public Task<FallbackSecretUnlockResult> UnlockAsync(Guid userId, string verifiedPassword, CancellationToken cancellationToken = default)
+    {
+        UnlockCalls.Add((userId, verifiedPassword));
+        return Task.FromResult(UnlockResult);
+    }
+}

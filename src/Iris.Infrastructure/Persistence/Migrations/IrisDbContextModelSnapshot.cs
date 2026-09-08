@@ -1067,6 +1067,39 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("Servers", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Secrets.EncryptedSecretEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProtectedValue")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedSecretEntries", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Settings.IntegrationSettings", b =>
                 {
                     b.Property<Guid>("Id")

@@ -25,6 +25,65 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task A_manual_probe_records_into_the_health_monitor_so_settings_reflects_it_afterward()
+    {
+        // Requested by the user (2026-09-08): "un servizio che controlla i servizi connessi se
+        // sono raggiungibili" — a manual Test click is a real probe too, and should count.
+        var admin = Admin();
+
+        var probe = await admin.GetAsync("/system/integrations/openbao/status?probe=true");
+        Assert.Equal(HttpStatusCode.OK, probe.StatusCode);
+        var probed = await probe.Content.ReadFromJsonAsync<IntegrationLinkDto>();
+        Assert.NotNull(probed!.CheckedAtUtc);
+
+        var settings = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        var openBao = settings!.Integrations.Single(i => i.Key == "openbao");
+        Assert.NotNull(openBao.CheckedAtUtc);
+    }
+
+    [Fact]
+    public async Task Reader_cannot_save_or_test_mail_settings()
+    {
+        var reader = Reader();
+        var mail = new { smtpHost = "smtp.example.com", smtpPort = 587, smtpUsername = (string?)null, smtpPassword = "pw", fromAddress = "a@b.com", fromDisplayName = (string?)null, enableSsl = true };
+
+        var save = await reader.PutAsJsonAsync("/system/settings/mail", mail);
+        var test = await reader.PostAsJsonAsync("/system/settings/mail/test", new { mail, testRecipient = "a@b.com" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, save.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, test.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_save_mail_settings_and_they_take_effect_immediately()
+    {
+        var admin = Admin();
+        var mail = new { smtpHost = "smtp.example.com", smtpPort = 587, smtpUsername = "no-reply", smtpPassword = "pw", fromAddress = "no-reply@example.com", fromDisplayName = "Iris", enableSsl = true };
+
+        var save = await admin.PutAsJsonAsync("/system/settings/mail", mail);
+
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        var saved = await save.Content.ReadFromJsonAsync<SavedDto>();
+        // Unlike OpenBao/AWX/Ansible: SmtpEmailSender reads settings fresh on every send, no
+        // startup-only options singleton to restart for.
+        Assert.False(saved!.RestartRequired);
+
+        var settings = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        Assert.NotNull(settings!.Mail);
+    }
+
+    [Fact]
+    public async Task Admin_can_send_a_test_email()
+    {
+        var admin = Admin();
+        var mail = new { smtpHost = "smtp.example.com", smtpPort = 587, smtpUsername = (string?)null, smtpPassword = "pw", fromAddress = "no-reply@example.com", fromDisplayName = (string?)null, enableSsl = true };
+
+        var response = await admin.PostAsJsonAsync("/system/settings/mail/test", new { mail, testRecipient = "someone@example.com" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Reader_cannot_save_any_integration_settings()
     {
         var reader = Reader();
@@ -108,6 +167,21 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task Admin_provisioning_restarts_a_previously_stopped_container_instead_of_failing()
+    {
+        // Regression test for a real bug found via manual testing (2026-09-08): "install for
+        // me" used to hard-fail whenever this convenience container had been stopped since the
+        // last provision, requiring a manual `docker rm` first.
+        ContainerRuntime.IsAvailable = true;
+        ContainerRuntime.Status = new ContainerStatus(ContainerState.Stopped, "existing-id");
+        ContainerRuntime.Logs = "Root Token: s.restarted-token\n";
+
+        var response = await Admin().PostAsync("/system/integrations/openbao/provision", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_gets_a_clear_error_when_the_root_token_cannot_be_found_in_logs()
     {
         ContainerRuntime.IsAvailable = true;
@@ -123,7 +197,7 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
 
     private sealed record ProvisionedDto(string Endpoint, bool RestartRequired, string Message);
 
-    private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint, string? Message);
+    private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint, string? Message, DateTimeOffset? CheckedAtUtc = null);
 
     private sealed record SystemSettingsDto(bool CanManageSystem, object? Mail, List<IntegrationLinkDto> Integrations, bool RestartRequired);
 }

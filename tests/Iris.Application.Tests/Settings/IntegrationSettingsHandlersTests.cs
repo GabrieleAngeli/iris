@@ -16,10 +16,30 @@ public sealed class IntegrationSettingsHandlersTests
     private static SaveAnsibleIntegrationSettingsHandler AnsibleHandler(FakeStore store) =>
         new(store.IntegrationSettingsRepository, store.UnitOfWork);
 
-    private static GetSystemSettingsHandler SystemSettingsHandler(FakeStore store, ActiveIntegrationSnapshot? snapshot = null) =>
+    private static GetSystemSettingsHandler SystemSettingsHandler(
+        FakeStore store, ActiveIntegrationSnapshot? snapshot = null, IEnumerable<IIntegrationConnector>? connectors = null,
+        IIntegrationHealthMonitor? healthMonitor = null) =>
         new(store.MailProviderSettingsRepository, store.IntegrationSettingsRepository,
             snapshot ?? new ActiveIntegrationSnapshot(null, null, null),
-            []);
+            connectors ?? [],
+            new FakeCurrentUser(Guid.CreateVersion7()),
+            new FakeUserProvisioningService(new Iris.Domain.Access.User(Guid.CreateVersion7(), "ext-1", "admin@iris.local", "Admin")),
+            new FakeFallbackSecretVault(),
+            healthMonitor ?? new FakeIntegrationHealthMonitor());
+
+    /// <summary>Stands in for <c>OpenBaoConnector</c> — reports whatever the active (pre-restart)
+    /// config locked in, exactly like the real connector does, so <c>GetSystemSettingsHandler</c>'s
+    /// pending-restart override can be exercised without touching Infrastructure.</summary>
+    private sealed class FakeConnector(string key, string name, string? endpoint) : IIntegrationConnector
+    {
+        public string Key => key;
+        public string Name => name;
+        public string? Endpoint => endpoint;
+
+        public Task<IntegrationConnectorStatus> GetStatusAsync(bool probe = false, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new IntegrationConnectorStatus(
+                Key, Name, string.IsNullOrWhiteSpace(endpoint) ? "Not configured" : "Configured", endpoint));
+    }
 
     [Fact]
     public async Task SaveOpenBao_creates_the_row_and_stores_the_token()
@@ -191,6 +211,119 @@ public sealed class IntegrationSettingsHandlersTests
             .HandleAsync(new GetSystemSettingsQuery(true, null, null));
 
         Assert.False(result.RestartRequired);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_surfaces_the_persisted_endpoint_and_a_pending_restart_status_when_not_yet_active()
+    {
+        // Regression test for a real usability complaint (2026-09-08): "use existing OpenBao" in
+        // the wizard saved the endpoint/token correctly, but the System settings row kept showing
+        // the old (unconfigured) live connector status — a real save looked exactly like a no-op.
+        var store = new FakeStore();
+        await OpenBaoHandler(store).HandleAsync(
+            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot(null, null, null),
+                [new FakeConnector("openbao", "OpenBao", endpoint: null)])
+            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
+        Assert.Equal("Pending restart", openBao.Status);
+        Assert.Equal("https://openbao.example.com", openBao.Endpoint);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_overlays_the_real_probed_status_from_the_health_monitor()
+    {
+        // Requested by the user (2026-09-08): "un servizio che controlla i servizi connessi se
+        // sono raggiungibili e configurati correttamente" — this is what surfaces that
+        // background-probed result. The live connector itself only ever reports "Configured"
+        // (config presence, probe:false, cheap); the health monitor's last real (probe:true)
+        // check is what tells the operator whether it actually works.
+        var store = new FakeStore();
+        var checkedAt = new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.Zero);
+        var monitor = new FakeIntegrationHealthMonitor().Seed("openbao", "Unreachable", "Connection refused.", checkedAt);
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot(null, null, null),
+                [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")],
+                monitor)
+            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
+        Assert.Equal("Unreachable", openBao.Status);
+        Assert.Equal("Connection refused.", openBao.Message);
+        Assert.Equal(checkedAt, openBao.CheckedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_prefers_pending_restart_over_a_stale_health_check_of_the_old_config()
+    {
+        // The health monitor only ever probes the currently-ACTIVE (pre-restart) connector — once
+        // a new endpoint is saved but not yet active, that probe result describes the OLD config,
+        // not the one the operator just saved. "Pending restart" must win.
+        var store = new FakeStore();
+        await OpenBaoHandler(store).HandleAsync(
+            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
+        var monitor = new FakeIntegrationHealthMonitor()
+            .Seed("openbao", "Unreachable", "stale check of the old endpoint", DateTimeOffset.UtcNow);
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot(null, null, null),
+                [new FakeConnector("openbao", "OpenBao", endpoint: null)],
+                monitor)
+            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
+        Assert.Equal("Pending restart", openBao.Status);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_surfaces_fallback_secret_status_from_the_vault_for_the_current_user()
+    {
+        // Regression test for a real bug: this used to resolve the caller via
+        // ICurrentUser.UserId (the "iris:uid" claim) directly, which a real dev-header+password
+        // authenticated request left unset — see FallbackSecretVaultApiTests's end-to-end test
+        // and GetSystemSettingsHandler's remarks. Locks in the fix (resolve via
+        // IUserProvisioningService.EnsureProvisionedAsync instead) at the unit level too.
+        var store = new FakeStore();
+        var user = new Iris.Domain.Access.User(Guid.CreateVersion7(), "ext-1", "admin@iris.local", "Admin");
+        var vault = new FakeFallbackSecretVault { Status = new(true, 2, 0) };
+
+        var handler = new GetSystemSettingsHandler(
+            store.MailProviderSettingsRepository, store.IntegrationSettingsRepository,
+            new ActiveIntegrationSnapshot(null, null, null), [],
+            new FakeCurrentUser(Guid.CreateVersion7()),
+            new FakeUserProvisioningService(user),
+            vault,
+            new FakeIntegrationHealthMonitor());
+
+        var result = await handler.HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        Assert.NotNull(result.FallbackSecrets);
+        Assert.True(result.FallbackSecrets!.HasPendingWork);
+        Assert.Equal(2, result.FallbackSecrets.PendingPersistCount);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_leaves_the_live_status_alone_once_it_matches_what_was_persisted()
+    {
+        var store = new FakeStore();
+        await OpenBaoHandler(store).HandleAsync(
+            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot("https://openbao.example.com", null, null),
+                [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")])
+            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
+        Assert.Equal("Configured", openBao.Status);
     }
 
     [Fact]

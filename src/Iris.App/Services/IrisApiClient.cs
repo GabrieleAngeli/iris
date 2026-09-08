@@ -158,6 +158,20 @@ public interface IIrisApiClient
 		bool probe = true,
 		CancellationToken cancellationToken = default);
 
+	Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync(CancellationToken cancellationToken = default);
+
+	Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<IntegrationSettingsSavedResponse> SaveAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default);
+
+	Task TestMailSettingsAsync(MailProviderInput mail, string testRecipient, CancellationToken cancellationToken = default);
+
+	Task<UnlockFallbackSecretsResponse> UnlockFallbackSecretsAsync(string password, CancellationToken cancellationToken = default);
+
 	Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
 		string? area = null,
 		int take = 50,
@@ -357,6 +371,36 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 			HttpMethod.Get,
 			$"/system/integrations/{Uri.EscapeDataString(key)}/status?probe={probe.ToString().ToLowerInvariant()}",
 			cancellationToken);
+
+	public Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ProvisionOpenBaoResponse>(HttpMethod.Post, "/system/integrations/openbao/provision", cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/openbao", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/awx", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/ansible", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/settings/mail", request, cancellationToken);
+
+	public async Task TestMailSettingsAsync(MailProviderInput mail, string testRecipient, CancellationToken cancellationToken = default)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Post, "/system/settings/mail/test")
+		{
+			Content = JsonContent.Create(new TestMailConnectionRequest(mail, testRecipient))
+		};
+		Authenticate(request);
+
+		using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+		await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+	}
+
+	public Task<UnlockFallbackSecretsResponse> UnlockFallbackSecretsAsync(string password, CancellationToken cancellationToken = default) =>
+		SendAsync<UnlockFallbackSecretsResponse>(HttpMethod.Post, "/system/settings/secrets/unlock", new UnlockFallbackSecretsRequest(password), cancellationToken);
 
 	public Task<IReadOnlyList<TransactionLogEntryResponse>> GetTransactionLogAsync(
 		string? area = null,

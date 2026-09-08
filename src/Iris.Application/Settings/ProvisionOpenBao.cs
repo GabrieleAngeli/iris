@@ -45,9 +45,15 @@ public sealed class ProvisionOpenBaoHandler(
         switch (status.State)
         {
             case ContainerState.Stopped:
-                throw new ValidationException(
-                    $"A stopped '{ContainerName}' container already exists. Remove it " +
-                    $"(docker rm {ContainerName}) or start it manually, then try again.");
+                // Dev-mode OpenBao keeps no persistent state anyway (in-memory backend, fresh
+                // unseal on every boot) — restarting the same container is exactly as safe as
+                // creating a new one, and much friendlier than making the operator run `docker
+                // rm` by hand first. Real bug found via manual testing (2026-09-08): this used
+                // to throw here, which made "install for me" silently fail every time this
+                // convenience container had been stopped since the last provision.
+                await containerRuntime.StartAsync(ContainerName, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+                break;
 
             case ContainerState.Absent:
                 var spec = new ContainerRunSpec(
@@ -90,19 +96,26 @@ public sealed class ProvisionOpenBaoHandler(
     /// (2026-09-08) — see <c>ParseRootToken_finds_the_token_in_a_real_captured_OpenBao_banner</c>
     /// in <c>ProvisionOpenBaoHandlerTests</c>, whose fixture is that container's actual log
     /// output, including the other "root token" mentions in the banner's prose that the marker
-    /// match must not (and doesn't) false-positive on.</summary>
+    /// match must not (and doesn't) false-positive on.
+    ///
+    /// Returns the LAST match, not the first: `docker logs` returns the container's entire
+    /// history across every start, and a container that was stopped then restarted (see the
+    /// <see cref="ContainerState.Stopped"/> branch above) generates a brand new banner — with
+    /// a brand new token — appended after the old one. Taking the first match would silently
+    /// keep handing out a stale, no-longer-valid token after every restart.</summary>
     internal static string? ParseRootToken(string logs)
     {
+        string? found = null;
         foreach (var line in logs.Split('\n'))
         {
             var trimmed = line.Trim();
             var index = trimmed.IndexOf(RootTokenMarker, StringComparison.OrdinalIgnoreCase);
             if (index >= 0)
             {
-                return trimmed[(index + RootTokenMarker.Length)..].Trim();
+                found = trimmed[(index + RootTokenMarker.Length)..].Trim();
             }
         }
 
-        return null;
+        return found;
     }
 }

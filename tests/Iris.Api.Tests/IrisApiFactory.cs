@@ -64,11 +64,18 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
         // Real SMTP has no place in an automated test run — /setup/complete and
         // /setup/test-mail now genuinely try to send mail; swap in an always-succeeding fake.
         // Same reasoning for Docker: POST /system/integrations/openbao/provision genuinely
-        // shells out via IContainerRuntime; swap in a controllable fake instead.
+        // shells out via IContainerRuntime; swap in a controllable fake instead. Same reasoning
+        // again for IIntegrationHealthChecker: IntegrationHealthCheckBackgroundService runs it
+        // once immediately on startup for every test host, and the real one would shell out to
+        // `ansible-playbook --version` via the real SystemProcessRunner (Ansible's dev appsettings
+        // endpoint default is non-blank) — non-deterministic across machines and pointless I/O in
+        // a test run. A no-op keeps the background service itself running (harmless) without any
+        // real probing.
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IEmailSender, FakeEmailSender>();
             services.AddSingleton<IContainerRuntime, FakeContainerRuntime>();
+            services.AddSingleton<IIntegrationHealthChecker, NoOpIntegrationHealthChecker>();
         });
     }
 

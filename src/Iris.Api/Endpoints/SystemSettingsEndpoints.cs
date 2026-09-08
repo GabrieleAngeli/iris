@@ -1,7 +1,9 @@
 using Iris.Api.Authorization;
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
+using Iris.Application.Setup;
 using Iris.Application.Settings;
+using Iris.Contracts.Setup;
 using Iris.Contracts.Settings;
 using Iris.Domain.Access;
 
@@ -33,6 +35,46 @@ public static class SystemSettingsEndpoints
             .WithName("GetSystemSettings")
             .WithSummary("Current system settings visible to the signed-in user.")
             .RequireAuthorization();
+
+        system.MapPut("/settings/mail", async (
+                MailProviderInput body,
+                SaveMailProviderSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new SaveMailProviderSettingsCommand(body), ct).ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveMailProviderSettings")
+            .WithSummary("Change the SMTP relay after setup. Takes effect immediately, no restart needed.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/settings/mail/test", async (
+                TestMailConnectionRequest body,
+                TestMailConnectionHandler handler,
+                CancellationToken ct) =>
+            {
+                await handler.HandleAsync(new TestMailConnectionCommand(body.Mail, body.TestRecipient), ct).ConfigureAwait(false);
+                return Results.Ok(new { Sent = true });
+            })
+            .WithName("TestMailSettings")
+            .WithSummary("Sends a real test email using the given (not-necessarily-saved) SMTP settings.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/settings/secrets/unlock", async (
+                UnlockFallbackSecretsRequest body,
+                UnlockFallbackSecretsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new UnlockFallbackSecretsCommand(body.Password), ct).ConfigureAwait(false);
+                return Results.Ok(new UnlockFallbackSecretsResponse(
+                    result.Persisted,
+                    result.Restored,
+                    result.OwnershipTransferred,
+                    $"{result.Persisted} secret(s) saved, {result.Restored} restored."));
+            })
+            .WithName("UnlockFallbackSecrets")
+            .WithSummary("Persists secrets held only in this process's memory, and restores previously-saved ones — both encrypted with your own password, re-entered here.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapPut("/integrations/openbao", async (
                 SaveOpenBaoIntegrationSettingsRequest body,
@@ -91,6 +133,8 @@ public static class SystemSettingsEndpoints
                 string key,
                 bool probe,
                 IEnumerable<IIntegrationConnector> connectors,
+                IIntegrationHealthMonitor healthMonitor,
+                IClock clock,
                 CancellationToken ct) =>
             {
                 var connector = connectors.FirstOrDefault(item =>
@@ -101,12 +145,24 @@ public static class SystemSettingsEndpoints
                 }
 
                 var status = await connector.GetStatusAsync(probe, ct).ConfigureAwait(false);
+                var checkedAtUtc = (DateTimeOffset?)null;
+                if (probe)
+                {
+                    // A manual "Test" click is a real probe too — record it into the same
+                    // monitor the periodic background check writes to, so the next System
+                    // settings reload shows "Checked just now" instead of waiting for the next
+                    // scheduled cycle.
+                    checkedAtUtc = clock.UtcNow;
+                    healthMonitor.Record(status.Key, status.Status, status.Message, checkedAtUtc.Value);
+                }
+
                 return Results.Ok(new IntegrationLinkResponse(
                     status.Key,
                     status.Name,
                     status.Status,
                     status.Endpoint,
-                    status.Message));
+                    status.Message,
+                    checkedAtUtc));
             })
             .WithName("GetIntegrationStatus")
             .WithSummary("Returns the configured connector status, optionally probing the remote service.")

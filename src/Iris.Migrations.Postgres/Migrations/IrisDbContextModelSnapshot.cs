@@ -1072,6 +1072,39 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.ToTable("Servers", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Secrets.EncryptedSecretEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProtectedValue")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedSecretEntries", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Settings.IntegrationSettings", b =>
                 {
                     b.Property<Guid>("Id")

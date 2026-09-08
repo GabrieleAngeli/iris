@@ -80,6 +80,18 @@ public sealed class ProvisionOpenBaoHandlerTests
     }
 
     [Fact]
+    public void ParseRootToken_returns_the_last_match_not_the_first()
+    {
+        // `docker logs` returns the container's entire history across every start — after a
+        // stop+restart (see HandleAsync_restarts_a_stopped_container_... below) the log holds
+        // both the old banner and the new one appended after it. The old token is no longer
+        // valid; only the most recent one should ever be returned.
+        var logs = "Root Token: s.stale-from-before-stop\n...\nRoot Token: s.fresh-after-restart\n";
+
+        Assert.Equal("s.fresh-after-restart", ProvisionOpenBaoHandler.ParseRootToken(logs));
+    }
+
+    [Fact]
     public async Task HandleAsync_throws_when_docker_is_not_available()
     {
         var store = new FakeStore();
@@ -130,19 +142,28 @@ public sealed class ProvisionOpenBaoHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_throws_when_a_stopped_container_already_exists()
+    public async Task HandleAsync_restarts_a_stopped_container_and_persists_the_freshly_parsed_token()
     {
+        // Regression test for a real bug found via manual testing (2026-09-08): "install for
+        // me" used to hard-fail here and tell the operator to `docker rm` it by hand. Dev-mode
+        // OpenBao keeps no state across restarts, so restarting is always safe — and the log
+        // fixture below (old + new banner concatenated, exactly like real `docker logs` after a
+        // restart) proves the freshly generated token wins over the stale one.
         var store = new FakeStore();
         var runtime = new FakeContainerRuntime
         {
             IsAvailable = true,
             Status = new ContainerStatus(ContainerState.Stopped, "existing-id"),
+            Logs = "Root Token: s.stale-from-before-stop\nRoot Token: s.fresh-after-restart\n",
         };
 
-        var ex = await Assert.ThrowsAsync<ValidationException>(() =>
-            Handler(store, runtime).HandleAsync(new ProvisionOpenBaoCommand()));
-        Assert.Contains("docker rm", ex.Message);
-        Assert.Empty(store.IntegrationSettings);
+        var result = await Handler(store, runtime).HandleAsync(new ProvisionOpenBaoCommand());
+
+        Assert.Equal("http://localhost:8200", result.Endpoint);
+        Assert.Equal(["iris-openbao"], runtime.StartCalls);
+        Assert.Empty(runtime.RunCalls);
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("s.fresh-after-restart", store.SecretsByReference[settings.OpenBaoTokenSecretReference!]);
     }
 
     [Fact]
@@ -172,6 +193,8 @@ public sealed class ProvisionOpenBaoHandlerTests
 
         public List<ContainerRunSpec> RunCalls { get; } = [];
 
+        public List<string> StartCalls { get; } = [];
+
         public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) => Task.FromResult(IsAvailable);
 
         public Task<ContainerStatus> GetStatusAsync(string containerName, CancellationToken cancellationToken = default) =>
@@ -181,6 +204,12 @@ public sealed class ProvisionOpenBaoHandlerTests
         {
             RunCalls.Add(spec);
             return Task.FromResult("fake-container-id");
+        }
+
+        public Task StartAsync(string containerName, CancellationToken cancellationToken = default)
+        {
+            StartCalls.Add(containerName);
+            return Task.CompletedTask;
         }
 
         public Task<string> GetLogsAsync(string containerName, CancellationToken cancellationToken = default) => Task.FromResult(Logs);

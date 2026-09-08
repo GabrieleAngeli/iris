@@ -32,6 +32,22 @@
                            TextColor="{AppThemeBinding Light={StaticResource Warning}, Dark={StaticResource WarningDark}}" />
                 </Border>
 
+                <Border IsVisible="{Binding FallbackSecretsPending}"
+                        BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#433519}"
+                        Stroke="{AppThemeBinding Light=#F0DFA0, Dark=#6B5726}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Some secrets are only held in memory and need your password to become durable, or to come back after a restart."
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource Warning}, Dark={StaticResource WarningDark}}" />
+                            <Label Text="{Binding FallbackSecretsSummary}" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Unlock" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding UnlockFallbackSecretsCommand}" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
                 <Border Style="{StaticResource Card}">
                     <Grid ColumnDefinitions="*,220" ColumnSpacing="18">
                         <VerticalStackLayout Spacing="3">
@@ -47,15 +63,18 @@
 
                 <VerticalStackLayout IsVisible="{Binding CanManageSystem}" Spacing="18">
                     <Border Style="{StaticResource Card}">
-                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="12">
+                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" RowSpacing="12">
                             <Label Text="&#xE715;" FontFamily="{StaticResource FontIcons}" FontSize="18"
                                    VerticalOptions="Center" />
                             <VerticalStackLayout Grid.Column="1" Spacing="3">
                                 <Label Text="SMTP" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
                                 <Label Text="{Binding SmtpSummary}" Style="{StaticResource Caption}" />
                             </VerticalStackLayout>
+                            <Button Grid.Column="2" Text="Edit" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ConfigureMailCommand}" VerticalOptions="Start"
+                                    ToolTipProperties.Text="Change the SMTP relay, or send a test email — takes effect immediately, no restart needed" />
 
-                            <Grid Grid.Row="1" Grid.ColumnSpan="2"
+                            <Grid Grid.Row="1" Grid.ColumnSpan="3"
                                   ColumnDefinitions="140,*,140,*" RowDefinitions="Auto,Auto,Auto"
                                   ColumnSpacing="12" RowSpacing="8">
                                 <Label Text="Host" Style="{StaticResource Caption}" />
@@ -82,20 +101,39 @@
                             <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="220">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:IntegrationConnectionRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,7" ColumnSpacing="12">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
                                             <VerticalStackLayout Spacing="0">
                                                 <Label Text="{Binding Name}" Style="{StaticResource Body}" />
                                                 <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
                                                 <Label Text="{Binding Message}" Style="{StaticResource Caption}"
                                                        IsVisible="{Binding HasMessage}" />
+                                                <Label Text="{Binding CheckedSummary}" Style="{StaticResource Caption}"
+                                                       IsVisible="{Binding HasCheckedSummary}"
+                                                       ToolTipProperties.Text="Last automatic background reachability check" />
                                             </VerticalStackLayout>
                                             <Border Grid.Column="1" Style="{StaticResource Badge}" VerticalOptions="Center">
                                                 <Label Text="{Binding Status}" Style="{StaticResource Caption}" />
                                             </Border>
                                             <Button Grid.Column="2"
+                                                    Text="Configure"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsVisible="{Binding CanConfigure}"
+                                                    Command="{Binding ConfigureCommand}"
+                                                    ToolTipProperties.Text="Point this integration at a different endpoint/token, or re-test it, without restarting Iris.Api" />
+                                            <Button Grid.Column="3"
+                                                    Text="Provision"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsVisible="{Binding CanProvision}"
+                                                    Command="{Binding ProvisionCommand}"
+                                                    ToolTipProperties.Text="Starts a dev-mode OpenBao container via Docker on this host — convenience/non-production only" />
+                                            <Button Grid.Column="4"
                                                     Text="Test"
                                                     Style="{StaticResource SecondaryButton}"
+                                                    IsVisible="{Binding CanTestAtAll}"
                                                     Command="{Binding TestCommand}" />
+                                            <Label Grid.Column="4" Text="Not available yet" Style="{StaticResource Caption}"
+                                                   IsVisible="{Binding CannotTest}"
+                                                   VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </CollectionView.ItemTemplate>

@@ -374,6 +374,204 @@ di test comodi (active null per i gruppi non toccati) che non replicavano i defa
 `appsettings.Development.json` - aggiunto un test di regressione che replica esattamente
 questo scenario.
 
+**MAUI collegata al provisioning OpenBao + tre bug reali corretti da test manuale utente
+(2026-09-08)** - dopo il collegamento UI (bottone `Provision` in `SystemSettingsPage`,
+hand-off automatico dal wizard post-login se `OpenBaoProvisionRequested`), l'utente ha
+testato manualmente le tre feature principali e riportato tre problemi concreti, tutti
+diagnosticati e corretti nella stessa sessione:
+
+1. *"connettiti ad OpenBao già presente ... non salva token o non sembra comunicare col
+   servizio"* - non era un bug di salvataggio (il PUT persiste correttamente), ma di
+   visibilità: `GetSystemSettingsHandler` mostrava sempre lo stato/endpoint del connettore
+   *attivo* (fissato all'avvio del processo), mai il valore appena persistito, quindi un
+   salvataggio riuscito appariva identico a un no-op fino al riavvio. Corretto: quando un
+   gruppo (`openbao`/`awx`/`ansible`) ha un salvataggio pendente (stessa logica di
+   `RestartRequired`), la riga integrazione ora mostra lo `Status` `"Pending restart"` e
+   l'endpoint appena salvato invece di quello ancora attivo, con messaggio esplicito
+   `"Saved. Restart Iris.Api to connect using this endpoint."`. Nuovo helper
+   `GetSystemSettingsHandler.OverrideIfPendingRestart`, due test di regressione in
+   `IntegrationSettingsHandlersTests`.
+2. *"installa per me dopo la login non fa partire il container"* - bug reale, non solo di
+   percezione: `SetupWizardViewModel.CompleteAsync` invocava `Completed` (che naviga subito
+   alla dashboard, `SetupWizardPage.xaml.cs`) incondizionatamente subito dopo il tentativo
+   di provisioning, scartando silenziosamente qualunque messaggio di errore
+   (`openBaoProvisionWarning`) prima ancora che l'utente potesse leggerlo - il container
+   poteva fallire ad avviarsi (Docker non attivo, container fermo preesistente, root token
+   non leggibile) senza che nulla fosse visibile. Corretto: nuova property
+   `SetupCompleted` + comando `ContinueToDashboardCommand`; `Completed` viene invocato
+   subito solo se non c'è alcun warning (flusso invariato per il caso di successo), altrimenti
+   lo step 4 resta a schermo mostrando l'errore in `AdminError` e un bottone "Continue to
+   dashboard" per proseguire consapevolmente.
+3. *"configura dopo non c'è un modo per configurarlo/testarlo in un secondo momento"* -
+   gap reale confermato: nessun metodo client/UI chiamava mai `PUT
+   /system/integrations/openbao` fuori dal wizard one-shot. Aggiunto
+   `IIrisApiClient.SaveOpenBaoIntegrationSettingsAsync`, dialog
+   `ConfigureOpenBaoDialog`/`ConfigureOpenBaoDialogViewModel` (stesso pattern sicuro
+   `CloseRequested`+`WasSaved` di `SelectApplicationForDeploymentDialog`) e bottone
+   `Configure` sulla riga OpenBao in `SystemSettingsPage`, visibile solo a chi ha
+   `platform.admin`.
+
+Verificato con `dotnet build` di `Iris.App`/`Iris.Application` e l'intera suite
+(`dotnet test Iris.sln`, 261/261 verdi dopo le modifiche). Non ancora ri-testato a mano
+nell'app Windows in esecuzione dopo questi tre fix - da fare prima di chiudere
+definitivamente i tre problemi riportati.
+
+**Secondo giro di test manuale utente (2026-09-08, stesso giorno): 6 problemi ulteriori
+corretti** - dopo i tre fix precedenti, l'utente ha rifatto il giro di test end-to-end e
+trovato altri problemi reali:
+
+1. *"installa per me" ancora non avvia il container* - causa reale: un container
+   `iris-openbao` **fermo** (lasciato da un test manuale precedente) faceva fallire
+   `ProvisionOpenBaoHandler` con un errore esplicito ("rimuovilo con `docker rm`"),
+   comportamento *by design* nella Fase 2 ma ostile in pratica. Corretto: nuovo
+   `IContainerRuntime.StartAsync` (shell a `docker start`), usato per riavviare un container
+   fermo invece di fallire - dev-mode OpenBao non mantiene stato tra i riavvii, quindi è
+   sicuro quanto crearne uno nuovo. Corretto anche `ProvisionOpenBaoHandler.ParseRootToken`
+   per prendere l'**ultima** occorrenza di `Root Token:` nei log (non la prima): dopo un
+   riavvio `docker logs` restituisce l'intera storia del container, banner vecchio incluso,
+   e il token vecchio non è più valido.
+2. *SMTP non editabile in System settings* - vero gap: non esisteva alcun endpoint per
+   modificare l'SMTP dopo il wizard iniziale. Aggiunto `PUT /system/settings/mail`
+   (`SaveMailProviderSettingsHandler`) e `POST /system/settings/mail/test` (riusa
+   `TestMailConnectionHandler`), entrambi `platform.admin`. A differenza di
+   OpenBao/AWX/Ansible **non serve alcun riavvio**: `SmtpEmailSender` legge le impostazioni
+   dal DB a ogni invio, non le fissa in un singleton all'avvio. Dialog MAUI
+   `ConfigureMailDialog` con bottone "Send test" prima di salvare.
+3. *Ansible sempre "Configured", Test non fa nulla* - due bug distinti, entrambi corretti in
+   `AnsibleExecutionPackageBuilder`: (a) "Configured" era calcolato su `Playbook`, che ha
+   sempre un default non vuoto (`iris-deploy-application.yml`) - cambiato per riflettere
+   `Endpoint`, stessa convenzione di OpenBao/AWX; (b) `GetStatusAsync(probe:true)` ignorava
+   completamente `probe` e restituiva sempre lo stesso valore statico - ora esegue
+   davvero `ansible-playbook --version` tramite `IProcessRunner` (stesso seam della Fase 2)
+   e riporta `Reachable`/`Unreachable` in base all'esito, l'unico controllo onesto possibile
+   oggi dato che Ansible qui è un eseguibile CLI locale, non un servizio HTTP remoto.
+4. *AWX "Not configured", Test non fa nulla, non configurabile* - Test non faceva nulla
+   perché non c'era nulla da testare (nessuna configurazione); il vero problema era
+   l'assenza di un modo per configurarlo. Aggiunto `ConfigureAwxDialog` (stesso pattern di
+   OpenBao).
+5. *Nexus "configured" ma Test senza feedback utile* - nessun `IIntegrationConnector` reale
+   esiste per nexus/azure-devops (solo voci di visualizzazione derivate da
+   `IConfiguration`, mai state costruite oltre quello): cliccare Test produceva un 404 letto
+   come "Unreachable" - tecnicamente un feedback, ma fuorviante per qualcosa mai davvero
+   controllato. Scelta onesta: bottone Test nascosto per queste due integrazioni
+   (`IntegrationConnectionRow.CanTestAtAll`), sostituito da un'etichetta "Not available yet"
+   invece di fingere un controllo che non esiste.
+6. *Nessuna notifica in dashboard* - `DashboardViewModel` (finora dati 100% mock) ora
+   chiama `GET /system/settings` (solo per `platform.admin`) e mostra un banner con la
+   lista di ciò che richiede attenzione (SMTP non configurato, OpenBao/AWX/Ansible non
+   `Configured`/`Reachable`, o `RestartRequired`), con bottone verso System settings.
+
+Verificato: `dotnet build` di `Iris.App`/`Iris.sln` verdi, `dotnet test Iris.sln` **278/278
+verdi** (17 nuovi test: riavvio container fermo, token più recente, Ansible
+Configured-by-endpoint + probe reale, salvataggio SMTP con/senza password, gate reader su
+mail). **Non ancora ri-testato a mano nell'app Windows in esecuzione dopo questo secondo
+giro** - prossimo passo prima di considerare l'intera area OpenBao/AWX/Ansible/SMTP chiusa.
+
+**Vault cifrato per i segreti pre-bootstrap (password dell'utente, sblocco esplicito)** -
+richiesta esplicita dell'utente (2026-09-08): "Il token di OpenBao deve essere persistito in
+DB criptato con la password dell'utente che lo setta. Tutto il sistema... deve essere
+criptato." Prima di questo incremento, `InMemorySecretStore` (fallback quando OpenBao non è
+ancora configurato) teneva i segreti in chiaro in RAM, persi a ogni riavvio - noto e
+documentato, ma mai risolto. Design (via Plan Mode, due decisioni confermate
+dall'utente: sblocco che richiede sempre re-inserimento password - mai automatico da hash
+salvato - e copertura di *tutti* i segreti pre-bootstrap, non solo il token OpenBao):
+
+- `ISecretStore` **non tocca il proprio contratto**: `EncryptedFallbackSecretStore`
+  (`Iris.Infrastructure/Secrets/`, sostituisce `InMemorySecretStore` in DI) si comporta
+  esattamente come prima - un dizionario in RAM, stesso schema di reference `mock-openbao:*` -
+  quindi zero modifiche per ogni chiamante esistente (`SaveOpenBaoIntegrationSettingsHandler`,
+  `ServerCredentialFactory`, ecc.).
+- Nuova entità `EncryptedSecretEntry` (`Iris.Domain.Secrets`, una riga per reference, non un
+  singleton) persiste il valore cifrato: `aesgcm-pbkdf2sha256$iterazioni$salt$nonce$tag$cifrato`
+  (`AesGcmSecretProtector`, prima cifratura simmetrica del repo - AES-256-GCM con AAD = la
+  reference stessa, così un blob scambiato tra due righe fallisce subito invece di decifrare
+  silenziosamente sotto la riga sbagliata). Chiave derivata via PBKDF2-SHA256 (210.000
+  iterazioni, stesso fattore di costo di `Pbkdf2PasswordHasher` ma KDF distinta con salt
+  proprio - mai la hash di login riusata come chiave).
+- `FallbackSecretVault` (nuovo servizio, port `IFallbackSecretVault`) fa da ponte tra il
+  dizionario in RAM e le righe cifrate su DB, SOLO dietro un'azione esplicita
+  `POST /system/settings/secrets/unlock` (`platform.admin`, verifica la password contro
+  `PasswordHash` dell'utente reale prima di usarla): persiste ogni segreto ancora solo in RAM
+  (durevole da quel momento) e ripristina in RAM ogni riga durevole di proprietà dello stesso
+  utente non ancora caricata. Righe di un admin diverso restano intoccate (solo chi ha
+  impostato un segreto può sbloccarlo - limite operativo noto e documentato, non risolto: se
+  quella persona non c'è, va reinserito da zero). Un re-salvataggio della stessa reference da
+  un admin diverso **riassegna la proprietà** (sicuro, dietro platform.admin, non rivela mai
+  il valore precedente) - riportato onestamente come `OwnershipTransferred`, non nascosto.
+  `NullFallbackSecretVault` sostituisce `FallbackSecretVault` quando OpenBao è già configurato
+  (niente da sbloccare in quel mondo).
+- `GET /system/settings` espone `FallbackSecrets` (bool `HasPendingWork` + conteggi, mai i
+  nomi dei segreti) solo a `platform.admin`; `SystemSettingsPage` mostra un banner "Unlock"
+  quando c'è qualcosa in sospeso, dialog MAUI `UnlockFallbackSecretsDialog` (stesso pattern
+  sicuro `CloseRequested`/`WasSaved` degli altri dialog Configure).
+- **Bug reale trovato e corretto durante la verifica end-to-end**: sia `GetSystemSettingsHandler`
+  sia il primo tentativo di `UnlockFallbackSecretsHandler` risolvevano l'utente corrente via
+  `ICurrentUser.UserId` (claim `iris:uid`, stampata da `AccessProvisioningClaimsTransformation`)
+  - per una richiesta autenticata via header dev **con password** quella claim non risultava
+  sempre presente, pur con `/me` e l'autorizzazione `platform.admin` perfettamente funzionanti
+  sulla stessa richiesta. Corretto risolvendo l'utente via
+  `IUserProvisioningService.EnsureProvisionedAsync` (per `ExternalId`, stesso schema già
+  usato da `SetMyPasswordHandler` in `ManageMyPassword.cs`) invece di leggere la claim
+  direttamente - bug pre-esistente nell'infrastruttura di auth condivisa, mai emerso prima
+  perché nessun altro handler dipendeva da `ICurrentUser.UserId` così direttamente; non
+  toccata la claims transformation stessa (fuori scope). Il test end-to-end
+  (`FallbackSecretVaultApiTests`, via `IrisApiFactory` reale) che replica esattamente il
+  flusso dev-header+password è ciò che ha trovato il bug.
+- Migrazione `AddEncryptedSecretEntries` (SQLite + Postgres, colonne verificate a parità).
+  52+31+148+69 = 310 test totali verdi dopo l'incremento (43 nuovi: entità dominio, crypto
+  helper con test di manomissione/AAD, store/vault via SQLite reale, handler applicativo,
+  endpoint API end-to-end).
+- **Non ancora verificato a mano nell'app Windows in esecuzione**.
+
+**Servizio di health-check periodico per le integrazioni** - richiesta esplicita dell'utente
+(2026-09-08): "dovrebbe esserci un servizio che controlla i servizi connessi se sono
+raggiungibili e configurati correttamente [...] e mostrare nella sessione system se sono ok".
+Prima di questo incremento l'unico modo di sapere se OpenBao/AWX/Ansible fossero *davvero*
+raggiungibili (non solo "configurati") era cliccare manualmente "Test" - `GET
+/system/settings` mostrava solo presenza di configurazione (`probe:false`, economico), mai
+una verifica reale in automatico.
+
+- `IntegrationHealthCheckBackgroundService` (`Iris.Api/Diagnostics/`, **primo
+  servizio in background/schedulato del repo**) - `BackgroundService` con `PeriodicTimer`
+  (intervallo configurabile via `Iris:HealthCheck:IntervalMinutes`, default 5 minuti; primo
+  giro immediato all'avvio). Deliberatamente sottile: chiama solo
+  `IIntegrationHealthChecker.RunOnceAsync`, tutta la logica vera vive in
+  `Iris.Infrastructure/Integrations/IntegrationHealthChecker.cs` (testabile senza un vero
+  timer) - itera `IEnumerable<IIntegrationConnector>` (openbao/awx/ansible), fa una probe
+  reale (`probe:true`) per ciascuno con isolamento per-connettore (un fallimento non blocca
+  gli altri) e registra l'esito in `IIntegrationHealthMonitor` (singleton in RAM,
+  `ConcurrentDictionary`, non persistito - si ripopola da solo a ogni ciclo).
+- **Deliberatamente separato** dall'endpoint `/health` di ASP.NET Core già esistente (usato
+  per liveness/readiness da orchestratori): un OpenBao down non deve far apparire Iris.Api
+  stesso "unhealthy" e rischiare un riavvio del container per un motivo esterno a Iris.Api.
+  Segnale puramente informativo per gli operatori, esposto solo via `GetSystemSettingsHandler`.
+- `GetSystemSettingsHandler` sovrappone l'ultimo esito reale del monitor allo stato
+  `probe:false` di ciascuna riga integrazione, ma **solo se non c'è già un salvataggio in
+  attesa di riavvio** (altrimenti mostrerebbe lo stato stantio della configurazione VECCHIA
+  invece di "Pending restart", che è il segnale più utile in quel momento) - ordine di
+  priorità esplicito e testato. Anche un click manuale su "Test" registra il proprio esito
+  nello stesso monitor condiviso (`GET /system/integrations/{key}/status?probe=true`), così
+  il prossimo caricamento di System settings mostra subito "Checked just now" invece di
+  aspettare il prossimo ciclo schedulato.
+- `IntegrationLinkResponse` porta ora `CheckedAtUtc` (nullable); `SystemSettingsPage` mostra
+  "Checked Xm ago" sotto ogni riga integrazione quando disponibile.
+- Nel test host (`IrisApiFactory`) `IIntegrationHealthChecker` è sostituito con un no-op
+  (`NoOpIntegrationHealthChecker`) - il vero checker per Ansible farebbe un vero spawn di
+  processo (`ansible-playbook --version`) a ogni avvio di test, non deterministico tra
+  macchine diverse; stessa logica già usata per `FakeEmailSender`/`FakeContainerRuntime`.
+- **Interpretazione deliberata, non ancora confermata dall'utente**: "tentare l'avvio" (dalla
+  richiesta originale) non è stato implementato come avvio automatico in background di
+  container/processi esterni - resta un'azione esplicita (il bottone "Provision" già
+  esistente per OpenBao), coerente con il resto della sessione (sblocco segreti, provisioning,
+  configurazione: sempre azione esplicita dell'operatore, mai automatica e silenziosa). Da
+  confermare con l'utente se questo è ciò che intendeva o se vuole un tentativo di
+  riavvio/provisioning automatico quando il check periodico trova un servizio non
+  raggiungibile.
+- 52+10+37+150+70 = 319 test totali verdi (9 nuovi: monitor RAM, checker con isolamento
+  errori, due test di precedenza "pending restart vs check reale" a livello handler, test
+  end-to-end che una probe manuale finisce nel monitor condiviso).
+- **Non ancora verificato a mano nell'app Windows in esecuzione.**
+
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
 9), Dashboard sempre prima voce, macro categorie come bottoni collassabili/espandibili

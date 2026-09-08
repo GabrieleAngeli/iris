@@ -14,10 +14,20 @@ public sealed record IntegrationLinkResponse(
     string Name,
     string Status,
     string? Endpoint,
-    string? Message = null);
+    string? Message = null,
+    DateTimeOffset? CheckedAtUtc = null);
+
+/// <summary>Non-null only when there's something to unlock (bare counts, never which secrets —
+/// see <c>IFallbackSecretVault</c>'s remarks). Drives the "Unlock secrets" banner in
+/// System settings.</summary>
+public sealed record FallbackSecretVaultStatusResponse(
+    bool HasPendingWork,
+    int PendingPersistCount,
+    int RestorableCount);
 
 public sealed record SystemSettingsResponse(
     bool CanManageSystem,
     MailProviderSettingsResponse? Mail,
     IReadOnlyList<IntegrationLinkResponse> Integrations,
-    bool RestartRequired = false);
+    bool RestartRequired = false,
+    FallbackSecretVaultStatusResponse? FallbackSecrets = null);

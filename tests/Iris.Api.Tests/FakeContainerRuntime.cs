@@ -27,6 +27,9 @@ internal sealed class FakeContainerRuntime : IContainerRuntime
     public Task<string> RunAsync(ContainerRunSpec spec, CancellationToken cancellationToken = default) =>
         Task.FromResult("fake-container-id");
 
+    public Task StartAsync(string containerName, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
     public Task<string> GetLogsAsync(string containerName, CancellationToken cancellationToken = default) =>
         Task.FromResult(Logs);
 }

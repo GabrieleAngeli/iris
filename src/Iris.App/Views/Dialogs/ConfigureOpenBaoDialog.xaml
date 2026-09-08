@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.ConfigureOpenBaoDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    x:DataType="vm:ConfigureOpenBaoDialogViewModel"
+    Title="Configure OpenBao">
+
+    <Grid RowDefinitions="*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="22" Spacing="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Configure OpenBao" Style="{StaticResource Subtitle}" />
+                    <Label Text="Point Iris at an OpenBao instance you already have. Leave the token blank to keep the one already saved." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
+                <Border IsVisible="{Binding HasError}"
+                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                        Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                        StrokeThickness="1"
+                        Padding="12,10"
+                        StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Error}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Endpoint" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Endpoint}" Placeholder="https://openbao.internal:8200" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Token (leave blank to keep the existing one)" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Token}" IsPassword="True" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Mount path" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding MountPath}" Placeholder="secret" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="End">
+                        <HorizontalStackLayout Spacing="8" HeightRequest="40">
+                            <Switch IsToggled="{Binding UseKvV2}" VerticalOptions="Center" />
+                            <Label Text="KV v2" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Grid>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" HorizontalOptions="End" Clicked="OnCancel" />
+            <Button Grid.Column="2" Text="Save" Command="{Binding SaveCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

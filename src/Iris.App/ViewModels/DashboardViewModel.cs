@@ -6,11 +6,13 @@ public partial class DashboardViewModel : ObservableObject
 {
 	private readonly IDashboardDataService _data;
 	private readonly IAuthService _auth;
+	private readonly IIrisApiClient _api;
 
-	public DashboardViewModel(IDashboardDataService data, IAuthService auth)
+	public DashboardViewModel(IDashboardDataService data, IAuthService auth, IIrisApiClient api)
 	{
 		_data = data;
 		_auth = auth;
+		_api = api;
 	}
 
 	public ObservableCollection<StatCard> Stats { get; } = [];
@@ -23,6 +25,14 @@ public partial class DashboardViewModel : ObservableObject
 	[ObservableProperty] private string _today = DateTime.Now.ToString("dddd, d MMMM yyyy");
 	[ObservableProperty] private bool _isLoading = true;
 	[ObservableProperty] private bool _isRefreshing;
+	[ObservableProperty] private string? _integrationWarning;
+
+	public bool HasIntegrationWarning => !string.IsNullOrEmpty(IntegrationWarning);
+
+	partial void OnIntegrationWarningChanged(string? value) => OnPropertyChanged(nameof(HasIntegrationWarning));
+
+	[RelayCommand]
+	private async Task GoToSystemSettingsAsync() => await Shell.Current.GoToAsync("//system-settings");
 
 	private bool _loaded;
 
@@ -62,6 +72,58 @@ public partial class DashboardViewModel : ObservableObject
 		Replace(Activity, _data.GetRecentActivity());
 		Replace(Projects, _data.GetProjects());
 		Replace(Traffic, _data.GetWeeklyTraffic());
+
+		await RefreshIntegrationWarningAsync();
+	}
+
+	/// <summary>Surfaces a single dashboard-level warning when something under System settings
+	/// needs attention — a real signal (not mock data, unlike the rest of this page today),
+	/// sourced from the same <c>GET /system/settings</c> the System settings page itself reads.
+	/// Requested by the user (2026-09-08): "deve dare una notifica in dashboard" for services
+	/// that aren't configured/tested. Deliberately a single summary line, not a full health
+	/// panel — the details already live one click away in System settings.</summary>
+	private async Task RefreshIntegrationWarningAsync()
+	{
+		if (_auth.Me?.EffectivePermissions.Contains("platform.admin") != true)
+		{
+			IntegrationWarning = null;
+			return;
+		}
+
+		try
+		{
+			var settings = await _api.GetSystemSettingsAsync();
+			var problems = new List<string>();
+
+			if (settings.Mail is null || !settings.Mail.IsConfigured)
+			{
+				problems.Add("SMTP");
+			}
+
+			foreach (var integration in settings.Integrations)
+			{
+				if (integration.Key is "openbao" or "awx" or "ansible" &&
+					integration.Status is not ("Configured" or "Reachable"))
+				{
+					problems.Add(integration.Name);
+				}
+			}
+
+			if (settings.RestartRequired)
+			{
+				problems.Add("a pending restart");
+			}
+
+			IntegrationWarning = problems.Count == 0
+				? null
+				: $"Needs attention: {string.Join(", ", problems)}.";
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			// Best-effort: a dashboard widget failing to load must never block the rest of the
+			// page (all still-mock data above renders regardless).
+			IntegrationWarning = null;
+		}
 	}
 
 	[RelayCommand]

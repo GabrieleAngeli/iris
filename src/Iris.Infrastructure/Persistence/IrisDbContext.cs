@@ -3,6 +3,7 @@ using Iris.Domain.Applications;
 using Iris.Domain.Audit;
 using Iris.Domain.Deployments;
 using Iris.Domain.Infrastructure;
+using Iris.Domain.Secrets;
 using Iris.Domain.Settings;
 using Iris.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -60,6 +61,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();
 
     public DbSet<IntegrationSettings> IntegrationSettings => Set<IntegrationSettings>();
+
+    public DbSet<EncryptedSecretEntry> EncryptedSecretEntries => Set<EncryptedSecretEntry>();
 
     public DbSet<TransactionLogEntry> TransactionLogEntries => Set<TransactionLogEntry>();
 

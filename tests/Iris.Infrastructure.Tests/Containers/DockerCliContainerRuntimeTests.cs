@@ -121,6 +121,29 @@ public sealed class DockerCliContainerRuntimeTests
     }
 
     [Fact]
+    public async Task StartAsync_runs_docker_start_with_the_container_name()
+    {
+        var runner = new FakeProcessRunner { DefaultResponse = new ProcessResult(0, "iris-openbao\n", "") };
+        var runtime = new DockerCliContainerRuntime(runner);
+
+        await runtime.StartAsync("iris-openbao");
+
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("docker", call.FileName);
+        Assert.Equal(new[] { "start", "iris-openbao" }, call.Arguments);
+    }
+
+    [Fact]
+    public async Task StartAsync_throws_with_the_docker_error_when_the_command_fails()
+    {
+        var runner = new FakeProcessRunner { DefaultResponse = new ProcessResult(1, "", "Error: No such container: iris-openbao") };
+        var runtime = new DockerCliContainerRuntime(runner);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => runtime.StartAsync("iris-openbao"));
+        Assert.Contains("No such container", ex.Message);
+    }
+
+    [Fact]
     public async Task GetLogsAsync_concatenates_stdout_and_stderr()
     {
         // OpenBao's dev-mode banner (including the root token line) lands on stdout or stderr

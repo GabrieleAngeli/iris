@@ -67,6 +67,14 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
      AWX/Ansible mai persistiti) trovato e corretto proprio grazie a questa verifica manuale -
      vedi `00-current-state.md` per i dettagli. 10 test in `Iris.Infrastructure.Tests` (nuovo
      progetto) + 11 in Application + 4 in Api.
+   - ~~Collegamento UI MAUI al provisioning + 3 bug reali da test manuale utente~~ Fatto
+     2026-09-08: bottone `Provision`/`Configure` in `SystemSettingsPage`, hand-off wizard
+     post-login; corretti "salvataggio invisibile" (`Pending restart` in
+     `GetSystemSettingsHandler`), "warning di provisioning scartato silenziosamente" (nuovo
+     `SetupCompleted`/`ContinueToDashboardCommand` nel wizard) e "nessun modo per
+     configurare/testare OpenBao più tardi" (`ConfigureOpenBaoDialog`). **Da verificare a
+     mano nell'app Windows in esecuzione** — solo build+test automatici finora, vedi la
+     sessione datata sotto.
    - Fase 3: AWX self-provisioning via playbook Ansible bundlato, eseguito direttamente
      (`ansible-playbook`, non più solo l'API REST di AWX) - asincrono/pollable, richiede
      Ansible+Docker già presenti sull'host (Iris rileva, non installa i prerequisiti).
@@ -75,6 +83,107 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
      `GET .../installations/{id}/history` + tab "History" in `InstallationOpsDialog`.
 
 ## Stato recente delle sessioni
+
+### 2026-09-08 (quarto giro) - Servizio di health-check periodico per le integrazioni
+
+Richiesta esplicita: "dovrebbe esserci un servizio che controlla i servizi connessi se sono
+raggiungibili e configurati correttamente [...] e mostrare nella sessione system se sono ok,
+tentare l'avvio, altrimenti dare un wizard di configurazione".
+
+- Primo servizio in background/schedulato del repo: `IntegrationHealthCheckBackgroundService`
+  (`Iris.Api`) chiama periodicamente (default 5 min, configurabile) il nuovo
+  `IntegrationHealthChecker` (`Iris.Infrastructure`), che probe realmente openbao/awx/ansible
+  e registra l'esito in `IIntegrationHealthMonitor` (cache in RAM). `GetSystemSettingsHandler`
+  sovrappone quell'esito reale allo stato "Configured" statico (con priorità a "Pending
+  restart" quando c'è un salvataggio in attesa). `SystemSettingsPage` mostra "Checked Xm ago".
+  Dettagli completi in `00-current-state.md`.
+- **Nota per la prossima sessione**: "tentare l'avvio" NON è stato implementato come
+  auto-restart/provisioning automatico in background - resta un'azione esplicita (bottone
+  Provision già esistente), per coerenza col resto della sessione. Da confermare con l'utente
+  se questa interpretazione va bene o se serve un vero tentativo automatico.
+- Verifica: `dotnet test Iris.sln` **319/319 verdi** (9 nuovi test). `dotnet build
+  src/Iris.App` verde. **Da verificare a mano nell'app Windows in esecuzione**, inclusa
+  l'osservazione del ciclo periodico reale (non solo il click manuale "Test").
+
+### 2026-09-08 (terzo giro) - Vault cifrato per i segreti pre-bootstrap
+
+Richiesta esplicita dell'utente: il token OpenBao (e più in generale ogni segreto salvato
+prima che OpenBao sia configurato) deve essere persistito su DB **cifrato con la password
+dell'utente che lo imposta**, con sblocco che richiede sempre un re-inserimento esplicito
+della password (mai automatico). Pianificato in Plan Mode (due domande di chiarimento poste
+e confermate: modello di sblocco "richiede password" vs auto-decrypt vs chiave applicativa;
+ambito "solo OpenBao" vs "tutti i segreti pre-bootstrap") + un agente Plan per validare lo
+schema crittografico prima di implementare.
+
+- `InMemorySecretStore` sostituito da `EncryptedFallbackSecretStore` (stesso comportamento
+  `ISecretStore`, zero rotture per i chiamanti esistenti) + nuovo `FallbackSecretVault`
+  (`POST /system/settings/secrets/unlock`, platform.admin) che persiste/ripristina i segreti
+  cifrati (AES-256-GCM + PBKDF2, AAD=reference) su una nuova tabella `EncryptedSecretEntries`.
+  Dettagli completi in `00-current-state.md`.
+- **Bug reale trovato e corretto durante la verifica end-to-end** (non ipotetico): la
+  risoluzione dell'utente corrente via `ICurrentUser.UserId` (claim `iris:uid`) non era
+  affidabile per richieste dev-header+password - corretto usando
+  `IUserProvisioningService.EnsureProvisionedAsync` (stesso schema di `SetMyPasswordHandler`)
+  sia in `GetSystemSettingsHandler` che nel nuovo `UnlockFallbackSecretsHandler`.
+- Verifica: `dotnet test Iris.sln` **310/310 verdi** (43 nuovi test su tutti i livelli:
+  dominio, crypto, store/vault via SQLite reale, handler applicativo, endpoint API
+  end-to-end). `dotnet build src/Iris.App` verde (dialog "Unlock secrets" + banner in
+  System settings). **Da verificare a mano nell'app Windows in esecuzione.**
+
+### 2026-09-08 (secondo giro) - 6 problemi ulteriori da un secondo test manuale
+
+Stesso giorno del giro precedente: l'utente ha ritestato dopo i primi tre fix e trovato
+altri sei problemi concreti, tutti diagnosticati e corretti nella stessa sessione. Riassunto
+completo in `00-current-state.md`; punti chiave:
+
+- OpenBao "install for me" falliva ancora su un container fermo lasciato da test precedenti
+  → `IContainerRuntime.StartAsync` (docker start) riavvia invece di fallire;
+  `ParseRootToken` ora prende l'ultima occorrenza del marker, non la prima (i log dopo un
+  riavvio contengono anche il banner vecchio con un token non più valido).
+- SMTP non era mai editabile dopo il wizard → `PUT /system/settings/mail` +
+  `POST /system/settings/mail/test` (nessun riavvio richiesto, a differenza delle altre tre
+  integrazioni) + dialog MAUI `ConfigureMailDialog`.
+- Ansible mostrava sempre "Configured" (calcolato su un campo con default sempre non vuoto)
+  e il suo Test ignorava completamente `probe` → ora "Configured" riflette l'endpoint, e
+  `probe:true` esegue realmente `ansible-playbook --version` via `IProcessRunner`.
+- AWX non aveva un dialog di configurazione → aggiunto `ConfigureAwxDialog`.
+- Nexus/Azure DevOps non hanno mai avuto un connettore reale dietro: Test nascosto per
+  queste due invece di mostrare un 404 travestito da "Unreachable".
+- Dashboard (finora 100% dati mock) mostra ora un banner reale se qualcosa in System
+  settings richiede attenzione, sourced da `GET /system/settings`.
+
+Verifica: `dotnet build`/`dotnet test Iris.sln` verdi, **278/278** (17 nuovi test).
+**Da ri-testare a mano nell'app Windows in esecuzione** prima di chiudere definitivamente
+l'intera area integrazioni.
+
+### 2026-09-08 - Fix da test manuale utente: 3 problemi reali su OpenBao
+
+L'utente ha testato manualmente le tre feature aggiunte nella sessione precedente
+(connessione a OpenBao esistente, install-for-me post-login, e la mancanza di un modo per
+riconfigurare) e riportato tre problemi concreti verbatim. Tutti e tre diagnosticati e
+corretti:
+
+- **"non salva token o non sembra comunicare col servizio"**: non un bug di persistenza —
+  `GetSystemSettingsHandler` mostrava sempre lo stato del connettore *attivo* (fissato
+  all'avvio), mai il valore appena salvato. Aggiunto `OverrideIfPendingRestart`: quando c'è
+  un salvataggio pendente per openbao/awx/ansible, la riga integrazione mostra
+  `Status = "Pending restart"` + l'endpoint appena persistito + un messaggio esplicito.
+- **"installa per me dopo la login non fa partire il container"**: bug reale.
+  `SetupWizardViewModel.CompleteAsync` invocava `Completed` (naviga subito alla dashboard)
+  incondizionatamente, scartando silenziosamente l'esito del provisioning prima che
+  l'utente potesse leggerlo — successo o fallimento, la UI non mostrava mai nulla. Aggiunta
+  `SetupCompleted` + `ContinueToDashboardCommand`: naviga subito solo se non c'è un
+  warning, altrimenti resta sullo step 4 mostrando l'errore con un bottone esplicito per
+  proseguire.
+- **"configura dopo non c'è un modo per configurarlo/testarlo"**: gap reale confermato —
+  nessun client/UI chiamava mai `PUT /system/integrations/openbao` fuori dal wizard
+  one-shot. Aggiunto `ConfigureOpenBaoDialog`/`ConfigureOpenBaoDialogViewModel` (stesso
+  pattern `CloseRequested`+`WasSaved` di `SelectApplicationForDeploymentDialog`) + bottone
+  `Configure` sulla riga OpenBao.
+- Verifica: `dotnet build` di `Iris.App`/`Iris.Application` verdi, `dotnet test Iris.sln`
+  261/261 verdi (2 nuovi test di regressione per il primo punto). **Non ancora verificato a
+  mano nell'app Windows in esecuzione** — prossimo passo prima di chiudere i tre problemi
+  per davvero.
 
 ### 2026-09-07 - Probe connettori da System settings
 

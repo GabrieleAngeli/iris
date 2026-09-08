@@ -43,5 +43,11 @@ public interface IContainerRuntime
     /// <summary>Starts <paramref name="spec"/> detached and returns its container id.</summary>
     Task<string> RunAsync(ContainerRunSpec spec, CancellationToken cancellationToken = default);
 
+    /// <summary>Restarts a container that already exists but is stopped (<see cref="ContainerState.Stopped"/>)
+    /// — same container, same image/config it was created with, no new <see cref="ContainerRunSpec"/>
+    /// needed. Callers should not call this for <see cref="ContainerState.Absent"/> (use
+    /// <see cref="RunAsync"/> instead) or <see cref="ContainerState.Running"/> (nothing to do).</summary>
+    Task StartAsync(string containerName, CancellationToken cancellationToken = default);
+
     Task<string> GetLogsAsync(string containerName, CancellationToken cancellationToken = default);
 }

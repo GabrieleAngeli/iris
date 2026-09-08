@@ -76,13 +76,17 @@ public static class DependencyInjection
         services.AddScoped<IEditLockRepository, EditLockRepository>();
         services.AddScoped<IMailProviderSettingsRepository, MailProviderSettingsRepository>();
         services.AddScoped<IIntegrationSettingsRepository, IntegrationSettingsRepository>();
+        services.AddScoped<IFallbackSecretEntryRepository, FallbackSecretEntryRepository>();
         services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
         services.TryAddScoped<IServerInventoryProbe, MockServerInventoryProbe>();
         services.TryAddSingleton<IProcessRunner, SystemProcessRunner>();
         services.TryAddScoped<IContainerRuntime, DockerCliContainerRuntime>();
         services.TryAddScoped<IDataServiceInventoryProbe, MockDataServiceInventoryProbe>();
         RegisterIntegrations(services, configuration, provider, connectionString, migrationsAssembly);
+        services.TryAddSingleton<IIntegrationHealthMonitor, IntegrationHealthMonitor>();
+        services.TryAddSingleton<IIntegrationHealthChecker, IntegrationHealthChecker>();
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.TryAddSingleton<AesGcmSecretProtector>();
         services.TryAddSingleton<IInvitationLinkBuilder, ConfiguredInvitationLinkBuilder>();
         services.TryAddScoped<IEmailSender, SmtpEmailSender>();
         services.TryAddScoped<IInvitationNotifier, SmtpInvitationNotifier>();
@@ -191,10 +195,20 @@ public static class DependencyInjection
         if (openBao.IsSecretStoreConfigured)
         {
             services.AddSingleton<ISecretStore, OpenBaoSecretStore>();
+            // Nothing to unlock once OpenBao itself is the active store — every secret already
+            // goes through real OpenBao, encrypted at rest by OpenBao itself.
+            services.AddScoped<IFallbackSecretVault, NullFallbackSecretVault>();
         }
         else
         {
-            services.AddSingleton<ISecretStore, InMemorySecretStore>();
+            // Same in-memory-dictionary behavior as the InMemorySecretStore it replaces for every
+            // ISecretStore caller — the encrypted-at-rest DB persistence is a separate,
+            // password-gated capability layered on top, never touching this contract. See
+            // EncryptedFallbackSecretStore/FallbackSecretVault remarks for the full design.
+            services.AddSingleton<EncryptedFallbackSecretStore>();
+            services.AddSingleton<ISecretStore>(sp => sp.GetRequiredService<EncryptedFallbackSecretStore>());
+            services.AddSingleton<IFallbackSecretCache>(sp => sp.GetRequiredService<EncryptedFallbackSecretStore>());
+            services.AddScoped<IFallbackSecretVault, FallbackSecretVault>();
         }
 
         services.AddSingleton<AnsibleExecutionPackageBuilder>();

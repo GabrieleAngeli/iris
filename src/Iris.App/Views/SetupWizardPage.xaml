@@ -209,12 +209,22 @@
                         <Label Text="{Binding AdminError}" IsVisible="{Binding HasAdminError}" FontSize="12"
                                TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
 
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,4,0,0">
+                        <!-- Setup itself is one-shot and already succeeded once SetupCompleted is
+                             true — Back/Finish setup no longer apply. A warning (e.g. OpenBao
+                             provisioning failed) stays on screen here until the operator
+                             acknowledges it, instead of being discarded by an immediate
+                             auto-navigate to the dashboard. -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,4,0,0"
+                              IsVisible="{Binding ShowSetupControls}">
                             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="Back" Style="{StaticResource SecondaryButton}"
                                     Command="{Binding BackToMailStepCommand}" HorizontalOptions="End" />
                             <Button Grid.Column="2" Text="Finish setup" Command="{Binding CompleteCommand}" />
                         </Grid>
+
+                        <Button Text="Continue to dashboard" Command="{Binding ContinueToDashboardCommand}"
+                                HorizontalOptions="Fill" Margin="0,4,0,0"
+                                IsVisible="{Binding SetupCompleted}" />
                     </VerticalStackLayout>
 
                 </VerticalStackLayout>

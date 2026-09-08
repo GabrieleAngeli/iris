@@ -2,6 +2,7 @@ using System.Reflection;
 using Iris.Api;
 using Iris.Api.Auth;
 using Iris.Api.Authorization;
+using Iris.Api.Diagnostics;
 using Iris.Api.Endpoints;
 using Iris.Application;
 using Iris.Application.Abstractions;
@@ -34,6 +35,7 @@ builder.AddIrisAuthentication();
 builder.Services.AddIrisAuthorization();
 builder.Services.AddScoped<ICurrentUser, ClaimsPrincipalCurrentUser>();
 builder.Services.AddScoped<IClaimsTransformation, AccessProvisioningClaimsTransformation>();
+builder.Services.AddHostedService<IntegrationHealthCheckBackgroundService>();
 
 var app = builder.Build();
 

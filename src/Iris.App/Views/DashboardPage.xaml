@@ -55,6 +55,19 @@
                 </HorizontalStackLayout>
             </Grid>
 
+            <!-- ===================== Integration health banner ===================== -->
+            <Border IsVisible="{Binding HasIntegrationWarning}"
+                    BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#433519}"
+                    Stroke="{AppThemeBinding Light=#F0DFA0, Dark=#6B5726}"
+                    StrokeThickness="1" Padding="14,10" StrokeShape="RoundRectangle 6">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="{Binding IntegrationWarning}" FontSize="13" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource Warning}, Dark={StaticResource WarningDark}}" />
+                    <Button Grid.Column="1" Text="Review in System settings" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding GoToSystemSettingsCommand}" />
+                </Grid>
+            </Border>
+
             <!-- ===================== KPI cards ===================== -->
             <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Stats}">
                 <BindableLayout.ItemTemplate>

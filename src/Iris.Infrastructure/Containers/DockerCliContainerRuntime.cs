@@ -88,6 +88,17 @@ internal sealed class DockerCliContainerRuntime(IProcessRunner processRunner) : 
         return result.StandardOutput.Trim();
     }
 
+    public async Task StartAsync(string containerName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(containerName);
+
+        var result = await processRunner.RunAsync(DockerExecutable, ["start", containerName], cancellationToken).ConfigureAwait(false);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"'docker start' failed: {result.StandardError.Trim()}");
+        }
+    }
+
     public async Task<string> GetLogsAsync(string containerName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(containerName);

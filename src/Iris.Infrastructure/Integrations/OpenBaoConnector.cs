@@ -26,7 +26,7 @@ internal sealed class OpenBaoConnector(OpenBaoOptions options) : IIntegrationCon
 
         if (!options.IsSecretStoreConfigured)
         {
-            return new IntegrationConnectorStatus(Key, Name, "Configured", Endpoint, "Endpoint configured; token missing, Iris uses the in-memory secret store.");
+            return new IntegrationConnectorStatus(Key, Name, "Configured", Endpoint, "Endpoint configured; token missing, Iris uses the encrypted fallback secret store.");
         }
 
         if (!probe)
