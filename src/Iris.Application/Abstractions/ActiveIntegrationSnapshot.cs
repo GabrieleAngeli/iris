@@ -1,7 +1,8 @@
 namespace Iris.Application.Abstractions;
 
 /// <summary>
-/// What this running process actually locked in for OpenBao/AWX/Ansible at startup.
+/// What this running process actually locked in for OpenBao/AWX/Ansible/Azure DevOps/Nexus at
+/// startup.
 /// <c>RegisterIntegrations</c> (<c>Iris.Infrastructure/DependencyInjection.cs</c>) reads
 /// configuration/persisted <c>IntegrationSettings</c> once, at process start — DI
 /// singletons built from it don't change after that. This snapshot is registered at the
@@ -14,4 +15,6 @@ namespace Iris.Application.Abstractions;
 public sealed record ActiveIntegrationSnapshot(
     string? OpenBaoEndpoint,
     string? AwxEndpoint,
-    string? AnsibleEndpoint);
+    string? AnsibleEndpoint,
+    string? AzureDevOpsEndpoint = null,
+    string? NexusEndpoint = null);

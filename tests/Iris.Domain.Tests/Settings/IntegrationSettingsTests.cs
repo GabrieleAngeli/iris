@@ -98,4 +98,42 @@ public sealed class IntegrationSettingsTests
         Assert.Equal("https://awx.example.com", settings.AwxEndpoint);
         Assert.Equal("https://ansible.example.com", settings.AnsibleEndpoint);
     }
+
+    [Fact]
+    public void ConfigureAzureDevOps_sets_fields_and_trims_input()
+    {
+        var settings = IntegrationSettings.CreateEmpty();
+
+        settings.ConfigureAzureDevOps(" https://dev.azure.com/contoso ", "openbao://secret/ado-token");
+
+        Assert.Equal("https://dev.azure.com/contoso", settings.AzureDevOpsEndpoint);
+        Assert.Equal("openbao://secret/ado-token", settings.AzureDevOpsTokenSecretReference);
+    }
+
+    [Fact]
+    public void ConfigureAzureDevOps_rejects_a_blank_endpoint()
+    {
+        var settings = IntegrationSettings.CreateEmpty();
+
+        Assert.ThrowsAny<ArgumentException>(() => settings.ConfigureAzureDevOps("", null));
+    }
+
+    [Fact]
+    public void ConfigureNexus_sets_fields_and_trims_input()
+    {
+        var settings = IntegrationSettings.CreateEmpty();
+
+        settings.ConfigureNexus(" https://nexus.example.com ", "openbao://secret/nexus-token");
+
+        Assert.Equal("https://nexus.example.com", settings.NexusEndpoint);
+        Assert.Equal("openbao://secret/nexus-token", settings.NexusTokenSecretReference);
+    }
+
+    [Fact]
+    public void ConfigureNexus_rejects_a_blank_endpoint()
+    {
+        var settings = IntegrationSettings.CreateEmpty();
+
+        Assert.ThrowsAny<ArgumentException>(() => settings.ConfigureNexus("", null));
+    }
 }

@@ -94,10 +94,34 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
             new { endpoint = "https://awx.example.com", token = "t", jobTemplateId = 1 });
         var ansible = await reader.PutAsJsonAsync("/system/integrations/ansible",
             new { endpoint = "https://ansible.example.com", playbook = "deploy.yml", inventory = (string?)null });
+        var azureDevOps = await reader.PutAsJsonAsync("/system/integrations/azure-devops",
+            new { endpoint = "https://dev.azure.com/contoso", token = "t" });
+        var nexus = await reader.PutAsJsonAsync("/system/integrations/nexus",
+            new { endpoint = "https://nexus.example.com", token = "t" });
 
         Assert.Equal(HttpStatusCode.Forbidden, openBao.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, awx.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, ansible.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, azureDevOps.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, nexus.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_save_azure_devops_and_nexus_settings_and_they_show_up_in_settings()
+    {
+        var admin = Admin();
+
+        var azureDevOps = await admin.PutAsJsonAsync("/system/integrations/azure-devops",
+            new { endpoint = "https://dev.azure.com/contoso", token = "pat-token" });
+        var nexus = await admin.PutAsJsonAsync("/system/integrations/nexus",
+            new { endpoint = "https://nexus.example.com", token = "nexus-token" });
+
+        Assert.Equal(HttpStatusCode.OK, azureDevOps.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, nexus.StatusCode);
+
+        var settings = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        Assert.Contains(settings!.Integrations, i => i.Key == "azure-devops");
+        Assert.Contains(settings.Integrations, i => i.Key == "nexus");
     }
 
     [Fact]

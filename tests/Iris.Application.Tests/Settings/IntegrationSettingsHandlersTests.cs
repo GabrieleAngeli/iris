@@ -16,6 +16,12 @@ public sealed class IntegrationSettingsHandlersTests
     private static SaveAnsibleIntegrationSettingsHandler AnsibleHandler(FakeStore store) =>
         new(store.IntegrationSettingsRepository, store.UnitOfWork);
 
+    private static SaveAzureDevOpsIntegrationSettingsHandler AzureDevOpsHandler(FakeStore store) =>
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+
+    private static SaveNexusIntegrationSettingsHandler NexusHandler(FakeStore store) =>
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+
     private static GetSystemSettingsHandler SystemSettingsHandler(
         FakeStore store, ActiveIntegrationSnapshot? snapshot = null, IEnumerable<IIntegrationConnector>? connectors = null,
         IIntegrationHealthMonitor? healthMonitor = null) =>
@@ -152,11 +158,125 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
+    public async Task SaveAzureDevOps_creates_the_row_and_stores_the_token()
+    {
+        var store = new FakeStore();
+
+        var result = await AzureDevOpsHandler(store).HandleAsync(
+            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso", "pat-token"));
+
+        Assert.True(result.RestartRequired);
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("https://dev.azure.com/contoso", settings.AzureDevOpsEndpoint);
+        Assert.Equal("pat-token", store.SecretsByReference[settings.AzureDevOpsTokenSecretReference!]);
+    }
+
+    [Fact]
+    public async Task SaveAzureDevOps_with_a_blank_token_keeps_the_previously_stored_reference()
+    {
+        var store = new FakeStore();
+        await AzureDevOpsHandler(store).HandleAsync(
+            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso", "pat-token"));
+        var firstReference = store.IntegrationSettings.Single().AzureDevOpsTokenSecretReference;
+
+        await AzureDevOpsHandler(store).HandleAsync(
+            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso-renamed", null));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("https://dev.azure.com/contoso-renamed", settings.AzureDevOpsEndpoint);
+        Assert.Equal(firstReference, settings.AzureDevOpsTokenSecretReference);
+    }
+
+    [Fact]
+    public async Task SaveAzureDevOps_rejects_a_blank_endpoint()
+    {
+        var store = new FakeStore();
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            AzureDevOpsHandler(store).HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand("", "token")));
+
+        Assert.Empty(store.IntegrationSettings);
+    }
+
+    [Fact]
+    public async Task SaveNexus_creates_the_row_and_stores_the_token()
+    {
+        var store = new FakeStore();
+
+        var result = await NexusHandler(store).HandleAsync(
+            new SaveNexusIntegrationSettingsCommand("https://nexus.example.com", "nexus-token"));
+
+        Assert.True(result.RestartRequired);
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("https://nexus.example.com", settings.NexusEndpoint);
+        Assert.Equal("nexus-token", store.SecretsByReference[settings.NexusTokenSecretReference!]);
+    }
+
+    [Fact]
+    public async Task SaveNexus_rejects_a_blank_endpoint()
+    {
+        var store = new FakeStore();
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            NexusHandler(store).HandleAsync(new SaveNexusIntegrationSettingsCommand("", "token")));
+
+        Assert.Empty(store.IntegrationSettings);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_reports_azure_devops_and_nexus_as_not_configured_when_their_connector_says_so()
+    {
+        // Regression test for a real bug reported by the user (2026-09-08): "in system mi trovo
+        // Azure DevOps e Nexus configured ma non lo sono". These two used to read
+        // Iris:Integrations:AzureDevOps/Nexus:Endpoint from appsettings and show "Configured"
+        // whenever that config had *any* non-blank value — but appsettings.Development.json
+        // ships example placeholder values there that no admin ever actually set. They now have
+        // real connectors (AzureDevOpsConnector/NexusConnector) wired the same way as
+        // openbao/awx/ansible — this exercises that same pipeline, standing in for the real
+        // connector with a fake reporting "no endpoint configured", same as it would for a fresh
+        // install.
+        var store = new FakeStore();
+
+        var result = await SystemSettingsHandler(
+                store,
+                connectors:
+                [
+                    new FakeConnector("azure-devops", "Azure DevOps", endpoint: null),
+                    new FakeConnector("nexus", "Nexus Repository", endpoint: null),
+                ])
+            .HandleAsync(new GetSystemSettingsQuery(true));
+
+        var azureDevOps = Assert.Single(result.Integrations, i => i.Key == "azure-devops");
+        Assert.Equal("Not configured", azureDevOps.Status);
+
+        var nexus = Assert.Single(result.Integrations, i => i.Key == "nexus");
+        Assert.Equal("Not configured", nexus.Status);
+    }
+
+    [Fact]
+    public async Task GetSystemSettings_surfaces_pending_restart_for_a_saved_azure_devops_endpoint()
+    {
+        var store = new FakeStore();
+        await AzureDevOpsHandler(store).HandleAsync(
+            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso", "pat-token"));
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot(null, null, null),
+                [new FakeConnector("azure-devops", "Azure DevOps", endpoint: null)])
+            .HandleAsync(new GetSystemSettingsQuery(true));
+
+        var azureDevOps = Assert.Single(result.Integrations, i => i.Key == "azure-devops");
+        Assert.Equal("Pending restart", azureDevOps.Status);
+        Assert.Equal("https://dev.azure.com/contoso", azureDevOps.Endpoint);
+    }
+
+    [Fact]
     public async Task GetSystemSettings_reports_RestartRequired_false_when_nothing_is_persisted_and_nothing_active()
     {
         var store = new FakeStore();
 
-        var result = await SystemSettingsHandler(store).HandleAsync(new GetSystemSettingsQuery(true, null, null));
+        var result = await SystemSettingsHandler(store).HandleAsync(new GetSystemSettingsQuery(true));
 
         Assert.False(result.RestartRequired);
     }
@@ -171,7 +291,7 @@ public sealed class IntegrationSettingsHandlersTests
         // The running process locked in "no OpenBao endpoint" at startup — a save afterward
         // means it's out of date until a restart.
         var result = await SystemSettingsHandler(store, new ActiveIntegrationSnapshot(null, null, null))
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         Assert.True(result.RestartRequired);
     }
@@ -185,7 +305,7 @@ public sealed class IntegrationSettingsHandlersTests
 
         var result = await SystemSettingsHandler(
                 store, new ActiveIntegrationSnapshot("https://openbao.example.com", null, null))
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         Assert.False(result.RestartRequired);
     }
@@ -208,7 +328,7 @@ public sealed class IntegrationSettingsHandlersTests
                     OpenBaoEndpoint: "https://openbao.example.com", // matches what was just persisted
                     AwxEndpoint: "http://localhost:8043",           // config default, never persisted
                     AnsibleEndpoint: "http://localhost:8043"))      // config default, never persisted
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         Assert.False(result.RestartRequired);
     }
@@ -227,7 +347,7 @@ public sealed class IntegrationSettingsHandlersTests
                 store,
                 new ActiveIntegrationSnapshot(null, null, null),
                 [new FakeConnector("openbao", "OpenBao", endpoint: null)])
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
         Assert.Equal("Pending restart", openBao.Status);
@@ -251,7 +371,7 @@ public sealed class IntegrationSettingsHandlersTests
                 new ActiveIntegrationSnapshot(null, null, null),
                 [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")],
                 monitor)
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
         Assert.Equal("Unreachable", openBao.Status);
@@ -276,7 +396,7 @@ public sealed class IntegrationSettingsHandlersTests
                 new ActiveIntegrationSnapshot(null, null, null),
                 [new FakeConnector("openbao", "OpenBao", endpoint: null)],
                 monitor)
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
         Assert.Equal("Pending restart", openBao.Status);
@@ -302,7 +422,7 @@ public sealed class IntegrationSettingsHandlersTests
             vault,
             new FakeIntegrationHealthMonitor());
 
-        var result = await handler.HandleAsync(new GetSystemSettingsQuery(true, null, null));
+        var result = await handler.HandleAsync(new GetSystemSettingsQuery(true));
 
         Assert.NotNull(result.FallbackSecrets);
         Assert.True(result.FallbackSecrets!.HasPendingWork);
@@ -320,7 +440,7 @@ public sealed class IntegrationSettingsHandlersTests
                 store,
                 new ActiveIntegrationSnapshot("https://openbao.example.com", null, null),
                 [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")])
-            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+            .HandleAsync(new GetSystemSettingsQuery(true));
 
         var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
         Assert.Equal("Configured", openBao.Status);
@@ -331,7 +451,7 @@ public sealed class IntegrationSettingsHandlersTests
     {
         var store = new FakeStore();
 
-        var result = await SystemSettingsHandler(store).HandleAsync(new GetSystemSettingsQuery(false, null, null));
+        var result = await SystemSettingsHandler(store).HandleAsync(new GetSystemSettingsQuery(false));
 
         Assert.False(result.CanManageSystem);
         Assert.Null(result.Mail);

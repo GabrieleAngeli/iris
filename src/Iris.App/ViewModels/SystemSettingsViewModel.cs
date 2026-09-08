@@ -113,14 +113,9 @@ public partial class SystemSettingsViewModel(
 			Integrations.Clear();
 			foreach (var integration in settings.Integrations)
 			{
-				// Only openbao/awx/ansible ever have a real IIntegrationConnector registered
-				// server-side (see RegisterIntegrations) — nexus/azure-devops are display-only
-				// entries with no persisted settings and no way to actually reach them yet.
-				// Offering Test/Configure for those would either 404 (misread by an operator as
-				// "broken") or silently do nothing — reported as exactly that confusion
-				// (2026-09-08: "nexus... test non restituisce nessun feedback"). Honest fix:
-				// don't offer actions this build genuinely can't back.
-				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible";
+				// All five (openbao/awx/ansible/azure-devops/nexus) now have a real
+				// IIntegrationConnector registered server-side (see RegisterIntegrations).
+				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible" or "azure-devops" or "nexus";
 				var canManage = CanManageSystem && hasRealConnector;
 				var canProvision = canManage && string.Equals(integration.Key, "openbao", StringComparison.OrdinalIgnoreCase);
 				var row = new IntegrationConnectionRow(
@@ -133,6 +128,8 @@ public partial class SystemSettingsViewModel(
 						"openbao" => new ConfigureOpenBaoDialogViewModel(api, integration.Endpoint),
 						"awx" => new ConfigureAwxDialogViewModel(api, integration.Endpoint),
 						"ansible" => new ConfigureAnsibleDialogViewModel(api, integration.Endpoint),
+						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(api, integration.Endpoint),
+						"nexus" => new ConfigureNexusDialogViewModel(api, integration.Endpoint),
 						_ => null,
 					};
 					if (dialogVm is not null)
@@ -543,6 +540,135 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 				Endpoint.Trim(),
 				string.IsNullOrEmpty(Token) ? null : Token,
 				jobTemplateId));
+			WasSaved = true;
+			CloseRequested?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanSave() => !IsBusy;
+
+	[RelayCommand]
+	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
+}
+
+/// <summary>Backs the "Configure Azure DevOps" dialog — same shape/pattern as
+/// <see cref="ConfigureOpenBaoDialogViewModel"/>: endpoint (organization URL) + optional token
+/// (personal access token, blank keeps the one already saved).</summary>
+public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObject
+{
+	private readonly IIrisApiClient _api;
+
+	public ConfigureAzureDevOpsDialogViewModel(IIrisApiClient api, string? currentEndpoint)
+	{
+		_api = api;
+		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
+	}
+
+	[ObservableProperty] private string _endpoint;
+	[ObservableProperty] private string _token = string.Empty;
+	[ObservableProperty] private bool _isBusy;
+	[ObservableProperty] private string? _error;
+
+	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool WasSaved { get; private set; }
+
+	public event EventHandler? CloseRequested;
+
+	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	[RelayCommand(CanExecute = nameof(CanSave))]
+	private async Task SaveAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the Azure DevOps organization URL.";
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			await _api.SaveAzureDevOpsIntegrationSettingsAsync(new SaveAzureDevOpsIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token));
+			WasSaved = true;
+			CloseRequested?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanSave() => !IsBusy;
+
+	[RelayCommand]
+	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
+}
+
+/// <summary>Backs the "Configure Nexus" dialog — same shape/pattern as
+/// <see cref="ConfigureOpenBaoDialogViewModel"/>: endpoint + optional token (blank keeps the one
+/// already saved). The token isn't required for the reachability check itself (Nexus's status
+/// endpoint is anonymous) but is collected and stored for future real artifact operations.</summary>
+public sealed partial class ConfigureNexusDialogViewModel : ObservableObject
+{
+	private readonly IIrisApiClient _api;
+
+	public ConfigureNexusDialogViewModel(IIrisApiClient api, string? currentEndpoint)
+	{
+		_api = api;
+		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
+	}
+
+	[ObservableProperty] private string _endpoint;
+	[ObservableProperty] private string _token = string.Empty;
+	[ObservableProperty] private bool _isBusy;
+	[ObservableProperty] private string? _error;
+
+	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool WasSaved { get; private set; }
+
+	public event EventHandler? CloseRequested;
+
+	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	[RelayCommand(CanExecute = nameof(CanSave))]
+	private async Task SaveAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the Nexus endpoint.";
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			await _api.SaveNexusIntegrationSettingsAsync(new SaveNexusIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token));
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}

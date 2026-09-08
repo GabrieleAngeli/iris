@@ -46,6 +46,22 @@ public partial class SystemSettingsPage : ContentPage
 						await _vm.LoadCommand.ExecuteAsync(null);
 					}
 					break;
+
+				case ConfigureAzureDevOpsDialogViewModel azureDevOps:
+					await _dialogs.ShowAsync(new ConfigureAzureDevOpsDialog(azureDevOps), "dlg.configure-azure-devops", 480, 380);
+					if (azureDevOps.WasSaved)
+					{
+						await _vm.LoadCommand.ExecuteAsync(null);
+					}
+					break;
+
+				case ConfigureNexusDialogViewModel nexus:
+					await _dialogs.ShowAsync(new ConfigureNexusDialog(nexus), "dlg.configure-nexus", 480, 400);
+					if (nexus.WasSaved)
+					{
+						await _vm.LoadCommand.ExecuteAsync(null);
+					}
+					break;
 			}
 		};
 

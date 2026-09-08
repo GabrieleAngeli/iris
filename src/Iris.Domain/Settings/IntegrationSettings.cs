@@ -3,14 +3,14 @@ using Iris.Domain.Common;
 namespace Iris.Domain.Settings;
 
 /// <summary>
-/// Where the OpenBao/AWX/Ansible integration endpoints are configured — persisted so they
-/// can be set from the UI instead of <c>appsettings.json</c>/environment variables only.
-/// Single-row, like <see cref="MailProviderSettings"/>, but with three independent
+/// Where the OpenBao/AWX/Ansible/Azure DevOps/Nexus integration endpoints are configured —
+/// persisted so they can be set from the UI instead of <c>appsettings.json</c>/environment
+/// variables only. Single-row, like <see cref="MailProviderSettings"/>, but with independent
 /// mutators (one per integration group) rather than one whole-row <c>Configure</c> factory:
-/// OpenBao/AWX/Ansible are saved from three separate requests and none should wipe the
-/// other two's fields.
+/// each group is saved from its own request and none should wipe any other group's fields.
 ///
-/// <see cref="OpenBaoTokenSecretReference"/>/<see cref="AwxTokenSecretReference"/> are
+/// <see cref="OpenBaoTokenSecretReference"/>/<see cref="AwxTokenSecretReference"/>/
+/// <see cref="AzureDevOpsTokenSecretReference"/>/<see cref="NexusTokenSecretReference"/> are
 /// opaque references — the real token value lives in <c>ISecretStore</c>, never here.
 /// </summary>
 public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditableEntity
@@ -55,6 +55,16 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
 
     public string? AnsibleInventory { get; private set; }
 
+    public string? AzureDevOpsEndpoint { get; private set; }
+
+    /// <summary>Opaque reference into <c>ISecretStore</c> — never the token itself.</summary>
+    public string? AzureDevOpsTokenSecretReference { get; private set; }
+
+    public string? NexusEndpoint { get; private set; }
+
+    /// <summary>Opaque reference into <c>ISecretStore</c> — never the token itself.</summary>
+    public string? NexusTokenSecretReference { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -91,5 +101,21 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
         AnsibleEndpoint = endpoint.Trim();
         AnsiblePlaybook = playbook.Trim();
         AnsibleInventory = string.IsNullOrWhiteSpace(inventory) ? null : inventory.Trim();
+    }
+
+    public void ConfigureAzureDevOps(string endpoint, string? tokenSecretReference)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+
+        AzureDevOpsEndpoint = endpoint.Trim();
+        AzureDevOpsTokenSecretReference = tokenSecretReference;
+    }
+
+    public void ConfigureNexus(string endpoint, string? tokenSecretReference)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+
+        NexusEndpoint = endpoint.Trim();
+        NexusTokenSecretReference = tokenSecretReference;
     }
 }

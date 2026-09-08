@@ -25,6 +25,12 @@ internal sealed class IntegrationSettingsConfiguration : IEntityTypeConfiguratio
         builder.Property(s => s.AnsiblePlaybook).IsRequired().HasMaxLength(260);
         builder.Property(s => s.AnsibleInventory).HasMaxLength(260);
 
+        builder.Property(s => s.AzureDevOpsEndpoint).HasMaxLength(500);
+        builder.Property(s => s.AzureDevOpsTokenSecretReference).HasMaxLength(400);
+
+        builder.Property(s => s.NexusEndpoint).HasMaxLength(500);
+        builder.Property(s => s.NexusTokenSecretReference).HasMaxLength(400);
+
         builder.Property(s => s.CreatedAtUtc);
         builder.Property(s => s.UpdatedAtUtc);
     }

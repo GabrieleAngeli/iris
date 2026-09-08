@@ -572,6 +572,54 @@ una verifica reale in automatico.
   end-to-end che una probe manuale finisce nel monitor condiviso).
 - **Non ancora verificato a mano nell'app Windows in esecuzione.**
 
+**Bug reale trovato dall'utente subito dopo**: Azure DevOps e Nexus Repository apparivano
+"Configured" nella UI pur non essendo mai stati configurati da nessuno. Causa:
+`GetSystemSettingsHandler` leggeva `Iris:Integrations:AzureDevOps/Nexus:Endpoint` da
+`appsettings.Development.json`, che spedisce valori placeholder d'esempio
+(`https://dev.azure.com/your-organization`, `http://localhost:8081`) mai realmente impostati
+da un admin, e trattava qualunque stringa non vuota come "Configured". Nessuno dei due ha mai
+avuto un connettore reale né un modo per essere configurato da Iris (da qui la scelta
+precedente di nascondere Test/Configure con "Not available yet") - quindi mostrare
+"Configured" era doppiamente fuorviante. Corretto: questi due ora riportano sempre
+"Not configured", `Endpoint = null`, a prescindere da cosa c'è in config;
+`GetSystemSettingsQuery` non porta più `AzureDevOpsEndpoint`/`NexusEndpoint` (parametri mai
+davvero usati per nulla di significativo, rimossi insieme alla lettura di `IConfiguration`
+nell'endpoint). Test di regressione dedicato. 320/320 test verdi dopo il fix.
+
+**Azure DevOps e Nexus: supporto reale (stesso schema di OpenBao/AWX/Ansible)** - subito
+dopo il fix sopra, l'utente ha chiesto di costruire il supporto vero per entrambi, con ambito
+"solo raggiungibilità" per ora (nessuna funzionalità applicativa collegata, es. niente lettura
+pipeline/artifact). Stesso schema esatto delle altre tre integrazioni, replicato:
+
+- `IntegrationSettings` (entità dominio) estesa con
+  `AzureDevOpsEndpoint`/`AzureDevOpsTokenSecretReference`/`NexusEndpoint`/
+  `NexusTokenSecretReference` + `ConfigureAzureDevOps`/`ConfigureNexus`. Migrazione
+  `AddAzureDevOpsAndNexusIntegrationSettings` (SQLite + Postgres, colonne verificate a
+  parità).
+- `SaveAzureDevOpsIntegrationSettingsHandler`/`SaveNexusIntegrationSettingsHandler` +
+  `PUT /system/integrations/azure-devops`/`PUT /system/integrations/nexus` (platform.admin),
+  stesso comportamento "token vuoto mantiene quello già salvato".
+- `AzureDevOpsConnector`/`NexusConnector` (`Iris.Infrastructure/Integrations/`), registrati
+  come `IIntegrationConnector` reali - ora coperti dallo stesso ciclo di
+  `GetSystemSettingsHandler`/health-check periodico/banner "Pending restart" delle altre tre.
+  Verifica di raggiungibilità: Azure DevOps chiama `GET {org}/_apis/projects?api-version=7.1`
+  con Basic auth (username vuoto, PAT come password - convenzione Azure DevOps); Nexus chiama
+  `GET {endpoint}/service/rest/v1/status` (anonimo, non richiede token per il check - il
+  token è comunque raccolto/salvato per quando servirà per operazioni reali sugli artifact).
+  Per Azure DevOps "Configured" richiede endpoint+token (nessuna chiamata reale è possibile
+  senza PAT); per Nexus basta l'endpoint (lo status check è anonimo).
+- `GetSystemSettingsHandler`: rimossa la logica fallback "Not available yet"/`NotYetAvailable`
+  introdotta nel fix precedente - non serve più, questi due passano ora dallo stesso ciclo
+  connettori reale di openbao/awx/ansible. `GetSystemSettingsQuery` torna a essere solo
+  `CanManageSystem` (nessun parametro riaggiunto).
+- MAUI: `ConfigureAzureDevOpsDialog`/`ConfigureNexusDialog` (stesso pattern sicuro
+  `CloseRequested`/`WasSaved`), bottoni Configure/Test ora attivi anche per queste due righe
+  in `SystemSettingsPage`.
+- 56+10+157+37+71 = 331 test totali verdi (11 nuovi: due mutator di dominio, due handler Save
+  con relative validazioni, due test end-to-end su `GetSystemSettingsHandler` che esercitano
+  la pipeline reale con connettori finti, gating permessi + happy path a livello API).
+- **Non ancora verificato a mano nell'app Windows in esecuzione.**
+
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione
 9), Dashboard sempre prima voce, macro categorie come bottoni collassabili/espandibili

@@ -21,6 +21,18 @@ public sealed record SaveAnsibleIntegrationSettingsRequest(
     string Playbook,
     string? Inventory);
 
+/// <summary>Body of <c>PUT /system/integrations/azure-devops</c>. <c>Endpoint</c> is the
+/// organization URL (e.g. <c>https://dev.azure.com/your-org</c>); same empty-token rule as
+/// OpenBao/AWX.</summary>
+public sealed record SaveAzureDevOpsIntegrationSettingsRequest(
+    string Endpoint,
+    string? Token);
+
+/// <summary>Body of <c>PUT /system/integrations/nexus</c>. Same empty-token rule as OpenBao/AWX.</summary>
+public sealed record SaveNexusIntegrationSettingsRequest(
+    string Endpoint,
+    string? Token);
+
 /// <summary><c>RestartRequired</c> is always <c>true</c> here: a save always changes the
 /// persisted row, and <c>RegisterIntegrations</c> only reads it once, at process startup
 /// (see <c>Iris.Infrastructure/DependencyInjection.cs</c>) — so the change only takes

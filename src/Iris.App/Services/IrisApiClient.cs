@@ -166,6 +166,10 @@ public interface IIrisApiClient
 
 	Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
+	Task<IntegrationSettingsSavedResponse> SaveAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
 	Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default);
 
 	Task TestMailSettingsAsync(MailProviderInput mail, string testRecipient, CancellationToken cancellationToken = default);
@@ -383,6 +387,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/ansible", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/azure-devops", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/nexus", request, cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/settings/mail", request, cancellationToken);

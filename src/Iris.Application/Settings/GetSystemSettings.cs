@@ -5,10 +5,7 @@ using Iris.Domain.Settings;
 
 namespace Iris.Application.Settings;
 
-public sealed record GetSystemSettingsQuery(
-    bool CanManageSystem,
-    string? AzureDevOpsEndpoint,
-    string? NexusEndpoint);
+public sealed record GetSystemSettingsQuery(bool CanManageSystem);
 
 public sealed class GetSystemSettingsHandler(
     IMailProviderSettingsRepository mailSettings,
@@ -44,12 +41,9 @@ public sealed class GetSystemSettingsHandler(
             integrations.Add(link);
         }
 
-        // OpenBao/Ansible/AWX always have a real IIntegrationConnector registered
-        // (OpenBaoConnector/AnsibleExecutionPackageBuilder/AwxClient — see RegisterIntegrations),
-        // so they're already covered by the loop above. Only integrations with no connector
-        // of their own need this fallback.
-        AddIfMissing(integrations, Link("azure-devops", "Azure DevOps", query.AzureDevOpsEndpoint));
-        AddIfMissing(integrations, Link("nexus", "Nexus Repository", query.NexusEndpoint));
+        // OpenBao/Ansible/AWX/Azure DevOps/Nexus all have a real IIntegrationConnector
+        // registered (see RegisterIntegrations) and are already covered by the loop above —
+        // nothing left needing a fallback placeholder here.
 
         // A group only "needs a restart" if it was actually persisted (someone called the
         // matching PUT/provision endpoint) AND that persisted value differs from what's active.
@@ -63,7 +57,9 @@ public sealed class GetSystemSettingsHandler(
         var restartRequired =
             HasPendingChange(persisted?.OpenBaoEndpoint, activeIntegrations.OpenBaoEndpoint) ||
             HasPendingChange(persisted?.AwxEndpoint, activeIntegrations.AwxEndpoint) ||
-            HasPendingChange(persisted?.AnsibleEndpoint, activeIntegrations.AnsibleEndpoint);
+            HasPendingChange(persisted?.AnsibleEndpoint, activeIntegrations.AnsibleEndpoint) ||
+            HasPendingChange(persisted?.AzureDevOpsEndpoint, activeIntegrations.AzureDevOpsEndpoint) ||
+            HasPendingChange(persisted?.NexusEndpoint, activeIntegrations.NexusEndpoint);
 
         if (!query.CanManageSystem)
         {
@@ -126,6 +122,8 @@ public sealed class GetSystemSettingsHandler(
             "openbao" => (persisted?.OpenBaoEndpoint, active.OpenBaoEndpoint),
             "awx" => (persisted?.AwxEndpoint, active.AwxEndpoint),
             "ansible" => (persisted?.AnsibleEndpoint, active.AnsibleEndpoint),
+            "azure-devops" => (persisted?.AzureDevOpsEndpoint, active.AzureDevOpsEndpoint),
+            "nexus" => (persisted?.NexusEndpoint, active.NexusEndpoint),
             _ => (null, null),
         };
 
@@ -145,14 +143,4 @@ public sealed class GetSystemSettingsHandler(
             : link with { Status = snapshot.Status, Message = snapshot.Message, CheckedAtUtc = snapshot.CheckedAtUtc };
     }
 
-    private static IntegrationLinkResponse Link(string key, string name, string? endpoint) =>
-        new(key, name, string.IsNullOrWhiteSpace(endpoint) ? "Not configured" : "Configured", endpoint);
-
-    private static void AddIfMissing(List<IntegrationLinkResponse> integrations, IntegrationLinkResponse link)
-    {
-        if (integrations.All(item => !string.Equals(item.Key, link.Key, StringComparison.OrdinalIgnoreCase)))
-        {
-            integrations.Add(link);
-        }
-    }
 }

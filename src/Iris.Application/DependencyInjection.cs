@@ -47,6 +47,8 @@ public static class DependencyInjection
         services.TryAddScoped<SaveOpenBaoIntegrationSettingsHandler>();
         services.TryAddScoped<SaveAwxIntegrationSettingsHandler>();
         services.TryAddScoped<SaveAnsibleIntegrationSettingsHandler>();
+        services.TryAddScoped<SaveAzureDevOpsIntegrationSettingsHandler>();
+        services.TryAddScoped<SaveNexusIntegrationSettingsHandler>();
         services.TryAddScoped<UnlockFallbackSecretsHandler>();
         services.TryAddScoped<ProvisionOpenBaoHandler>();
         services.TryAddScoped<ListTransactionLogHandler>();

@@ -16,7 +16,6 @@ public static class SystemSettingsEndpoints
         var system = app.MapGroup("/system").WithTags("System");
 
         system.MapGet("/settings", async (
-                IConfiguration configuration,
                 GetMyAccessHandler access,
                 GetSystemSettingsHandler handler,
                 CancellationToken ct) =>
@@ -24,11 +23,7 @@ public static class SystemSettingsEndpoints
                 var me = await access.HandleAsync(new GetMyAccessQuery(), ct).ConfigureAwait(false);
                 var canManageSystem = me?.EffectivePermissions.Contains(Permissions.PlatformAdmin) == true;
                 var result = await handler
-                    .HandleAsync(new GetSystemSettingsQuery(
-                        canManageSystem,
-                        configuration["Iris:Integrations:AzureDevOps:Endpoint"],
-                        configuration["Iris:Integrations:Nexus:Endpoint"]),
-                        ct)
+                    .HandleAsync(new GetSystemSettingsQuery(canManageSystem), ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);
             })
@@ -116,6 +111,34 @@ public static class SystemSettingsEndpoints
             })
             .WithName("SaveAnsibleIntegrationSettings")
             .WithSummary("Persist the Ansible endpoint/playbook/inventory. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPut("/integrations/azure-devops", async (
+                SaveAzureDevOpsIntegrationSettingsRequest body,
+                SaveAzureDevOpsIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(body.Endpoint, body.Token), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveAzureDevOpsIntegrationSettings")
+            .WithSummary("Persist the Azure DevOps organization URL/PAT. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPut("/integrations/nexus", async (
+                SaveNexusIntegrationSettingsRequest body,
+                SaveNexusIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveNexusIntegrationSettingsCommand(body.Endpoint, body.Token), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveNexusIntegrationSettings")
+            .WithSummary("Persist the Nexus endpoint/token. Takes effect after an Iris.Api restart.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapPost("/integrations/openbao/provision", async (

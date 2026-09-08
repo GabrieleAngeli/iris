@@ -181,14 +181,43 @@ public static class DependencyInjection
             JobTemplateId = awxJobTemplateId
         };
 
+        var azureDevOpsEndpoint = !string.IsNullOrWhiteSpace(persisted?.AzureDevOpsEndpoint)
+            ? persisted.AzureDevOpsEndpoint
+            : integrations["AzureDevOps:Endpoint"];
+        var azureDevOpsToken = !string.IsNullOrWhiteSpace(persisted?.AzureDevOpsTokenSecretReference)
+            ? ResolvePersistedToken(persisted!.AzureDevOpsTokenSecretReference, openBao)
+            : integrations["AzureDevOps:Token"];
+
+        var azureDevOps = new AzureDevOpsOptions
+        {
+            Endpoint = azureDevOpsEndpoint,
+            Token = azureDevOpsToken
+        };
+
+        var nexusEndpoint = !string.IsNullOrWhiteSpace(persisted?.NexusEndpoint)
+            ? persisted.NexusEndpoint
+            : integrations["Nexus:Endpoint"];
+        var nexusToken = !string.IsNullOrWhiteSpace(persisted?.NexusTokenSecretReference)
+            ? ResolvePersistedToken(persisted!.NexusTokenSecretReference, openBao)
+            : integrations["Nexus:Token"];
+
+        var nexus = new NexusOptions
+        {
+            Endpoint = nexusEndpoint,
+            Token = nexusToken
+        };
+
         // What this process actually locked in, captured once — compared against a fresh DB
         // read on every GET /system/settings to tell the operator whether a since-saved
         // change still needs a restart (see GetSystemSettingsHandler).
-        services.AddSingleton(new ActiveIntegrationSnapshot(openBao.Endpoint, awx.Endpoint, ansible.Endpoint));
+        services.AddSingleton(new ActiveIntegrationSnapshot(
+            openBao.Endpoint, awx.Endpoint, ansible.Endpoint, azureDevOps.Endpoint, nexus.Endpoint));
 
         services.AddSingleton(openBao);
         services.AddSingleton(ansible);
         services.AddSingleton(awx);
+        services.AddSingleton(azureDevOps);
+        services.AddSingleton(nexus);
 
         services.AddSingleton<OpenBaoConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<OpenBaoConnector>());
@@ -218,6 +247,12 @@ public static class DependencyInjection
         services.AddSingleton<AwxClient>();
         services.AddSingleton<IAwxClient>(sp => sp.GetRequiredService<AwxClient>());
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AwxClient>());
+
+        services.AddSingleton<AzureDevOpsConnector>();
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
+
+        services.AddSingleton<NexusConnector>();
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<NexusConnector>());
     }
 
     /// <summary>
