@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
+using Iris.Application.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Iris.Api.Tests;
 
 public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClassFixture<IrisApiFactory>
 {
+    private FakeContainerRuntime ContainerRuntime =>
+        (FakeContainerRuntime)factory.Services.GetRequiredService<IContainerRuntime>();
+
     private HttpClient Admin()
     {
         var client = factory.CreateClient();
@@ -69,7 +74,54 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Reader_cannot_provision_openbao()
+    {
+        var response = await Reader().PostAsync("/system/integrations/openbao/provision", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_provision_openbao_when_docker_is_available()
+    {
+        ContainerRuntime.IsAvailable = true;
+        ContainerRuntime.Status = new ContainerStatus(ContainerState.Absent, null);
+        ContainerRuntime.Logs = "==> OpenBao server started!\nRoot Token: s.integration-test-token\n";
+
+        var response = await Admin().PostAsync("/system/integrations/openbao/provision", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var provisioned = await response.Content.ReadFromJsonAsync<ProvisionedDto>();
+        Assert.Equal("http://localhost:8200", provisioned!.Endpoint);
+        Assert.True(provisioned.RestartRequired);
+    }
+
+    [Fact]
+    public async Task Admin_gets_a_clear_error_when_docker_is_not_available()
+    {
+        ContainerRuntime.IsAvailable = false;
+
+        var response = await Admin().PostAsync("/system/integrations/openbao/provision", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_gets_a_clear_error_when_the_root_token_cannot_be_found_in_logs()
+    {
+        ContainerRuntime.IsAvailable = true;
+        ContainerRuntime.Status = new ContainerStatus(ContainerState.Absent, null);
+        ContainerRuntime.Logs = "==> OpenBao server started, but no token line here.\n";
+
+        var response = await Admin().PostAsync("/system/integrations/openbao/provision", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private sealed record SavedDto(bool RestartRequired, string Message);
+
+    private sealed record ProvisionedDto(string Endpoint, bool RestartRequired, string Message);
 
     private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint, string? Message);
 

@@ -171,6 +171,29 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
+    public async Task GetSystemSettings_ignores_a_never_persisted_group_even_if_the_active_config_has_a_default()
+    {
+        // Regression test for a real bug found via manual end-to-end verification
+        // (2026-09-08): dev appsettings ships non-null default endpoints for AWX/Ansible that
+        // were never saved through PUT/provision. The active snapshot reflects those config
+        // defaults directly (non-null), while nothing was ever persisted for those two groups
+        // (null) — that must not count as "a change pending a restart".
+        var store = new FakeStore();
+        await OpenBaoHandler(store).HandleAsync(
+            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
+
+        var result = await SystemSettingsHandler(
+                store,
+                new ActiveIntegrationSnapshot(
+                    OpenBaoEndpoint: "https://openbao.example.com", // matches what was just persisted
+                    AwxEndpoint: "http://localhost:8043",           // config default, never persisted
+                    AnsibleEndpoint: "http://localhost:8043"))      // config default, never persisted
+            .HandleAsync(new GetSystemSettingsQuery(true, null, null));
+
+        Assert.False(result.RestartRequired);
+    }
+
+    [Fact]
     public async Task GetSystemSettings_hides_mail_settings_from_callers_who_cannot_manage_the_system()
     {
         var store = new FakeStore();

@@ -1,10 +1,12 @@
 using Iris.Application.Abstractions;
 using Iris.Domain.Settings;
+using Iris.Infrastructure.Containers;
 using Iris.Infrastructure.Invitations;
 using Iris.Infrastructure.Inventory;
 using Iris.Infrastructure.Integrations;
 using Iris.Infrastructure.Mail;
 using Iris.Infrastructure.Persistence;
+using Iris.Infrastructure.Processes;
 using Iris.Infrastructure.Persistence.Interceptors;
 using Iris.Infrastructure.Persistence.Repositories;
 using Iris.Infrastructure.Persistence.Seeding;
@@ -76,6 +78,8 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationSettingsRepository, IntegrationSettingsRepository>();
         services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
         services.TryAddScoped<IServerInventoryProbe, MockServerInventoryProbe>();
+        services.TryAddSingleton<IProcessRunner, SystemProcessRunner>();
+        services.TryAddScoped<IContainerRuntime, DockerCliContainerRuntime>();
         services.TryAddScoped<IDataServiceInventoryProbe, MockDataServiceInventoryProbe>();
         RegisterIntegrations(services, configuration, provider, connectionString, migrationsAssembly);
         services.TryAddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

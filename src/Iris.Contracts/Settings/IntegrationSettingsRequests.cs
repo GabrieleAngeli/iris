@@ -26,3 +26,12 @@ public sealed record SaveAnsibleIntegrationSettingsRequest(
 /// (see <c>Iris.Infrastructure/DependencyInjection.cs</c>) — so the change only takes
 /// effect in the running process after an Iris.Api restart.</summary>
 public sealed record IntegrationSettingsSavedResponse(bool RestartRequired, string Message);
+
+/// <summary>
+/// Result of <c>POST /system/integrations/openbao/provision</c> — a convenience/dev-mode
+/// OpenBao container started on the same host Iris.Api runs on. Not for production use (no
+/// persistent storage backend, no unseal/HA story); an operator who needs that should
+/// configure an existing hardened OpenBao instance via <c>PUT /system/integrations/openbao</c>
+/// instead of this endpoint.
+/// </summary>
+public sealed record ProvisionOpenBaoResponse(string Endpoint, bool RestartRequired, string Message);

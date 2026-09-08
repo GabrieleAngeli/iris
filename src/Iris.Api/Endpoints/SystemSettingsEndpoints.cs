@@ -76,6 +76,17 @@ public static class SystemSettingsEndpoints
             .WithSummary("Persist the Ansible endpoint/playbook/inventory. Takes effect after an Iris.Api restart.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
+        system.MapPost("/integrations/openbao/provision", async (
+                ProvisionOpenBaoHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new ProvisionOpenBaoCommand(), ct).ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ProvisionOpenBao")
+            .WithSummary("Starts a dev-mode OpenBao container on this host via Docker and saves its endpoint/token. Convenience/non-production only.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
         system.MapGet("/integrations/{key}/status", async (
                 string key,
                 bool probe,

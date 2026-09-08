@@ -63,9 +63,12 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
 
         // Real SMTP has no place in an automated test run — /setup/complete and
         // /setup/test-mail now genuinely try to send mail; swap in an always-succeeding fake.
+        // Same reasoning for Docker: POST /system/integrations/openbao/provision genuinely
+        // shells out via IContainerRuntime; swap in a controllable fake instead.
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IEmailSender, FakeEmailSender>();
+            services.AddSingleton<IContainerRuntime, FakeContainerRuntime>();
         });
     }
 

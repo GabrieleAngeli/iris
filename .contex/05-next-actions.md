@@ -54,19 +54,25 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
    configuration knowledge e import manuale/da package sopra l'inventory gia' presente.
 12. Non pianificato in dettaglio: Monitoring/Audit reale, Grafana/capacity advisory, COM
    Matrix, generazione runtime config materializzata su disco.
-13. ~~**Integration settings persistite (OpenBao/AWX/Ansible) - Fase 1**~~ Fatto: vedi
-   `00-current-state.md`. **Fasi successive, non ancora iniziate** (piano completo in
-   `C:\Users\gabriele.angeli\.claude\plans\mighty-knitting-avalanche.md`):
-   - Fase 2: OpenBao self-provisioning via Docker (`IContainerRuntime`, nuovo endpoint
-     `POST /system/integrations/openbao/provision`, `platform.admin`, modalità dev-only).
+13. **Integration settings persistite (OpenBao/AWX/Ansible)** - piano completo in
+   `C:\Users\gabriele.angeli\.claude\plans\mighty-knitting-avalanche.md`.
+   - ~~Fase 1: persistenza config + wizard a 4 step~~ Fatto: vedi `00-current-state.md`.
+   - ~~Fase 2: OpenBao self-provisioning via Docker~~ Fatto e **verificato end-to-end con
+     Docker Desktop realmente attivo il 2026-09-08** (non solo unit test): `IContainerRuntime`
+     + `DockerCliContainerRuntime` (shell-out a `docker` via `IProcessRunner`, prima capacità
+     del repo di eseguire processi di sistema), `POST /system/integrations/openbao/provision`
+     (`platform.admin`), modalità dev-only esplicita (non per produzione). Root token estratto
+     correttamente da un banner reale (`s.oi9YVUH2BqOJdjRl6BQKpOme`), ora fissato come test di
+     regressione. Un bug reale di `RestartRequired` (sempre `true` per i default dev di
+     AWX/Ansible mai persistiti) trovato e corretto proprio grazie a questa verifica manuale -
+     vedi `00-current-state.md` per i dettagli. 10 test in `Iris.Infrastructure.Tests` (nuovo
+     progetto) + 11 in Application + 4 in Api.
    - Fase 3: AWX self-provisioning via playbook Ansible bundlato, eseguito direttamente
      (`ansible-playbook`, non più solo l'API REST di AWX) - asincrono/pollable, richiede
      Ansible+Docker già presenti sull'host (Iris rileva, non installa i prerequisiti).
    - Fase 4: `ApplicationInstallation` oggi è create-only - aggiungere `Update(...)` +
      `ApplicationInstallationRevision` (history append-only) + `PUT .../installations/{id}` +
      `GET .../installations/{id}/history` + tab "History" in `InstallationOpsDialog`.
-   Nessuna capacità di eseguire processi di sistema (Docker/Ansible) esiste ancora nel repo -
-   da costruire da zero per le Fasi 2-3.
 
 ## Stato recente delle sessioni
 

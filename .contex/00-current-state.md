@@ -337,8 +337,42 @@ volta che una PUT ha salvato qualcosa che il processo in esecuzione non ha ancor
 `SystemSettingsPage` mostra un banner giallo quando è vero. Il wizard di setup raccoglie
 solo intento/config per OpenBao/AWX (nessun comando di sistema da un endpoint anonimo);
 `CompleteSetupResponse` porta `OpenBaoProvisionRequested`/`AwxProvisionRequested` per un
-futuro hand-off post-login verso endpoint di provisioning reali (non ancora costruiti - vedi
-`05-next-actions.md`).
+futuro hand-off post-login verso endpoint di provisioning reali (il wizard MAUI stesso non li
+chiama ancora - vedi `05-next-actions.md`).
+
+**OpenBao self-provisioning via Docker** - `POST /system/integrations/openbao/provision`
+(`platform.admin`) è la prima capacità del repo di eseguire processi di sistema:
+`IContainerRuntime` (`Iris.Application.Abstractions`) + `DockerCliContainerRuntime`
+(`Iris.Infrastructure/Containers`, shell-out a `docker` via un seam `IProcessRunner` per
+restare testabile senza demone reale). Avvia `openbao/openbao:2.1` in modalità `-dev` (solo
+convenienza/non-produzione, dichiarato esplicitamente nella risposta), legge il root token
+dai log del container (`docker logs`, marker `Root Token: `) e lo persiste tramite lo stesso
+`SaveOpenBaoIntegrationSettingsHandler` della Fase 1. Se il container esiste già fermo,
+errore esplicito (niente riavvio automatico); se Docker non è raggiungibile, errore chiaro
+invece di crash. Nuovo progetto `Iris.Infrastructure.Tests` (colma un gap segnalato sopra -
+prima nessun adapter aveva test dedicati).
+
+**Verificato end-to-end il 2026-09-08** con Docker Desktop realmente attivo: API avviata su
+DB SQLite usa-e-getta, primo admin via `/setup/claim-admin` (bootstrap SSO, nessun SMTP
+necessario), chiamata reale a `POST /system/integrations/openbao/provision` → container
+`openbao/openbao:2.1` avviato per davvero (`docker ps` lo conferma), banner reale contiene
+`Root Token: s.oi9YVUH2BqOJdjRl6BQKpOme`, `ParseRootToken` l'ha estratto correttamente (il
+banner contiene anche altre righe con "root token" in prosa - "core: root token generated",
+ecc. - che il marker `"Root Token: "` non confonde). Il testo di log reale è ora un test di
+regressione permanente in `ProvisionOpenBaoHandlerTests`.
+
+**Bug reale trovato e corretto tramite questa verifica manuale**: `RestartRequired` in
+`GET /system/settings` risultava sempre `true` anche senza modifiche pendenti, perché il
+confronto trattava "gruppo mai salvato" (null) contro "valore di default da
+`appsettings.Development.json`" (AWX/Ansible puntano entrambi a `http://localhost:8043` per
+default dev) come una discrepanza. Corretto in `GetSystemSettingsHandler.HasPendingChange`:
+un gruppo conta come "in attesa di riavvio" solo se è stato davvero persistito (PUT/provision
+chiamato) E il valore persistito differisce da quello attivo - mai per un gruppo ancora
+puramente config-driven. Confermato con un secondo giro reale (`restartRequired: false` dopo
+il fix, dati identici). Nessun unit test esistente lo aveva intercettato perché usavano dati
+di test comodi (active null per i gruppi non toccati) che non replicavano i default reali di
+`appsettings.Development.json` - aggiunto un test di regressione che replica esattamente
+questo scenario.
 
 **Client MAUI** - flyout custom (`Shell.MenuItemTemplate` è inaffidabile sull'handler
 Windows, sostituito da `Shell.FlyoutContentTemplate`, vedi `docs/ui-standards.md` sezione

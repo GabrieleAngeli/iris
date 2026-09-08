@@ -25,4 +25,8 @@
     <PackageReference Include="MailKit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Iris.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>
