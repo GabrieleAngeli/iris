@@ -11,6 +11,13 @@ that starts a `-dev` container for quick local testing, and OpenBao's dev mode a
 in-memory backend: everything in it is lost on every restart, by design, regardless of
 Docker volumes. Nothing below uses dev mode.
 
+Parts 1 and 2 below assume the install host is directly reachable from wherever Iris.Api
+runs. If instead it lives inside a NAT'd VM (WSL2, a Hyper-V Internal switch, …) — as ours
+actually does — there's an extra networking hop to get right; see
+[Reaching services behind a NAT'd VM](#reaching-services-behind-a-natd-vm-wsl2hyper-v) near
+the end before you start, since it changes what "the endpoint" even means for step 4/the
+"Plug both into Iris" table below.
+
 ## Part 1 — OpenBao
 
 ### 1. Run it with persistent storage
@@ -287,6 +294,91 @@ settings → enter your Iris password) after the restart before OpenBao is genui
 - Creating the AWX project/inventory/job template content itself (what the playbook actually
   does) is outside Iris's scope — Iris only prepares the `iris_*` variable plan and launches
   the job template by ID; see `docs/application-configuration-model-analysis.md`.
+- If either service lives behind a NAT'd VM (WSL2, Hyper-V Internal switch) rather than being
+  directly reachable, see [Reaching services behind a NAT'd VM](#reaching-services-behind-a-natd-vm-wsl2hyper-v)
+  below — the endpoint you give Iris and how you keep it reachable unattended both change.
+
+## Reaching services behind a NAT'd VM (WSL2/Hyper-V)
+
+If OpenBao/AWX don't run on a host directly reachable from wherever Iris.Api runs — e.g.
+inside a WSL2 distro or a Hyper-V VM on an **Internal**/NAT virtual switch (its IP is only
+ever visible from that switch's own host) — there's one extra hop to get right. This is our
+own actual setup, not a hypothetical:
+
+```
+Iris.Api  →  Windows host (on the corporate network/DNS)  →  NAT switch  →  WSL2/Hyper-V VM  →  AWX/OpenBao
+```
+
+### 1. Give the VM a fixed IP on an internal NAT switch
+
+```powershell
+# On the Windows host, as Administrator
+New-VMSwitch -SwitchName "NATSwitch" -SwitchType Internal
+New-NetIPAddress -IPAddress 192.168.100.1 -PrefixLength 24 -InterfaceAlias "vEthernet (NATSwitch)"
+New-NetNat -Name "MyNAT" -InternalIPInterfaceAddressPrefix 192.168.100.0/24
+Connect-VMNetworkAdapter -VMName "<vm-name>" -SwitchName "NATSwitch"
+```
+
+Inside the VM, set a static address on that network (Ubuntu/netplan example):
+
+```yaml
+# /etc/netplan/50-cloud-init.yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: false
+      addresses:
+        - 192.168.100.10/24
+      routes:
+        - to: default
+          via: 192.168.100.1
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
+```
+
+```bash
+sudo netplan apply
+```
+
+### 2. Forward the ports from the host's real network-facing IP into the VM
+
+The VM's `192.168.100.10` is only reachable from the host itself at this point — nothing else
+on the corporate network can see it yet. Bridge that gap on the host, as Administrator:
+
+```powershell
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=80 connectaddress=192.168.100.10 connectport=80
+New-NetFirewallRule -DisplayName "Forward to VM (80)" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow
+```
+
+`netsh portproxy` rules are a persistent OS setting (not a running process tied to a
+terminal) — they survive host reboots on their own, and confirmed reachable from the
+corporate network without any SSH tunnel involved once this is in place.
+
+### 3. If a service runs inside a nested cluster (Kind/k3s) in the VM
+
+Our AWX install runs inside a Kind (Kubernetes-in-Docker) cluster *inside* the VM, so it
+first only existed on a Docker-internal IP (e.g. `172.18.0.2:32000`, the Kind node's NodePort)
+— reachable from *inside* the VM only. The first working version of this setup reached it
+with a manually-started SSH local port-forward (`ssh -L 9090:172.18.0.2:32000 ops@...`) —
+that's fine for a one-off check by hand, but not something Iris.Api can depend on: it dies
+with the terminal session, so a background service polling it (the periodic health check, or
+a deployment launch at 3am) will eventually find it gone. Getting from "reachable when I
+happen to have a terminal open" to "reachable because something is always listening" is what
+turns this from a manual convenience into something Iris can actually rely on — that's the
+gap step 2's `netsh portproxy` alone doesn't close by itself if there's a nested cluster in
+the way, and needs an always-on forwarder *inside* the VM (not a human-run SSH session)
+bridging the VM's own address to the nested NodePort. Confirmed: once that's in place, the
+service is reachable from the corporate network with no SSH tunnel involved at all — that's
+the state to get to, not "works while someone's terminal is open."
+
+### 4. What actually becomes "the endpoint" in Iris
+
+Once every hop above is a real (not ad-hoc) forward, the corporate-network hostname that
+resolves to the Windows host (`ALG-072.algorab.eu` in our case) *is* the endpoint —
+`http://awx.hyperv.internal/`, `http://openbao.hyperv.internal/`. That's what goes in Iris's
+Configure dialogs (Part 1/2 step 4 above; use these instead of `<openbao-host>`/`<awx-host>`
+if this is your topology), not the VM's internal IP and not anything involving `ssh -L`.
 
 Sources: [OpenBao `operator init`](https://openbao.org/docs/commands/operator/init/),
 [OpenBao KV v2 secrets engine](https://openbao.org/docs/secrets/kv/kv-v2/),
