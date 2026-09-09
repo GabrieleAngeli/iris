@@ -35,7 +35,8 @@ public static class SetupEndpoints
                 CancellationToken ct) =>
             {
                 var result = await handler
-                    .HandleAsync(new CompleteSetupCommand(body.Mail, body.AdminEmail, body.AdminDisplayName, body.AdminPassword), ct)
+                    .HandleAsync(new CompleteSetupCommand(
+                        body.Mail, body.AdminEmail, body.AdminDisplayName, body.AdminPassword, body.OpenBao, body.Awx), ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);
             })

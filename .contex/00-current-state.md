@@ -405,6 +405,29 @@ solo intento/config per OpenBao/AWX (nessun comando di sistema da un endpoint an
 futuro hand-off post-login verso endpoint di provisioning reali (il wizard MAUI stesso non li
 chiama ancora - vedi `05-next-actions.md`).
 
+**Bug reale (2026-09-09): il wizard di setup non salvava mai OpenBao/AWX "use existing"** -
+segnalato dall'utente dopo un test manuale: valori inseriti nei passi 1-2 del wizard, poi in
+System settings "Test" non raggiungeva il servizio e "Configure" risultava vuoto, sia per
+OpenBao che per AWX. Diagnosticato interrogando direttamente il DB SQLite dev
+(`src/Iris.Api/iris.dev.db`, `IntegrationSettings` con **zero righe** nonostante
+`Users`/`MailProviderSettings` popolate dalla stessa chiamata) invece di fidarsi solo del
+comportamento della UI. Causa reale: `SetupEndpoints.cs`, `POST /setup/complete` costruiva
+`new CompleteSetupCommand(body.Mail, body.AdminEmail, body.AdminDisplayName,
+body.AdminPassword)` - **senza** `body.OpenBao`/`body.Awx`, che quindi arrivavano sempre
+`null` a `CompleteSetupHandler` (i parametri hanno default `null` nel record, quindi nessun
+errore di compilazione l'ha mai segnalato) e i due `if (command.OpenBao is { Skip: false,
+... })`/`if (command.Awx is { ... })` non scattavano mai, a prescindere da cosa l'utente
+avesse scelto/digitato nel wizard MAUI (che invece costruiva `OpenBaoSetupInput`/
+`AwxSetupInput` correttamente). Bug puro di wiring nell'endpoint, mai la persistenza né la UI
+di lettura, entrambe corrette. **Nessun test API copriva `/setup/complete` con
+OpenBao/Awx** (solo `CompleteSetupHandler` testato direttamente a livello Application,
+bypassando la mappatura request->command dell'endpoint) - da qui il bug invisibile ai 331+
+test esistenti. Corretto passando `body.OpenBao, body.Awx` nel costruttore; aggiunto test di
+regressione end-to-end (`SetupApiTests.Setup_persists_openbao_and_awx_use_existing_choices`)
+che completa il setup con entrambi "use existing" e verifica via `GET /system/settings` che
+`Endpoint`/`Status: "Pending restart"` riflettano davvero i valori inviati - **347/347 test
+verdi**.
+
 **OpenBao self-provisioning via Docker** - `POST /system/integrations/openbao/provision`
 (`platform.admin`) è la prima capacità del repo di eseguire processi di sistema:
 `IContainerRuntime` (`Iris.Application.Abstractions`) + `DockerCliContainerRuntime`

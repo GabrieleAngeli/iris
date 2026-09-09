@@ -84,6 +84,26 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 
 ## Stato recente delle sessioni
 
+### 2026-09-09 (secondo giro) - Bug reale: /setup/complete non salvava mai OpenBao/AWX
+
+Segnalato dall'utente dopo aver configurato AWX/OpenBao per davvero (creata un'Application
+AWX, generato un token) e averli inseriti nel wizard: "nonostante li abbia inseriti nel
+wizard poi in system setting con test non raggiunge il servizio e configure è vuoto, sia per
+awx che per openbao". Diagnosticato interrogando il DB SQLite dev con Python
+(`sqlite3` non disponibile, `python -c "import sqlite3..."` sì) invece di ipotizzare - la
+tabella `IntegrationSettings` aveva zero righe nonostante `Users`/`MailProviderSettings`
+popolate dalla stessa richiesta, il che ha isolato subito il problema alla mappatura
+dell'endpoint `/setup/complete`, non a wizard/persistenza/UI (tutti già corretti).
+
+- **Bug**: `SetupEndpoints.cs` non passava `body.OpenBao`/`body.Awx` al
+  `CompleteSetupCommand` (default `null`, nessun errore di compilazione). Dettagli completi
+  in `00-current-state.md`.
+- Aggiunto test di regressione end-to-end che non esisteva prima (`SetupApiTests`) - nessun
+  test copriva `/setup/complete` con OpenBao/Awx, solo l'handler applicativo direttamente.
+- Verifica: `dotnet test Iris.sln` **347/347 verdi** (1 nuovo test).
+- **Da verificare a mano dall'utente**: rifare il wizard (o completare setup da capo su
+  un'istanza pulita) e confermare che Configure/Test ora mostrino davvero i valori salvati.
+
 ### 2026-09-09 - Generazione scaffold Ansible (template .j2 + skeleton ruolo/playbook) dal manifest
 
 Richiesta esplicita dell'utente: "tutti i template, role e playbook di awx/ansible dono da

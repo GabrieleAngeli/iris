@@ -119,6 +119,67 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
     }
 
     [Fact]
+    public async Task Setup_persists_openbao_and_awx_use_existing_choices()
+    {
+        // Regression test: POST /setup/complete used to build CompleteSetupCommand from only
+        // body.Mail/AdminEmail/AdminDisplayName/AdminPassword, silently dropping body.OpenBao/Awx
+        // — CompleteSetupHandler never saw them (they default to null), so nothing was ever
+        // persisted to IntegrationSettings no matter what the wizard's OpenBao/AWX steps sent.
+        // Found via a real user report: values typed into the wizard, then System settings showed
+        // "Configure" empty and Test unreachable for both — confirmed by an empty
+        // IntegrationSettings table in the dev SQLite db, not a display/restart-required nuance.
+        using var empty = new IrisApiFactory(seedDemoData: false);
+        WebApplicationFactory<Program> emptyConfigured = empty.WithWebHostBuilder(_ => { });
+        var anon = emptyConfigured.CreateClient();
+
+        var complete = await anon.PostAsJsonAsync("/setup/complete", new
+        {
+            mail = new
+            {
+                smtpHost = "smtp.example.com",
+                smtpPort = 587,
+                smtpUsername = "no-reply",
+                smtpPassword = "s3cr3t",
+                fromAddress = "no-reply@example.com",
+                fromDisplayName = "Iris",
+                enableSsl = true,
+            },
+            adminEmail = "root@example.com",
+            adminDisplayName = "Root Admin",
+            adminPassword = "a-strong-password",
+            openBao = new
+            {
+                skip = false,
+                installForMe = false,
+                endpoint = "https://openbao.example:8200",
+                token = "s.roottoken",
+            },
+            awx = new
+            {
+                skip = false,
+                installForMe = false,
+                endpoint = "https://awx.example",
+                token = "awx-token",
+                jobTemplateId = 7,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        var result = await complete.Content.ReadFromJsonAsync<CompleteSetupDto>();
+
+        var authed = emptyConfigured.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!.Token);
+
+        var settings = await authed.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        var openBaoLink = Assert.Single(settings!.Integrations, i => i.Key == "openbao");
+        Assert.Equal("https://openbao.example:8200", openBaoLink.Endpoint);
+        Assert.Equal("Pending restart", openBaoLink.Status);
+        var awxLink = Assert.Single(settings.Integrations, i => i.Key == "awx");
+        Assert.Equal("https://awx.example", awxLink.Endpoint);
+        Assert.Equal("Pending restart", awxLink.Status);
+        Assert.True(settings.RestartRequired);
+    }
+
+    [Fact]
     public async Task Allow_listed_authenticated_user_can_claim_the_first_platform_admin_role()
     {
         using var empty = new IrisApiFactory(seedDemoData: false);
@@ -173,4 +234,8 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
     private sealed record ClaimSetupAdminDto(Guid UserId, string Email, string DisplayName);
 
     private sealed record MeDto(Guid UserId, string Email, IReadOnlyList<string> EffectivePermissions);
+
+    private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint, string? Message, DateTimeOffset? CheckedAtUtc = null);
+
+    private sealed record SystemSettingsDto(bool CanManageSystem, object? Mail, List<IntegrationLinkDto> Integrations, bool RestartRequired);
 }
