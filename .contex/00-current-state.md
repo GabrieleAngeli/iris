@@ -281,6 +281,71 @@ Ansible.
   reale del connettore; la UI System settings espone il pulsante `Test` per ogni riga
   OpenBao/Ansible/AWX.
 
+**Generazione scaffold Ansible dal manifest (2026-09-09)** - richiesta esplicita
+dell'utente: "tutti i template, role e playbook di awx/ansible devono essere tenuti come
+riferimento, ma dovranno essere generati da iris". Scelta la via di mezzo (opzione
+approvata via `AskUserQuestion`): Iris genera i **template Jinja2 di configurazione** e
+uno **scaffold iniziale** di ruolo/playbook Ansible per una `ApplicationVersion` - un
+punto di partenza one-shot da committare a mano nel repo Ansible/AWX dell'operatore, MAI
+rigenerato/riscritto silenziosamente da Iris (nessun coupling con
+`LaunchApplicationInstallationAwxJobHandler`/deploy). Playbook/ruoli restano manutenuti a
+mano dopo la generazione, coerente con la decisione già presa in
+`docs/application-configuration-model-analysis.md` ("i file finali non devono essere
+generati direttamente da Iris").
+- `GET /applications/{applicationId}/versions/{versionId}/ansible-scaffold` (perm
+  `applications.read`, stesso gate di `GetApplicationVersionDetail` visto che è
+  version-scoped, non installation-scoped) -> `GenerateApplicationAnsibleScaffoldHandler`
+  -> `AnsibleScaffoldGenerator` (puro, `internal static`, nessuna I/O): produce
+  `AnsibleScaffoldResponse { ApplicationSlug, Version, GeneratedAtUtc, Files[] }`, ogni
+  file con `RelativePath`/`Description`/`Content`.
+- `ConfigurationKey.TargetKind` è free-form; il generatore lo classifica in 3 categorie
+  (non enumerate nel dominio, solo nel generatore): **file-backed** (nome file reale o
+  `ansible:j2:<target>`) -> `.j2` completo sotto `roles/<slug>/templates/`; **fragment**
+  (`dockerfile:*`/`compose:*`) -> snippet sotto `templates/snippets/`, non un file intero;
+  **code-only** (`code:*`) -> nessun template, solo documentato in `defaults/main.yml` e
+  README. Format-aware per i file-backed, scelta deliberatamente conservativa (mai
+  generare sintassi strutturata a caso): `.properties`/`.env`/nessuna estensione
+  riconosciuta -> righe piatte `key={{ iris_x }}`; `.json` -> nesting reale sullo split
+  su `:` delle chiavi dotted (convenzione .NET config-binder già presente nei dati, es.
+  `ConnectionStrings:Main`), quoting condizionale su `ValueType`
+  (integer/decimal/boolean non quotati); `.xml`/`.config`/tutto il resto strutturalmente
+  ambiguo -> lista di riferimento commentata (`{# key -> iris_x #}`), MAI una sintassi
+  indovinata che sembra valida ma non lo è.
+- Skeleton ruolo/playbook generato sempre: `roles/<slug>/defaults/main.yml` (ogni
+  variabile `iris_*`, deduplicata per nome, con default sicuro/tipizzato, mai il valore
+  reale per le chiavi secret), `tasks/main.yml` (un task `ansible.builtin.template` per
+  target file-backed con `dest` segnato `# TODO` - Iris non conosce i path di deploy reali
+  - più task `community.docker.docker_container`/`ansible.builtin.systemd_service` per
+  unit che li richiedono), `handlers/main.yml`/`meta/main.yml` stub,
+  `playbooks/<slug>.yml`, `README.md` con i metadati di generazione e le chiavi
+  `code:*` documentate.
+- Naming (nome variabile `iris_*`, normalizzazione target `ansible:j2:`, nome file `.j2`,
+  inferenza docker/systemd da `ApplicationUnitDefinition`) estratto da
+  `GetApplicationInstallationAnsiblePlanHandler` nella nuova `AnsibleNaming` (`internal
+  static`, `Iris.Application/Applications`) così piano e scaffold non possono mai
+  disallinearsi per la stessa chiave - **nessun cambio di comportamento**, coperto dal
+  test esistente `GetApplicationInstallationAnsiblePlan_exports_variables_for_jinja_templates`.
+- MAUI: bottone "Generate Ansible scaffold" + `Picker` versione nella card
+  `ApplicationsPage` (riusa `VersionOptions`/`SelectedInstallVersion`, già presenti ma
+  finora non renderizzati in nessuna XAML). `AnsibleScaffoldDialog` (bind diretto su
+  `ApplicationRowViewModel`, stesso pattern di `InstallationOpsDialog`): lista file a
+  sinistra, `controls:CodeBlock` a destra (riusa il copy-to-clipboard già esistente, primo
+  uso di `CodeBlock` fuori da `ComponentsPage`) - **nessuna nuova infrastruttura di
+  file-download/save-as introdotta** (non esisteva alcun precedente nel repo, `FileSaver`
+  incluso; scelta esplicita per tenere lo scope MVP, un vero export .zip resta possibile
+  in futuro).
+- Bug reale trovato e corretto durante l'implementazione:
+  `GenerateApplicationAnsibleScaffoldHandler` non era registrato in
+  `Iris.Application/DependencyInjection.cs` (`TryAddScoped`) - un handler non registrato
+  fa fallire l'INFERENZA del parametro Minimal API (viene letto come body implicito invece
+  che come servizio), e questo rompe la endpoint data source **dell'intero gruppo di
+  route**, non solo la nuova - da qui il 500 su ogni test di `ApplicationsApiTests`,
+  incluse richieste scollegate come `POST /applications`. Diagnosticato leggendo il body
+  reale della risposta (Development environment espone il dettaglio dell'eccezione) invece
+  di fidarsi del solo status code.
+- **346/346 test backend verdi** (56 Domain + 10 Extractor + 170 Application + 37
+  Infrastructure + 73 Api; erano 331 prima di questo incremento).
+
 **Validation Engine (deployment)** - `GET /applications/installations/{id}/validate`
 (perm `deployments.validate`) -> `ValidateApplicationInstallationHandler`: solo lettura,
 confronta la configuration knowledge della `ApplicationVersion` (placeholder, configuration

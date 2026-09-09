@@ -84,6 +84,37 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 
 ## Stato recente delle sessioni
 
+### 2026-09-09 - Generazione scaffold Ansible (template .j2 + skeleton ruolo/playbook) dal manifest
+
+Richiesta esplicita dell'utente: "tutti i template, role e playbook di awx/ansible dono da
+tenere in riferimento, ma dovranno essere generati da iris, cosa ne pensi?" - opinione data
+esplicitamente prima di implementare (tensione con la decisione già presa in
+`docs/application-configuration-model-analysis.md` che Iris non deve generare i file finali),
+poi scelta via `AskUserQuestion` la via di mezzo: template `.j2` + scaffold iniziale di
+ruolo/playbook, non generazione continua/playbook logici (pacchetti OS, firewall, retry
+restano fuori scope, a giudizio umano). Pianificato in Plan Mode con due agenti Explore in
+parallelo (modello dati Application/ConfigurationKey/manifest; integrazione AWX/Ansible + UI
+MAUI) prima di scrivere codice.
+
+- Nuovo endpoint `GET /applications/{applicationId}/versions/{versionId}/ansible-scaffold`
+  (perm `applications.read`) -> `AnsibleScaffoldGenerator` (puro). Dettagli completi in
+  `00-current-state.md` (naming condiviso via `AnsibleNaming`, classificazione target
+  file/fragment/code-only, format-aware .properties/.env/.json/reference-only).
+- MAUI: bottone "Generate Ansible scaffold" + Picker versione su `ApplicationsPage`,
+  `AnsibleScaffoldDialog` (lista file + `controls:CodeBlock`, riuso del copy-to-clipboard
+  già esistente - **nessuna nuova infrastruttura di download/save-as**, scelta deliberata
+  per l'MVP).
+- **Bug reale trovato e corretto**: `GenerateApplicationAnsibleScaffoldHandler` non
+  registrato in `Iris.Application/DependencyInjection.cs` faceva fallire l'inferenza
+  Minimal API del parametro (letto come body implicito) e questo rompeva **l'intera
+  route table del gruppo Applications**, non solo il nuovo endpoint - da qui 500 su test
+  scollegati come `POST /applications`. Diagnosticato leggendo il body reale della
+  risposta (Development espone il dettaglio dell'eccezione), non fidandosi del solo
+  status code.
+- Verifica: `dotnet test Iris.sln` **346/346 verdi** (15 nuovi test: 10 sul generatore
+  puro + 3 sull'handler applicativo + 2 end-to-end API). `dotnet build src/Iris.App` verde
+  (0 warning). **Da verificare a mano nell'app Windows in esecuzione.**
+
 ### 2026-09-08 (quarto giro) - Servizio di health-check periodico per le integrazioni
 
 Richiesta esplicita: "dovrebbe esserci un servizio che controlla i servizi connessi se sono

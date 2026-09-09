@@ -612,6 +612,60 @@ public sealed class ApplicationsHandlersTests
         Assert.Contains(plan.Warnings, warning => warning.Contains("Ansible", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static GenerateApplicationAnsibleScaffoldHandler AnsibleScaffoldHandler(FakeStore store) =>
+        new(store.ApplicationRepository, new FakeClock(Now));
+
+    [Fact]
+    public async Task GenerateApplicationAnsibleScaffold_throws_not_found_for_missing_application()
+    {
+        var store = new FakeStore();
+
+        await Assert.ThrowsAsync<NotFoundException>(() => AnsibleScaffoldHandler(store).HandleAsync(
+            new GenerateApplicationAnsibleScaffoldQuery(Guid.NewGuid(), Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task GenerateApplicationAnsibleScaffold_throws_not_found_for_missing_version()
+    {
+        var store = new FakeStore();
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+
+        await Assert.ThrowsAsync<NotFoundException>(() => AnsibleScaffoldHandler(store).HandleAsync(
+            new GenerateApplicationAnsibleScaffoldQuery(app.Id, Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task GenerateApplicationAnsibleScaffold_returns_role_and_playbook_skeleton_for_the_selected_version()
+    {
+        var store = new FakeStore();
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "4.0.0", "refs/tags/4.0.0", Runtime("java17")));
+        await ImportHandler(store).HandleAsync(new ImportConfigurationPackageCommand(
+            app.Id,
+            version.Id,
+            "1.1",
+            [new ConfigurationKeyInput(
+                "server.port", "application.properties", true, false, "9980", null, null, null, "integer", null, null, null, null, null)],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []));
+
+        var scaffold = await AnsibleScaffoldHandler(store).HandleAsync(new GenerateApplicationAnsibleScaffoldQuery(app.Id, version.Id));
+
+        Assert.Equal("augeg4-engine", scaffold.ApplicationSlug);
+        Assert.Equal("4.0.0", scaffold.Version);
+        Assert.Equal(Now, scaffold.GeneratedAtUtc);
+        Assert.Contains(scaffold.Files, f => f.RelativePath == "roles/augeg4-engine/templates/application.properties.j2" &&
+            f.Content.Contains("server.port={{ iris_server_port }}", StringComparison.Ordinal));
+        Assert.Contains(scaffold.Files, f => f.RelativePath == "playbooks/augeg4-engine.yml");
+    }
+
     private static ValidateApplicationInstallationHandler ValidateHandler(FakeStore store) =>
         new(store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.DataServiceRepository, store.CustomerRepository);
 

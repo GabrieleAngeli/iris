@@ -24,6 +24,9 @@ public partial class ApplicationsPage : ContentPage
 		_vm.ImportManifestRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new ImportManifestDialog(row), "dlg.import-manifest", 720, 640);
 
+		_vm.AnsibleScaffoldRequested += async (_, row) =>
+			await _dialogs.ShowAsync(new AnsibleScaffoldDialog(row), "dlg.ansible-scaffold", 900, 620);
+
 		// Composing a deployment (application + customer/context + version + server) now
 		// starts from the Deployments page, not from an application tile — see
 		// DeploymentsPage, which owns the NewApplicationInstallationRequested subscription.

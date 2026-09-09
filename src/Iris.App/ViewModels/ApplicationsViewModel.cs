@@ -99,6 +99,10 @@ public partial class ApplicationsViewModel : ObservableObject
 
 	public void RaiseNewApplicationInstallationRequested(ApplicationRowViewModel row) => NewApplicationInstallationRequested?.Invoke(this, row);
 
+	public event EventHandler<ApplicationRowViewModel>? AnsibleScaffoldRequested;
+
+	public void RaiseAnsibleScaffoldRequested(ApplicationRowViewModel row) => AnsibleScaffoldRequested?.Invoke(this, row);
+
 	internal Task ReloadAsync() => RefreshAsync();
 
 	[ObservableProperty] private string _newApplicationName = string.Empty;
@@ -2114,6 +2118,20 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	[ObservableProperty] private CustomerContextOptionViewModel? _selectedInstallCustomerContext;
 
+	public ObservableCollection<AnsibleScaffoldFileRowViewModel> AnsibleScaffoldFiles { get; } = [];
+
+	[ObservableProperty] private AnsibleScaffoldFileRowViewModel? _selectedAnsibleScaffoldFile;
+	[ObservableProperty] private bool _isGeneratingAnsibleScaffold;
+	[ObservableProperty] private string? _ansibleScaffoldError;
+
+	public bool HasAnsibleScaffoldError => !string.IsNullOrWhiteSpace(AnsibleScaffoldError);
+
+	public bool HasAnsibleScaffoldFiles => AnsibleScaffoldFiles.Count > 0;
+
+	public bool CanGenerateAnsibleScaffold => SelectedInstallVersion is not null;
+
+	partial void OnAnsibleScaffoldErrorChanged(string? value) => OnPropertyChanged(nameof(HasAnsibleScaffoldError));
+
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
 	public string KnowledgeSummary => $"{ConfigurationKeyCount} keys | {DependencyCount} dependencies | {PlaceholderCount} placeholders";
@@ -2145,6 +2163,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	public bool HasNoInstallationBindings => !HasInstallationBindings;
 
 	public bool CanRequestNewInstallation => CanManageDeployments && VersionOptions.Count > 0;
+
+	public bool HasVersionOptions => VersionOptions.Count > 0;
 
 	public bool HasArtifact => !string.IsNullOrWhiteSpace(ArtifactProvider) ||
 		!string.IsNullOrWhiteSpace(ArtifactFeed) ||
@@ -2185,6 +2205,15 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		{
 			_ = LoadInstallVersionDetailAsync(value);
 		}
+
+		// A stale scaffold from a previously selected version must not linger — the next
+		// "Generate" click re-fetches for whichever version is selected now.
+		AnsibleScaffoldFiles.Clear();
+		SelectedAnsibleScaffoldFile = null;
+		AnsibleScaffoldError = null;
+		OnPropertyChanged(nameof(HasAnsibleScaffoldFiles));
+		OnPropertyChanged(nameof(CanGenerateAnsibleScaffold));
+		GenerateAnsibleScaffoldCommand.NotifyCanExecuteChanged();
 	}
 
 	partial void OnSelectedInstallUnitChanged(ApplicationUnitOptionViewModel? value) => SetDefaultInstallName();
@@ -2229,6 +2258,7 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		OnPropertyChanged(nameof(HasArtifact));
 		OnPropertyChanged(nameof(ArtifactSummary));
 		OnPropertyChanged(nameof(CanRequestNewInstallation));
+		OnPropertyChanged(nameof(HasVersionOptions));
 		RequestNewInstallationCommand.NotifyCanExecuteChanged();
 	}
 
@@ -2239,6 +2269,45 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		_parent.RaiseNewApplicationInstallationRequested(this);
 		await PrepareInstallationAsync();
 	}
+
+	[RelayCommand(CanExecute = nameof(CanGenerateAnsibleScaffold))]
+	private async Task GenerateAnsibleScaffoldAsync()
+	{
+		if (SelectedInstallVersion is not { } version)
+		{
+			return;
+		}
+
+		AnsibleScaffoldFiles.Clear();
+		SelectedAnsibleScaffoldFile = null;
+		AnsibleScaffoldError = null;
+		OnPropertyChanged(nameof(HasAnsibleScaffoldFiles));
+		_parent.RaiseAnsibleScaffoldRequested(this);
+
+		IsGeneratingAnsibleScaffold = true;
+		try
+		{
+			var scaffold = await _api.GetApplicationAnsibleScaffoldAsync(_applicationId, version.Id);
+			foreach (var file in scaffold.Files)
+			{
+				AnsibleScaffoldFiles.Add(new AnsibleScaffoldFileRowViewModel(file));
+			}
+
+			OnPropertyChanged(nameof(HasAnsibleScaffoldFiles));
+			SelectedAnsibleScaffoldFile = AnsibleScaffoldFiles.FirstOrDefault();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			AnsibleScaffoldError = ex.Message;
+		}
+		finally
+		{
+			IsGeneratingAnsibleScaffold = false;
+		}
+	}
+
+	[RelayCommand]
+	private void SelectAnsibleScaffoldFile(AnsibleScaffoldFileRowViewModel? file) => SelectedAnsibleScaffoldFile = file;
 
 	private void ResetInstallationDraft()
 	{
@@ -3087,4 +3156,25 @@ public sealed class InstallationRunRowViewModel(InstallationRunResponse run)
 	public bool HasMessage => !string.IsNullOrWhiteSpace(run.Message);
 
 	public string CreatedAtText => run.CreatedAtUtc.ToLocalTime().ToString("g");
+}
+
+/// <summary>One generated file/snippet from <c>GET .../ansible-scaffold</c> — a starting point the
+/// operator copies into their own Ansible repo; Iris never writes it anywhere itself.</summary>
+public sealed class AnsibleScaffoldFileRowViewModel(AnsibleScaffoldFileResponse file)
+{
+	public string RelativePath => file.RelativePath;
+
+	public string Description => file.Description;
+
+	public string Content => file.Content;
+
+	/// <summary>Best-effort syntax hint for the CodeBlock control — this app has no Jinja2
+	/// highlighter, "yaml" is the closest built-in match for <c>.j2</c>/YAML content.</summary>
+	public string Language => RelativePath switch
+	{
+		var path when path.EndsWith(".j2", StringComparison.OrdinalIgnoreCase) => "yaml",
+		var path when path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) => "yaml",
+		var path when path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) => "markdown",
+		_ => "text"
+	};
 }

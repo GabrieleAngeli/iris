@@ -367,6 +367,26 @@
                                         </Border>
                                     </VerticalStackLayout>
 
+                                    <VerticalStackLayout Spacing="8" IsVisible="{Binding HasVersionOptions}">
+                                        <BoxView HeightRequest="1" />
+                                        <Label Text="Ansible scaffold" Style="{StaticResource Subtitle}" />
+                                        <Label Text="A one-shot starting point (Jinja2 config templates + role/playbook skeleton) generated from the selected version's manifest — a reference to commit into your own Ansible repo, not something Iris manages afterward."
+                                               Style="{StaticResource Caption}" />
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <Border Style="{StaticResource FieldBorder}">
+                                                <Picker ItemsSource="{Binding VersionOptions}" SelectedItem="{Binding SelectedInstallVersion}" Title="Version">
+                                                    <Picker.ItemDisplayBinding>
+                                                        <Binding Path="DisplayName" x:DataType="vm:ApplicationVersionOptionViewModel" />
+                                                    </Picker.ItemDisplayBinding>
+                                                </Picker>
+                                            </Border>
+                                            <Button Grid.Column="1" Text="Generate Ansible scaffold"
+                                                    Command="{Binding GenerateAnsibleScaffoldCommand}"
+                                                    IsEnabled="{Binding IsGeneratingAnsibleScaffold, Converter={StaticResource InvertBoolConverter}}"
+                                                    IsVisible="{Binding CanManageApplications}" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Iris.App.Views.Dialogs.AnsibleScaffoldDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
+    xmlns:dialogs="clr-namespace:Iris.App.Views.Dialogs"
+    x:Name="Page"
+    x:DataType="vm:ApplicationRowViewModel"
+    Title="Ansible scaffold">
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
+
+        <VerticalStackLayout Grid.Row="0" Padding="22,18,22,10" Spacing="6">
+            <Label Text="{Binding Name, StringFormat='Ansible scaffold — {0}'}" Style="{StaticResource Subtitle}" />
+            <Label Text="A one-shot starting point generated from this version's manifest: Jinja2 config templates plus a role/playbook skeleton. Iris will not overwrite these once you've committed and edited them — copy what you need into your own Ansible repo." Style="{StaticResource Caption}" />
+
+            <Border IsVisible="{Binding HasAnsibleScaffoldError}"
+                    BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                    Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                    StrokeThickness="1"
+                    Padding="12,10"
+                    StrokeShape="RoundRectangle 6">
+                <Label Text="{Binding AnsibleScaffoldError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </Border>
+
+            <ActivityIndicator IsRunning="{Binding IsGeneratingAnsibleScaffold}" IsVisible="{Binding IsGeneratingAnsibleScaffold}" HorizontalOptions="Start" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="260,*" ColumnSpacing="0"
+              IsVisible="{Binding HasAnsibleScaffoldFiles}">
+
+            <ScrollView Grid.Column="0">
+                <VerticalStackLayout Padding="14,4" Spacing="4" BindableLayout.ItemsSource="{Binding AnsibleScaffoldFiles}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AnsibleScaffoldFileRowViewModel">
+                            <Border Style="{StaticResource FieldBorder}" Padding="10,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Row.SelectAnsibleScaffoldFileCommand, Source={x:Reference Page}, x:DataType=dialogs:AnsibleScaffoldDialog}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="1">
+                                    <Label Text="{Binding RelativePath}" Style="{StaticResource Body}" FontSize="12" LineBreakMode="MiddleTruncation" />
+                                    <Label Text="{Binding Description}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" MaxLines="2" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <controls:CodeBlock
+                Grid.Column="1"
+                Margin="0,4,14,14"
+                Title="{Binding SelectedAnsibleScaffoldFile.RelativePath}"
+                Language="{Binding SelectedAnsibleScaffoldFile.Language}"
+                Text="{Binding SelectedAnsibleScaffoldFile.Content}" />
+        </Grid>
+
+        <Label Grid.Row="1" Text="No files generated yet."
+               IsVisible="{Binding HasAnsibleScaffoldFiles, Converter={StaticResource InvertBoolConverter}}"
+               Style="{StaticResource Caption}" Padding="22" />
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Padding="22,12"
+              BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
+            <Button Grid.Column="1" Text="Close" Style="{StaticResource SecondaryButton}" Clicked="OnClose" />
+        </Grid>
+    </Grid>
+</ContentPage>

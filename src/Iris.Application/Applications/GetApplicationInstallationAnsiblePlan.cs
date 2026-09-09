@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Iris.Application.Abstractions;
 using Iris.Application.Common;
@@ -54,10 +53,10 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
                 }
 
                 return new ApplicationInstallationAnsibleVariableResponse(
-                    ToAnsibleVariableName(key.PlaceholderKey ?? key.Key),
+                    AnsibleNaming.ToAnsibleVariableName(key.PlaceholderKey ?? key.Key),
                     key.Key,
                     key.PlaceholderKey,
-                    ToTemplateTarget(key.TargetKind),
+                    AnsibleNaming.ToTemplateTarget(key.TargetKind),
                     key.ValueType ?? "string",
                     key.Required,
                     key.Secret,
@@ -200,24 +199,20 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
         {
             operations.Add(new ApplicationInstallationAnsibleOperationResponse(
                 step++,
-                $"Render {StripAnsiblePrefix(target)}",
+                $"Render {AnsibleNaming.StripAnsiblePrefix(target)}",
                 "configuration.render",
                 "ansible.builtin.template",
                 serverName,
-                ToJinjaTemplateName(target),
+                AnsibleNaming.ToJinjaTemplateName(target),
                 [new("templateTarget", target)],
                 "The final configuration file is rendered from a versioned Jinja2 template on the target host."));
         }
 
         if (unit is not null)
         {
-            var executionTargets = DeserializeList<string>(unit.ExecutionTargetsJson);
-            var supportsDocker = executionTargets.Any(target => target.Contains("docker", StringComparison.OrdinalIgnoreCase));
-            var supportsService = executionTargets.Count == 0 ||
-                executionTargets.Any(target =>
-                    target.Contains("service", StringComparison.OrdinalIgnoreCase) ||
-                    target.Contains("systemd", StringComparison.OrdinalIgnoreCase)) ||
-                string.Equals(unit.Kind, "service", StringComparison.OrdinalIgnoreCase);
+            var executionTargets = AnsibleNaming.DeserializeList<string>(unit.ExecutionTargetsJson);
+            var supportsDocker = AnsibleNaming.SupportsDocker(executionTargets);
+            var supportsService = AnsibleNaming.SupportsService(executionTargets, unit.Kind);
 
             if (supportsDocker)
             {
@@ -240,14 +235,14 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
                     "runtime.service",
                     "ansible.builtin.systemd_service",
                     serverName,
-                    $"systemd/{ToSafeFileName(unit.Key)}.service.j2",
+                    $"systemd/{AnsibleNaming.ToSafeFileName(unit.Key)}.service.j2",
                     [new("applicationUnit", unit.Key), new("entryPoint", unit.EntryPoint), new("artifact", artifact.Path)],
                     "Ansible owns service file rendering, enablement and restart."));
             }
         }
 
         var requiredPorts = version.RuntimeMetadata.RequiredPorts;
-        var portKeys = DeserializeList<string>(version.RuntimeMetadata.PortKeysJson);
+        var portKeys = AnsibleNaming.DeserializeList<string>(version.RuntimeMetadata.PortKeysJson);
         if (requiredPorts.Count > 0 || portKeys.Count > 0)
         {
             operations.Add(new ApplicationInstallationAnsibleOperationResponse(
@@ -265,73 +260,5 @@ public sealed class GetApplicationInstallationAnsiblePlanHandler(
         }
 
         return operations;
-    }
-
-    private static string ToTemplateTarget(string targetKind)
-    {
-        var clean = targetKind.Trim();
-        return clean.StartsWith("ansible:j2", StringComparison.OrdinalIgnoreCase)
-            ? clean
-            : $"ansible:j2:{clean}";
-    }
-
-    private static string StripAnsiblePrefix(string target) =>
-        target.StartsWith("ansible:j2:", StringComparison.OrdinalIgnoreCase)
-            ? target["ansible:j2:".Length..]
-            : target;
-
-    private static string ToJinjaTemplateName(string target) => $"{StripAnsiblePrefix(target)}.j2";
-
-    private static string ToSafeFileName(string value)
-    {
-        var builder = new StringBuilder();
-        foreach (var character in value.Trim().ToLowerInvariant())
-        {
-            builder.Append(char.IsLetterOrDigit(character) || character is '.' or '-' or '_'
-                ? character
-                : '-');
-        }
-
-        return builder.ToString();
-    }
-
-    private static IReadOnlyList<T> DeserializeList<T>(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<IReadOnlyList<T>>(json) ?? [];
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
-
-    private static string ToAnsibleVariableName(string key)
-    {
-        var builder = new StringBuilder("iris_");
-        var previousWasSeparator = false;
-        foreach (var character in key.Trim().ToLowerInvariant())
-        {
-            if (char.IsLetterOrDigit(character))
-            {
-                builder.Append(character);
-                previousWasSeparator = false;
-                continue;
-            }
-
-            if (!previousWasSeparator)
-            {
-                builder.Append('_');
-                previousWasSeparator = true;
-            }
-        }
-
-        return builder.ToString().TrimEnd('_');
     }
 }

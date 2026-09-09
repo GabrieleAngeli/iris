@@ -202,6 +202,21 @@ public static class ApplicationsEndpoints
             .WithSummary("A version's full configuration knowledge: keys, dependencies and placeholders.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Read));
 
+        applications.MapGet("/{applicationId:guid}/versions/{versionId:guid}/ansible-scaffold", async (
+                Guid applicationId,
+                Guid versionId,
+                GenerateApplicationAnsibleScaffoldHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new GenerateApplicationAnsibleScaffoldQuery(applicationId, versionId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("GenerateApplicationAnsibleScaffold")
+            .WithSummary("A one-shot Ansible role/playbook scaffold (Jinja2 templates + skeleton) generated from this version's manifest — a starting point, not a managed artifact.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Read));
+
         applications.MapPost("/{applicationId:guid}/versions/{versionId:guid}/import", async (
                 Guid applicationId,
                 Guid versionId,

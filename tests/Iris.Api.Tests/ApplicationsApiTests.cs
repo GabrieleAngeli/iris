@@ -213,6 +213,69 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Admin_can_generate_an_ansible_scaffold_for_a_version()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+
+        var create = await admin.PostAsJsonAsync("/applications", new
+        {
+            name,
+            runtimeType = "CSharp",
+            repositoryUrl = $"https://git.example/{name}",
+            defaultBranch = "main",
+        });
+        var application = await create.Content.ReadFromJsonAsync<ApplicationDto>();
+
+        var addVersion = await admin.PostAsJsonAsync($"/applications/{application!.Id}/versions", new
+        {
+            version = "1.0.0",
+            runtimeMetadata = new { runtimeName = "dotnet9", requiredPorts = Array.Empty<int>() },
+        });
+        var version = await addVersion.Content.ReadFromJsonAsync<VersionSummaryDto>();
+
+        await admin.PostAsJsonAsync(
+            $"/applications/{application.Id}/versions/{version!.Id}/import", new
+            {
+                schemaVersion = "1.0",
+                configurationKeys = new[]
+                {
+                    new { key = "server.port", targetKind = "application.properties", required = true, secret = false, defaultValue = "9980", valueType = "integer" },
+                },
+                dependencies = Array.Empty<object>(),
+                placeholders = Array.Empty<object>(),
+            });
+
+        var scaffold = await admin.GetAsync($"/applications/{application.Id}/versions/{version.Id}/ansible-scaffold");
+        Assert.Equal(HttpStatusCode.OK, scaffold.StatusCode);
+        var body = await scaffold.Content.ReadFromJsonAsync<AnsibleScaffoldDto>();
+        Assert.Equal(application.Slug, body!.ApplicationSlug);
+        Assert.Equal("1.0.0", body.Version);
+        var template = Assert.Single(body.Files, f => f.RelativePath == $"roles/{application.Slug}/templates/application.properties.j2");
+        Assert.Contains("server.port={{ iris_server_port }}", template.Content);
+        Assert.Contains(body.Files, f => f.RelativePath == $"playbooks/{application.Slug}.yml");
+    }
+
+    [Fact]
+    public async Task Generating_an_ansible_scaffold_for_an_unknown_version_returns_not_found()
+    {
+        var admin = Admin();
+        var name = "svc-" + Guid.NewGuid().ToString("N")[..8];
+        var create = await admin.PostAsJsonAsync("/applications", new
+        {
+            name,
+            runtimeType = "CSharp",
+            repositoryUrl = $"https://git.example/{name}",
+            defaultBranch = "main",
+        });
+        var application = await create.Content.ReadFromJsonAsync<ApplicationDto>();
+
+        var response = await admin.GetAsync($"/applications/{application!.Id}/versions/{Guid.NewGuid()}/ansible-scaffold");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Importing_into_an_unknown_version_returns_not_found()
     {
         var admin = Admin();
@@ -359,4 +422,9 @@ public sealed class ApplicationsApiTests(IrisApiFactory factory) : IClassFixture
     private sealed record VersionDetailDto(
         Guid Id, Guid ApplicationId, string Version, List<ConfigKeyDto> ConfigurationKeys,
         List<DependencyDto> Dependencies, List<PlaceholderDto> Placeholders, List<string> ImportWarnings);
+
+    private sealed record AnsibleScaffoldFileDto(string RelativePath, string Description, string Content);
+
+    private sealed record AnsibleScaffoldDto(
+        string ApplicationSlug, string Version, DateTimeOffset GeneratedAtUtc, List<AnsibleScaffoldFileDto> Files);
 }
