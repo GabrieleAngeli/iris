@@ -232,6 +232,31 @@ internal sealed class FakeEmailSender : IEmailSender
     }
 }
 
+/// <summary>Stand-in for the runtime secret-store promotion. Records calls; <see cref="IsOpenBaoActive"/>
+/// and <see cref="MigratedCount"/> are settable.</summary>
+internal sealed class FakeSecretStorePromotion : ISecretStorePromotion
+{
+    public List<(string Endpoint, string Token, string MountPath, bool UseKvV2)> Promotions { get; } = [];
+
+    public bool IsOpenBaoActive { get; set; }
+
+    public int MigratedCount { get; set; } = 3;
+
+    public SecretStorePromotionException? FailWith { get; set; }
+
+    public Task<int> PromoteToOpenBaoAsync(string endpoint, string token, string mountPath, bool useKvV2, CancellationToken cancellationToken = default)
+    {
+        Promotions.Add((endpoint, token, mountPath, useKvV2));
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        IsOpenBaoActive = true;
+        return Task.FromResult(MigratedCount);
+    }
+}
+
 /// <summary>Records probe calls instead of hitting real OpenBao/AWX. Set <see cref="FailWith"/> to
 /// simulate a bad endpoint/token, or <see cref="AwxRefreshResult"/> to simulate the probe having
 /// done the first OAuth2 refresh.</summary>

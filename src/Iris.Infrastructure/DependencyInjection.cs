@@ -225,24 +225,18 @@ public static class DependencyInjection
 
         services.AddSingleton<OpenBaoConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<OpenBaoConnector>());
-        if (openBao.IsSecretStoreConfigured)
-        {
-            services.AddSingleton<ISecretStore, OpenBaoSecretStore>();
-            // Nothing to unlock once OpenBao itself is the active store — every secret already
-            // goes through real OpenBao, encrypted at rest by OpenBao itself.
-            services.AddScoped<IFallbackSecretVault, NullFallbackSecretVault>();
-        }
-        else
-        {
-            // Same in-memory-dictionary behavior as the InMemorySecretStore it replaces for every
-            // ISecretStore caller — the encrypted-at-rest DB persistence is a separate,
-            // password-gated capability layered on top, never touching this contract. See
-            // EncryptedFallbackSecretStore/FallbackSecretVault remarks for the full design.
-            services.AddSingleton<EncryptedFallbackSecretStore>();
-            services.AddSingleton<ISecretStore>(sp => sp.GetRequiredService<EncryptedFallbackSecretStore>());
-            services.AddSingleton<IFallbackSecretCache>(sp => sp.GetRequiredService<EncryptedFallbackSecretStore>());
-            services.AddScoped<IFallbackSecretVault, FallbackSecretVault>();
-        }
+
+        // One switchable ISecretStore: it starts on the encrypted fallback vault (or straight on
+        // OpenBao if a token was given via config/env) and can be flipped to real OpenBao at
+        // runtime once its token is unlocked — see SwitchableSecretStore / ISecretStorePromotion.
+        // FallbackSecretVault is always registered: when OpenBao is the live store its cache is
+        // empty, so it reports nothing to unlock and UnlockAsync is a no-op.
+        services.AddSingleton<EncryptedFallbackSecretStore>();
+        services.AddSingleton<IFallbackSecretCache>(sp => sp.GetRequiredService<EncryptedFallbackSecretStore>());
+        services.AddSingleton<SwitchableSecretStore>();
+        services.AddSingleton<ISecretStore>(sp => sp.GetRequiredService<SwitchableSecretStore>());
+        services.AddSingleton<ISecretStorePromotion>(sp => sp.GetRequiredService<SwitchableSecretStore>());
+        services.AddScoped<IFallbackSecretVault, FallbackSecretVault>();
 
         services.AddSingleton<AnsibleExecutionPackageBuilder>();
         services.AddSingleton<IAnsibleExecutionPackageBuilder>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());

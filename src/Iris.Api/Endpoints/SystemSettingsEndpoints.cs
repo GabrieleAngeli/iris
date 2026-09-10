@@ -154,6 +154,17 @@ public static class SystemSettingsEndpoints
             .WithSummary("Starts a dev-mode OpenBao container on this host via Docker and saves its endpoint/token. Convenience/non-production only.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
+        system.MapPost("/integrations/openbao/promote", async (
+                PromoteSecretStoreToOpenBaoHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new PromoteSecretStoreToOpenBaoCommand(), ct).ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("PromoteSecretStoreToOpenBao")
+            .WithSummary("Migrates the fallback-vault secrets into the configured OpenBao and makes OpenBao the live secret store, at runtime (no restart).")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
         system.MapGet("/integrations/{key}/status", async (
                 string key,
                 bool probe,

@@ -7,9 +7,9 @@ namespace Iris.Infrastructure.Secrets;
 
 /// <summary>
 /// Bridges <see cref="EncryptedFallbackSecretStore"/>'s in-memory cache and its encrypted, durable
-/// copy in Iris's own database (<see cref="EncryptedSecretEntry"/>). Registered instead of
-/// <see cref="NullFallbackSecretVault"/> only while OpenBao itself isn't the active
-/// <c>ISecretStore</c> — see <c>RegisterIntegrations</c>.
+/// copy in Iris's own database (<see cref="EncryptedSecretEntry"/>). Always registered; once
+/// OpenBao is the live store (<c>SwitchableSecretStore</c>) the cache is empty, so this reports
+/// nothing to unlock and <see cref="UnlockAsync"/> is a no-op.
 ///
 /// Deliberately never keeps a password around beyond one call: the caller
 /// (<c>UnlockFallbackSecretsHandler</c>) has already verified it against the admin's stored hash

@@ -162,6 +162,8 @@ public interface IIrisApiClient
 
 	Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync(CancellationToken cancellationToken = default);
 
+	Task<PromoteSecretStoreResponse> PromoteSecretStoreToOpenBaoAsync(CancellationToken cancellationToken = default);
+
 	Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
 	Task<IntegrationSettingsSavedResponse> SaveAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
@@ -383,6 +385,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<ProvisionOpenBaoResponse>(HttpMethod.Post, "/system/integrations/openbao/provision", cancellationToken);
+
+	public Task<PromoteSecretStoreResponse> PromoteSecretStoreToOpenBaoAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<PromoteSecretStoreResponse>(HttpMethod.Post, "/system/integrations/openbao/promote", cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/openbao", request, cancellationToken);

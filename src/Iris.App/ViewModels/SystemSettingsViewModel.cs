@@ -117,9 +117,11 @@ public partial class SystemSettingsViewModel(
 				// IIntegrationConnector registered server-side (see RegisterIntegrations).
 				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible" or "azure-devops" or "nexus";
 				var canManage = CanManageSystem && hasRealConnector;
-				var canProvision = canManage && string.Equals(integration.Key, "openbao", StringComparison.OrdinalIgnoreCase);
+				var isOpenBao = string.Equals(integration.Key, "openbao", StringComparison.OrdinalIgnoreCase);
+				var canProvision = canManage && isOpenBao;
 				var row = new IntegrationConnectionRow(
-					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canManage);
+					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canManage,
+					canManage && isOpenBao ? PromoteSecretStoreAsync : null);
 				row.Provisioned += async (_, _) => await LoadCommand.ExecuteAsync(null);
 				row.ConfigureRequested += (_, _) =>
 				{
@@ -158,6 +160,8 @@ public partial class SystemSettingsViewModel(
 		api.GetIntegrationStatusAsync(row.Key, probe: true);
 
 	private Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync() => api.ProvisionOpenBaoAsync();
+
+	private Task<PromoteSecretStoreResponse> PromoteSecretStoreAsync() => api.PromoteSecretStoreToOpenBaoAsync();
 
 	[RelayCommand(CanExecute = nameof(CanLoad))]
 	private async Task RefreshActivityAsync()
@@ -229,6 +233,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 {
 	private readonly Func<IntegrationConnectionRow, Task<IntegrationLinkResponse>> _tester;
 	private readonly Func<Task<ProvisionOpenBaoResponse>>? _provisioner;
+	private readonly Func<Task<PromoteSecretStoreResponse>>? _promoter;
 
 	[ObservableProperty] private string _key;
 	[ObservableProperty] private string _name;
@@ -243,10 +248,12 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 		Func<IntegrationConnectionRow, Task<IntegrationLinkResponse>> tester,
 		bool canTest,
 		Func<Task<ProvisionOpenBaoResponse>>? provisioner = null,
-		bool canConfigure = false)
+		bool canConfigure = false,
+		Func<Task<PromoteSecretStoreResponse>>? promoter = null)
 	{
 		_tester = tester;
 		_provisioner = provisioner;
+		_promoter = promoter;
 		CanTestAtAll = canTest;
 		CanConfigure = canConfigure;
 		_key = response.Key;
@@ -288,6 +295,10 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	/// "Provision" button in XAML. Convenience/dev-mode only, see <c>ProvisionOpenBaoHandler</c>.</summary>
 	public bool CanProvision => _provisioner is not null;
 
+	/// <summary>Only set for the OpenBao row when the caller is platform.admin — gates the
+	/// "Promote" button in XAML. See <c>PromoteSecretStoreToOpenBaoHandler</c>.</summary>
+	public bool CanPromote => _promoter is not null;
+
 	public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
 
 	/// <summary>When the background health check (see <c>IIntegrationHealthChecker</c>) has a
@@ -309,6 +320,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	{
 		TestCommand.NotifyCanExecuteChanged();
 		ProvisionCommand.NotifyCanExecuteChanged();
+		PromoteCommand.NotifyCanExecuteChanged();
 	}
 
 	[RelayCommand(CanExecute = nameof(CanTest))]
@@ -367,6 +379,35 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	}
 
 	private bool CanRunProvision() => CanProvision && !IsBusy;
+
+	[RelayCommand(CanExecute = nameof(CanRunPromote))]
+	private async Task PromoteAsync()
+	{
+		if (_promoter is null)
+		{
+			return;
+		}
+
+		IsBusy = true;
+		Message = string.Empty;
+
+		try
+		{
+			var result = await _promoter();
+			Message = result.Message;
+			Provisioned?.Invoke(this, EventArgs.Empty); // reuse: reloads settings + RestartRequired
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Message = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanRunPromote() => CanPromote && !IsBusy;
 
 	private void Apply(IntegrationLinkResponse response)
 	{

@@ -555,6 +555,43 @@ rileggono dopo l'unlock. Serviva un secondo riavvio che comunque non risolveva.
   reference / fallimento chiaro se il reference non è ancora risolvibile). `dotnet build
   src/Iris.App` verde. **Da verificare a mano dall'utente**.
 
+**Promozione runtime del secret store a OpenBao (2026-09-10)** - risolve il chicken-and-egg:
+il token di OpenBao inserito da UI finisce nel vault di fallback, non può bootstrappare
+`OpenBaoSecretStore` all'avvio, quindi Iris resta sul fallback e mostra "token missing, uses
+the encrypted fallback secret store". Ora c'è la **promozione a runtime**.
+- `SwitchableSecretStore` (`Iris.Infrastructure/Secrets`, singleton, **unico** `ISecretStore`
+  registrato): delega al `EncryptedFallbackSecretStore` (o direttamente a OpenBao se un token
+  è in config/env all'avvio) e può essere **commutato a OpenBao a runtime** via il nuovo port
+  `ISecretStorePromotion`. `PromoteToOpenBaoAsync`: verifica OpenBao con un round-trip KV
+  (write/read/delete di `iris/_promotion-probe`), copia **ogni** segreto dal cache di fallback
+  in OpenBao al suo logical path, poi swap atomico di `_active`. Fallimento verifica →
+  `SecretStorePromotionException`, nessuno swap.
+- `OpenBaoSecretStore.TryParseReference` ora tollera anche i riferimenti formato fallback
+  (`mock-openbao:<path>` → `<path>`), così **nessuna riga persistita va riscritta**: dopo la
+  promozione `IntegrationSettings.AwxTokenSecretReference = "mock-openbao:awx/token"` risolve
+  leggendo da OpenBao al path `awx/token` (dove la migrazione ha scritto il valore).
+- `PromoteSecretStoreToOpenBaoHandler` + `POST /system/integrations/openbao/promote`
+  (`platform.admin`): legge `IntegrationSettings`, risolve il token OpenBao dal secret store
+  attivo (fallback sbloccato), chiama la promozione, ritorna `PromoteSecretStoreResponse`
+  (Promoted, MigratedSecrets, Message). `ValidationException` se OpenBao non configurato / token
+  non risolvibile / già attivo.
+- **Auto-promozione dopo l'unlock**: `UnlockFallbackSecretsHandler`, dopo `vault.UnlockAsync`,
+  chiama best-effort il promote handler (swallow `ValidationException`). Combinato con
+  l'auto-unlock su login, ogni riavvio diventa: login → unlock → auto-promote, trasparente,
+  finché OpenBao è raggiungibile e il token è nel vault. **Nessun flag persistito** (token nel
+  vault + OpenBao che verifica = segnale sufficiente, idempotente).
+- `OpenBaoConnector` inietta `ISecretStorePromotion`: quando `IsOpenBaoActive` (o token in
+  config) il messaggio è il normale "Mount: …" invece di "uses the fallback store".
+- `FallbackSecretVault` ora sempre registrato (rimosso `NullFallbackSecretVault`): con OpenBao
+  attivo il cache è vuoto → `GetStatusAsync` None, `UnlockAsync` no-op.
+- MAUI: bottone **"Promote"** sulla riga OpenBao (accanto a Provision), `_promoter` su
+  `IntegrationConnectionRow` sullo stesso pattern di `_provisioner`.
+- Verifica: `dotnet test Iris.sln` **381/381 verdi** (+4 `SwitchableSecretStoreTests`, +5
+  `PromoteSecretStoreToOpenBaoHandlerTests`, +3 API). `dotnet build src/Iris.App` verde.
+  **Da verificare a mano dall'utente**: login → la riga OpenBao passa da "uses the fallback
+  store" a "Configured" senza riavvio; Test OpenBao e AWX passano; nei dati di OpenBao
+  compaiono `secret/data/awx/token`, `secret/data/mail/smtp`, ecc.
+
 **OpenBao self-provisioning via Docker** - `POST /system/integrations/openbao/provision`
 (`platform.admin`) è la prima capacità del repo di eseguire processi di sistema:
 `IContainerRuntime` (`Iris.Application.Abstractions`) + `DockerCliContainerRuntime`

@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.TryAddScoped<SaveNexusIntegrationSettingsHandler>();
         services.TryAddScoped<UnlockFallbackSecretsHandler>();
         services.TryAddScoped<ProvisionOpenBaoHandler>();
+        services.TryAddScoped<PromoteSecretStoreToOpenBaoHandler>();
         services.TryAddScoped<ListTransactionLogHandler>();
 
         // Governance commands

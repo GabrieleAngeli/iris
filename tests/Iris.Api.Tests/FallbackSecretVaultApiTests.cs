@@ -37,6 +37,48 @@ public sealed class FallbackSecretVaultApiTests(IrisApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task Reader_cannot_promote_the_secret_store_to_openbao()
+    {
+        var response = await Reader(factory).PostAsync("/system/integrations/openbao/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Promote_fails_cleanly_when_openbao_is_not_configured()
+    {
+        using var f = new IrisApiFactory();
+
+        var response = await Admin(f).PostAsync("/system/integrations/openbao/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode); // "Configure OpenBao first."
+    }
+
+    [Fact]
+    public async Task Promote_migrates_and_flips_the_store_once_openbao_is_configured()
+    {
+        using var f = new IrisApiFactory();
+        var admin = Admin(f);
+
+        var save = await admin.PutAsJsonAsync("/system/integrations/openbao",
+            new { endpoint = "https://openbao.example:8200", token = "s.roottoken", mountPath = "secret", useKvV2 = true });
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+
+        var promote = await admin.PostAsync("/system/integrations/openbao/promote", content: null);
+        Assert.Equal(HttpStatusCode.OK, promote.StatusCode);
+        var body = await promote.Content.ReadFromJsonAsync<PromoteDto>();
+        Assert.True(body!.Promoted);
+        Assert.Equal(2, body.MigratedSecrets); // FakeSecretStorePromotion's fixed count
+
+        // Second call is a no-op — the fake reports itself active now.
+        var again = await admin.PostAsync("/system/integrations/openbao/promote", content: null);
+        var againBody = await again.Content.ReadFromJsonAsync<PromoteDto>();
+        Assert.False(againBody!.Promoted);
+    }
+
+    private sealed record PromoteDto(bool Promoted, int MigratedSecrets, string Message);
+
+    [Fact]
     public async Task Admin_without_a_local_password_is_rejected_with_a_clear_message()
     {
         using var f = new IrisApiFactory();

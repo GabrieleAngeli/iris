@@ -101,7 +101,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Integrations}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:IntegrationConnectionRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
                                             <VerticalStackLayout Spacing="0">
                                                 <Label Text="{Binding Name}" Style="{StaticResource Body}" />
                                                 <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
@@ -121,17 +121,23 @@
                                                     Command="{Binding ConfigureCommand}"
                                                     ToolTipProperties.Text="Point this integration at a different endpoint/token, or re-test it, without restarting Iris.Api" />
                                             <Button Grid.Column="3"
+                                                    Text="Promote"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsVisible="{Binding CanPromote}"
+                                                    Command="{Binding PromoteCommand}"
+                                                    ToolTipProperties.Text="Migrate the in-memory fallback secrets into this OpenBao and make it the live secret store now — no restart" />
+                                            <Button Grid.Column="4"
                                                     Text="Provision"
                                                     Style="{StaticResource SecondaryButton}"
                                                     IsVisible="{Binding CanProvision}"
                                                     Command="{Binding ProvisionCommand}"
                                                     ToolTipProperties.Text="Starts a dev-mode OpenBao container via Docker on this host — convenience/non-production only" />
-                                            <Button Grid.Column="4"
+                                            <Button Grid.Column="5"
                                                     Text="Test"
                                                     Style="{StaticResource SecondaryButton}"
                                                     IsVisible="{Binding CanTestAtAll}"
                                                     Command="{Binding TestCommand}" />
-                                            <Label Grid.Column="4" Text="Not available yet" Style="{StaticResource Caption}"
+                                            <Label Grid.Column="5" Text="Not available yet" Style="{StaticResource Caption}"
                                                    IsVisible="{Binding CannotTest}"
                                                    VerticalOptions="Center" />
                                         </Grid>

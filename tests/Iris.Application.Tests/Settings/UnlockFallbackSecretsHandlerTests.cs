@@ -11,8 +11,14 @@ public sealed class UnlockFallbackSecretsHandlerTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private readonly FakePasswordHasher _passwordHasher = new();
 
-    private UnlockFallbackSecretsHandler Handler(FakeStore store, StubCurrentUser currentUser, FakeFallbackSecretVault vault) =>
-        new(currentUser, new UserProvisioningService(store.UserRepository, store.UnitOfWork), _passwordHasher, vault);
+    private UnlockFallbackSecretsHandler Handler(
+        FakeStore store, StubCurrentUser currentUser, FakeFallbackSecretVault vault, FakeSecretStorePromotion? promotion = null) =>
+        new(
+            currentUser,
+            new UserProvisioningService(store.UserRepository, store.UnitOfWork),
+            _passwordHasher,
+            vault,
+            new PromoteSecretStoreToOpenBaoHandler(store.IntegrationSettingsRepository, store.SecretStore, promotion ?? new FakeSecretStorePromotion()));
 
     private User WithLocalPassword(FakeStore store, string password)
     {

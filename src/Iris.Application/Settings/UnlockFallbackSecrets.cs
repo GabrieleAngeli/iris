@@ -17,7 +17,8 @@ public sealed class UnlockFallbackSecretsHandler(
     ICurrentUser currentUser,
     IUserProvisioningService provisioning,
     IPasswordHasher passwordHasher,
-    IFallbackSecretVault vault)
+    IFallbackSecretVault vault,
+    PromoteSecretStoreToOpenBaoHandler promoteToOpenBao)
 {
     public async Task<FallbackSecretUnlockResult> HandleAsync(
         UnlockFallbackSecretsCommand command,
@@ -47,6 +48,19 @@ public sealed class UnlockFallbackSecretsHandler(
             throw new ValidationException("Incorrect password.");
         }
 
-        return await vault.UnlockAsync(user.Id, command.Password, cancellationToken).ConfigureAwait(false);
+        var result = await vault.UnlockAsync(user.Id, command.Password, cancellationToken).ConfigureAwait(false);
+
+        // The OpenBao token (if configured) is now in memory — try to make OpenBao the live
+        // secret store straight away, so the operator doesn't have to click "Promote" or restart.
+        // Best-effort: OpenBao unreachable / not configured just leaves things on the fallback vault.
+        try
+        {
+            await promoteToOpenBao.HandleAsync(new PromoteSecretStoreToOpenBaoCommand(), cancellationToken).ConfigureAwait(false);
+        }
+        catch (ValidationException)
+        {
+        }
+
+        return result;
     }
 }

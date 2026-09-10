@@ -19,8 +19,7 @@ public sealed record FallbackSecretUnlockResult(int Persisted, int Restored, int
 /// <summary>
 /// Bridges the in-memory fallback <c>ISecretStore</c> cache and its encrypted, durable copy in
 /// Iris's own database — see <c>EncryptedSecretEntry</c> and <c>FallbackSecretVault</c> for the
-/// full design. Only meaningful while OpenBao itself isn't the active secret store;
-/// <c>NullFallbackSecretVault</c> is registered instead once OpenBao is configured.
+/// full design. A no-op once OpenBao is the live secret store (the cache is then empty).
 /// </summary>
 public interface IFallbackSecretVault
 {

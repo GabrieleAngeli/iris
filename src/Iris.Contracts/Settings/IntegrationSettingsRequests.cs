@@ -53,3 +53,7 @@ public sealed record IntegrationSettingsSavedResponse(bool RestartRequired, stri
 /// instead of this endpoint.
 /// </summary>
 public sealed record ProvisionOpenBaoResponse(string Endpoint, bool RestartRequired, string Message);
+
+/// <summary>Result of <c>POST /system/integrations/openbao/promote</c> — switching the live
+/// secret store from the encrypted fallback vault to real OpenBao at runtime.</summary>
+public sealed record PromoteSecretStoreResponse(bool Promoted, int MigratedSecrets, string Message);

@@ -84,6 +84,17 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 
 ## Stato recente delle sessioni
 
+### 2026-09-10 (sesto giro) - Promozione runtime del secret store a OpenBao
+
+Chiude il chicken-and-egg del token OpenBao: `SwitchableSecretStore` (unico `ISecretStore`)
+può passare dal vault di fallback a OpenBao **a runtime**, migrando i segreti, senza riavvio.
+`POST /system/integrations/openbao/promote` + bottone "Promote" + auto-promozione dopo
+l'unlock (quindi dopo il login). `OpenBaoSecretStore` tollera i riferimenti
+`mock-openbao:` così nessuna riga va riscritta. Dettagli in `00-current-state.md`.
+- Verifica: `dotnet test Iris.sln` **381/381 verdi**. `dotnet build src/Iris.App` verde.
+- **Da verificare a mano dall'utente**: login → OpenBao passa a "Configured" senza riavvio;
+  Test OpenBao/AWX passano; in OpenBao compaiono `secret/data/awx/token` ecc.
+
 ### 2026-09-10 (quinto giro) - AWX "Not configured": job template id + Configure dialog vuoto
 
 Interrogato il dev DB dopo un giro reale: il wizard aveva persistito **tutto** (endpoint,

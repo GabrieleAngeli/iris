@@ -2,7 +2,8 @@ using Iris.Application.Abstractions;
 
 namespace Iris.Infrastructure.Integrations;
 
-internal sealed class OpenBaoConnector(OpenBaoOptions options) : IIntegrationConnector, IDisposable
+internal sealed class OpenBaoConnector(OpenBaoOptions options, ISecretStorePromotion promotion)
+    : IIntegrationConnector, IDisposable
 {
     private readonly HttpClient _http = new()
     {
@@ -24,7 +25,10 @@ internal sealed class OpenBaoConnector(OpenBaoOptions options) : IIntegrationCon
             return new IntegrationConnectorStatus(Key, Name, "Not configured", null, "Endpoint is required.");
         }
 
-        if (!options.IsSecretStoreConfigured)
+        // "Token missing" only matters if OpenBao isn't actually the live secret store. It
+        // becomes live either from a config/env token at startup (IsSecretStoreConfigured) or
+        // from a runtime promotion once the token was unlocked (promotion.IsOpenBaoActive).
+        if (!options.IsSecretStoreConfigured && !promotion.IsOpenBaoActive)
         {
             return new IntegrationConnectorStatus(Key, Name, "Configured", Endpoint, "Endpoint configured; token missing, Iris uses the encrypted fallback secret store.");
         }
