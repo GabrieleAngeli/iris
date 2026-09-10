@@ -49,6 +49,18 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
 
     public int? AwxJobTemplateId { get; private set; }
 
+    /// <summary>OAuth2 Application client id used to refresh the AWX access token — an
+    /// identifier, not a secret, so it lives here directly. Set (with the two refs below)
+    /// when the AWX token should be auto-renewed instead of used static.</summary>
+    public string? AwxOAuthClientId { get; private set; }
+
+    /// <summary>Opaque reference into <c>ISecretStore</c> — the OAuth2 Application client secret.</summary>
+    public string? AwxOAuthClientSecretReference { get; private set; }
+
+    /// <summary>Opaque reference into <c>ISecretStore</c> — the current OAuth2 refresh token
+    /// (rotated on every refresh; whatever is live is what this points at).</summary>
+    public string? AwxRefreshTokenSecretReference { get; private set; }
+
     public string? AnsibleEndpoint { get; private set; }
 
     public string AnsiblePlaybook { get; private set; }
@@ -84,13 +96,22 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
         OpenBaoUseKvV2 = useKvV2;
     }
 
-    public void ConfigureAwx(string endpoint, string? tokenSecretReference, int? jobTemplateId)
+    public void ConfigureAwx(
+        string endpoint,
+        string? tokenSecretReference,
+        int? jobTemplateId,
+        string? oAuthClientId = null,
+        string? oAuthClientSecretReference = null,
+        string? refreshTokenSecretReference = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
 
         AwxEndpoint = endpoint.Trim();
         AwxTokenSecretReference = tokenSecretReference;
         AwxJobTemplateId = jobTemplateId;
+        AwxOAuthClientId = string.IsNullOrWhiteSpace(oAuthClientId) ? null : oAuthClientId.Trim();
+        AwxOAuthClientSecretReference = oAuthClientSecretReference;
+        AwxRefreshTokenSecretReference = refreshTokenSecretReference;
     }
 
     public void ConfigureAnsible(string endpoint, string playbook, string? inventory)

@@ -159,26 +159,30 @@ public static class DependencyInjection
         var awxEndpoint = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
             ? persisted.AwxEndpoint
             : integrations["AWX:Endpoint"];
-        if (string.IsNullOrWhiteSpace(awxEndpoint))
-        {
-            awxEndpoint = integrations["Ansible:Endpoint"];
-        }
 
         var awxJobTemplateId = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
             ? persisted!.AwxJobTemplateId
             : int.TryParse(integrations["AWX:JobTemplateId"], out var jobTemplateId) ? jobTemplateId : null;
 
-        // Unlike OpenBao's own token, AWX's token CAN be resolved here — it's stored behind
-        // a (by this point, hopefully) fully-configured OpenBao, not behind itself.
-        var awxToken = !string.IsNullOrWhiteSpace(persisted?.AwxTokenSecretReference)
-            ? ResolvePersistedToken(persisted!.AwxTokenSecretReference, openBao)
-            : integrations["AWX:Token"];
+        // AWX secrets are NOT resolved eagerly here: when they were saved through the UI they may
+        // sit in the fallback vault, which isn't readable until an admin unlocks it *after*
+        // startup. So pass the persisted reference through and let AwxClient resolve it lazily
+        // from the active ISecretStore on first use (config/env values are still used directly).
+        var awxOAuthClientId = !string.IsNullOrWhiteSpace(persisted?.AwxOAuthClientId)
+            ? persisted!.AwxOAuthClientId
+            : integrations["AWX:OAuthClientId"];
 
         var awx = new AwxOptions
         {
             Endpoint = awxEndpoint,
-            Token = awxToken,
-            JobTemplateId = awxJobTemplateId
+            Token = string.IsNullOrWhiteSpace(persisted?.AwxTokenSecretReference) ? integrations["AWX:Token"] : null,
+            TokenSecretReference = persisted?.AwxTokenSecretReference,
+            JobTemplateId = awxJobTemplateId,
+            OAuthClientId = awxOAuthClientId,
+            OAuthClientSecret = string.IsNullOrWhiteSpace(persisted?.AwxOAuthClientSecretReference) ? integrations["AWX:OAuthClientSecret"] : null,
+            OAuthClientSecretReference = persisted?.AwxOAuthClientSecretReference,
+            RefreshToken = string.IsNullOrWhiteSpace(persisted?.AwxRefreshTokenSecretReference) ? integrations["AWX:RefreshToken"] : null,
+            RefreshTokenSecretReference = persisted?.AwxRefreshTokenSecretReference
         };
 
         var azureDevOpsEndpoint = !string.IsNullOrWhiteSpace(persisted?.AzureDevOpsEndpoint)
@@ -243,6 +247,8 @@ public static class DependencyInjection
         services.AddSingleton<AnsibleExecutionPackageBuilder>();
         services.AddSingleton<IAnsibleExecutionPackageBuilder>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
+
+        services.AddSingleton<IIntegrationReachabilityProbe, IntegrationReachabilityProbe>();
 
         services.AddSingleton<AwxClient>();
         services.AddSingleton<IAwxClient>(sp => sp.GetRequiredService<AwxClient>());

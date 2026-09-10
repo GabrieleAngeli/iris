@@ -126,7 +126,7 @@ public partial class SystemSettingsViewModel(
 					object? dialogVm = integration.Key.ToLowerInvariant() switch
 					{
 						"openbao" => new ConfigureOpenBaoDialogViewModel(api, integration.Endpoint),
-						"awx" => new ConfigureAwxDialogViewModel(api, integration.Endpoint),
+						"awx" => new ConfigureAwxDialogViewModel(api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId),
 						"ansible" => new ConfigureAnsibleDialogViewModel(api, integration.Endpoint),
 						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(api, integration.Endpoint),
 						"nexus" => new ConfigureNexusDialogViewModel(api, integration.Endpoint),
@@ -498,15 +498,21 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 {
 	private readonly IIrisApiClient _api;
 
-	public ConfigureAwxDialogViewModel(IIrisApiClient api, string? currentEndpoint)
+	public ConfigureAwxDialogViewModel(
+		IIrisApiClient api, string? currentEndpoint, int? currentJobTemplateId = null, string? currentOAuthClientId = null)
 	{
 		_api = api;
 		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
+		JobTemplateId = currentJobTemplateId is > 0 ? currentJobTemplateId.Value.ToString() : string.Empty;
+		OAuthClientId = string.IsNullOrWhiteSpace(currentOAuthClientId) ? string.Empty : currentOAuthClientId;
 	}
 
 	[ObservableProperty] private string _endpoint;
 	[ObservableProperty] private string _token = string.Empty;
 	[ObservableProperty] private string _jobTemplateId = string.Empty;
+	[ObservableProperty] private string _oAuthClientId = string.Empty;
+	[ObservableProperty] private string _oAuthClientSecret = string.Empty;
+	[ObservableProperty] private string _refreshToken = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
 
@@ -539,7 +545,10 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 			await _api.SaveAwxIntegrationSettingsAsync(new SaveAwxIntegrationSettingsRequest(
 				Endpoint.Trim(),
 				string.IsNullOrEmpty(Token) ? null : Token,
-				jobTemplateId));
+				jobTemplateId,
+				string.IsNullOrWhiteSpace(OAuthClientId) ? null : OAuthClientId.Trim(),
+				string.IsNullOrEmpty(OAuthClientSecret) ? null : OAuthClientSecret,
+				string.IsNullOrEmpty(RefreshToken) ? null : RefreshToken));
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}

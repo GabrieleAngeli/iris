@@ -84,6 +84,13 @@ public sealed class AuthService(
 		var result = await ApplySessionAsync(token, ct);
 		if (result.Success)
 		{
+			// We hold a just-verified local password here — use it to restore any in-memory
+			// fallback secrets (AWX/SMTP/OpenBao tokens saved before OpenBao was the active
+			// store), so a platform admin doesn't have to click "Unlock" in System settings
+			// after every Iris.Api restart. Best-effort; the manual button stays as a fallback.
+			// Not possible on the remembered-session resume path — no password there.
+			await TryUnlockFallbackSecretsAsync(password, ct);
+
 			if (rememberMe)
 			{
 				await preferences.SetRememberedSessionTokenAsync(token).ConfigureAwait(false);
@@ -95,6 +102,24 @@ public sealed class AuthService(
 		}
 
 		return result;
+	}
+
+	private async Task TryUnlockFallbackSecretsAsync(string password, CancellationToken ct)
+	{
+		// Only a platform admin owns fallback secrets — skip the round-trip for everyone else.
+		if (Me?.EffectivePermissions?.Contains("platform.admin") != true)
+		{
+			return;
+		}
+
+		try
+		{
+			await api.UnlockFallbackSecretsAsync(password, ct);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException or TaskCanceledException)
+		{
+			// Best-effort: System settings still shows the "Unlock" banner if this didn't run.
+		}
 	}
 
 	public async Task<AuthResult> TryResumeRememberedSessionAsync(CancellationToken ct = default)

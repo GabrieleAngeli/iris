@@ -58,6 +58,22 @@ public sealed class IntegrationSettingsTests
     }
 
     [Fact]
+    public void ConfigureAwx_stores_the_optional_oauth_refresh_fields()
+    {
+        var settings = IntegrationSettings.CreateEmpty();
+
+        settings.ConfigureAwx(
+            "https://awx.example.com", "ref://awx/token", 42,
+            oAuthClientId: "  client-abc  ",
+            oAuthClientSecretReference: "ref://awx/oauth-client-secret",
+            refreshTokenSecretReference: "ref://awx/refresh-token");
+
+        Assert.Equal("client-abc", settings.AwxOAuthClientId);
+        Assert.Equal("ref://awx/oauth-client-secret", settings.AwxOAuthClientSecretReference);
+        Assert.Equal("ref://awx/refresh-token", settings.AwxRefreshTokenSecretReference);
+    }
+
+    [Fact]
     public void ConfigureAwx_rejects_a_blank_endpoint()
     {
         var settings = IntegrationSettings.CreateEmpty();

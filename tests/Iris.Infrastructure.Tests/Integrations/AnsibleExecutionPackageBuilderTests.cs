@@ -1,68 +1,33 @@
 using Iris.Infrastructure.Integrations;
-using Iris.Infrastructure.Processes;
-using Iris.Infrastructure.Tests.Processes;
 
 namespace Iris.Infrastructure.Tests.Integrations;
 
 public sealed class AnsibleExecutionPackageBuilderTests
 {
     [Fact]
-    public async Task GetStatusAsync_reports_not_configured_when_the_endpoint_is_blank()
+    public async Task GetStatusAsync_reports_managed_via_awx_when_no_direct_endpoint_is_set()
     {
-        // Regression test for a real bug found via manual testing (2026-09-08): this used to
-        // report "Configured" based on Playbook, which always carries a non-blank default
-        // ("iris-deploy-application.yml") — so it showed "Configured" on a completely
-        // untouched install. Endpoint is the actual signal, same convention as OpenBao/AWX.
-        var options = new AnsibleOptions { Endpoint = null };
-        var runner = new FakeProcessRunner();
-        var builder = new AnsibleExecutionPackageBuilder(options, runner);
-
-        var status = await builder.GetStatusAsync(probe: false);
-
-        Assert.Equal("Not configured", status.Status);
-        Assert.Empty(runner.Calls);
-    }
-
-    [Fact]
-    public async Task GetStatusAsync_without_probing_reports_configured_without_touching_the_process_runner()
-    {
-        var options = new AnsibleOptions { Endpoint = "http://localhost:8043" };
-        var runner = new FakeProcessRunner();
-        var builder = new AnsibleExecutionPackageBuilder(options, runner);
-
-        var status = await builder.GetStatusAsync(probe: false);
-
-        Assert.Equal("Configured", status.Status);
-        Assert.Empty(runner.Calls);
-    }
-
-    [Fact]
-    public async Task GetStatusAsync_probes_by_checking_ansible_playbook_is_runnable()
-    {
-        // Real, meaningful feedback fixed here (2026-09-08: "cliccando test non succede
-        // nulla") — Test now actually runs `ansible-playbook --version` via IProcessRunner
-        // rather than returning a static value regardless of what Test does.
-        var options = new AnsibleOptions { Endpoint = "http://localhost:8043" };
-        var runner = new FakeProcessRunner { DefaultResponse = new ProcessResult(0, "ansible-playbook [core 2.16.3]\n", "") };
-        var builder = new AnsibleExecutionPackageBuilder(options, runner);
+        // Iris never runs ansible-playbook itself — AWX drives the one real Ansible on the ops
+        // server. The old local `ansible-playbook --version` probe was misleading noise on the
+        // Iris.Api host; the normal state is "Managed via AWX", not a separate thing to check.
+        var builder = new AnsibleExecutionPackageBuilder(new AnsibleOptions { Endpoint = null });
 
         var status = await builder.GetStatusAsync(probe: true);
 
-        Assert.Equal("Reachable", status.Status);
-        var call = Assert.Single(runner.Calls);
-        Assert.Equal("ansible-playbook", call.FileName);
-        Assert.Equal(new[] { "--version" }, call.Arguments);
+        Assert.Equal("Managed via AWX", status.Status);
+        Assert.Null(status.Endpoint);
     }
 
     [Fact]
-    public async Task GetStatusAsync_probe_reports_unreachable_when_ansible_playbook_is_not_on_PATH()
+    public async Task GetStatusAsync_reports_configured_when_a_direct_endpoint_is_set_but_never_probes_it()
     {
-        var options = new AnsibleOptions { Endpoint = "http://localhost:8043" };
-        var runner = new FakeProcessRunner { DefaultResponse = new ProcessResult(-1, "", "The system cannot find the file specified") };
-        var builder = new AnsibleExecutionPackageBuilder(options, runner);
+        var builder = new AnsibleExecutionPackageBuilder(new AnsibleOptions { Endpoint = "https://ansible.example.com" });
 
-        var status = await builder.GetStatusAsync(probe: true);
+        var probed = await builder.GetStatusAsync(probe: true);
+        var unprobed = await builder.GetStatusAsync(probe: false);
 
-        Assert.Equal("Unreachable", status.Status);
+        Assert.Equal("Configured", probed.Status);
+        Assert.Equal("Configured", unprobed.Status);
+        Assert.Equal("https://ansible.example.com", probed.Endpoint);
     }
 }

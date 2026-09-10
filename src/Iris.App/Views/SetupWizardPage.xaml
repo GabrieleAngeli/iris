@@ -102,6 +102,31 @@
                             </VerticalStackLayout>
                         </Grid>
 
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsAwxUseExisting}">
+                            <Label Text="OAuth2 auto-renew (optional — AWX tokens expire; fill client id + refresh token to let Iris renew automatically. Client secret only for a Confidential application, blank for a Public one.)"
+                                   Style="{StaticResource Caption}" />
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="OAuth2 client id" Style="{StaticResource Caption}" />
+                                    <Border Style="{StaticResource FieldBorder}">
+                                        <Entry Text="{Binding AwxOAuthClientId}" />
+                                    </Border>
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                    <Label Text="Client secret" Style="{StaticResource Caption}" />
+                                    <Border Style="{StaticResource FieldBorder}">
+                                        <Entry Text="{Binding AwxOAuthClientSecret}" IsPassword="True" />
+                                    </Border>
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2" Spacing="4">
+                                    <Label Text="Refresh token" Style="{StaticResource Caption}" />
+                                    <Border Style="{StaticResource FieldBorder}">
+                                        <Entry Text="{Binding AwxRefreshToken}" IsPassword="True" />
+                                    </Border>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </VerticalStackLayout>
+
                         <Label Text="{Binding AwxError}" IsVisible="{Binding HasAwxError}" FontSize="12"
                                TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
 

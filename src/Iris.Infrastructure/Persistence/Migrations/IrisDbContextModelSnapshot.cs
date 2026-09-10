@@ -1125,6 +1125,18 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<int?>("AwxJobTemplateId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AwxOAuthClientId")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AwxOAuthClientSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AwxRefreshTokenSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AwxTokenSecretReference")
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");

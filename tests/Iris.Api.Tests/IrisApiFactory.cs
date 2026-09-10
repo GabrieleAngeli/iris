@@ -76,6 +76,7 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IEmailSender, FakeEmailSender>();
             services.AddSingleton<IContainerRuntime, FakeContainerRuntime>();
             services.AddSingleton<IIntegrationHealthChecker, NoOpIntegrationHealthChecker>();
+            services.AddSingleton<IIntegrationReachabilityProbe, FakeIntegrationReachabilityProbe>();
         });
     }
 

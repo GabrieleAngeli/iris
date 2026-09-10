@@ -8,11 +8,17 @@ public sealed record SaveOpenBaoIntegrationSettingsRequest(
     string MountPath,
     bool UseKvV2);
 
-/// <summary>Body of <c>PUT /system/integrations/awx</c>. Same empty-token rule as OpenBao.</summary>
+/// <summary>Body of <c>PUT /system/integrations/awx</c>. Same empty-token rule as OpenBao, for
+/// each of <c>Token</c>/<c>OAuthClientSecret</c>/<c>RefreshToken</c>. Supplying
+/// <c>OAuthClientId</c>+<c>OAuthClientSecret</c>+<c>RefreshToken</c> turns on OAuth2
+/// auto-renewal of the access token (AWX tokens expire).</summary>
 public sealed record SaveAwxIntegrationSettingsRequest(
     string Endpoint,
     string? Token,
-    int? JobTemplateId);
+    int? JobTemplateId,
+    string? OAuthClientId = null,
+    string? OAuthClientSecret = null,
+    string? RefreshToken = null);
 
 /// <summary>Body of <c>PUT /system/integrations/ansible</c>. No secret — this describes a
 /// playbook/inventory target, not a credentialed API.</summary>

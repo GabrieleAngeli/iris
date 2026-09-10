@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Iris.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Iris.Api.Tests;
 
@@ -161,6 +164,11 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
                 endpoint = "https://awx.example",
                 token = "awx-token",
                 jobTemplateId = 7,
+                // The endpoint must carry these through to the command (regression guard: the
+                // earlier bug dropped body.Awx entirely). The fake probe echoes a rotated pair.
+                oAuthClientId = "client-abc",
+                oAuthClientSecret = "client-secret",
+                refreshToken = "typed-refresh",
             },
         });
         Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
@@ -177,6 +185,50 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
         Assert.Equal("https://awx.example", awxLink.Endpoint);
         Assert.Equal("Pending restart", awxLink.Status);
         Assert.True(settings.RestartRequired);
+    }
+
+    private sealed class ThrowingReachabilityProbe : IIntegrationReachabilityProbe
+    {
+        public Task ProbeOpenBaoAsync(string endpoint, string? token, CancellationToken cancellationToken = default) =>
+            throw new IntegrationConnectionException(IntegrationTestStage.Connect, $"Could not reach OpenBao at {endpoint}.");
+
+        public Task<AwxProbeResult> ProbeAwxAsync(
+            string endpoint, string? token, string? oAuthClientId, string? oAuthClientSecret, string? refreshToken,
+            CancellationToken cancellationToken = default) =>
+            throw new IntegrationConnectionException(IntegrationTestStage.Authenticate, "AWX rejected the token (401).");
+    }
+
+    [Fact]
+    public async Task Setup_is_rejected_and_persists_nothing_when_the_OpenBao_probe_fails()
+    {
+        using var empty = new IrisApiFactory(seedDemoData: false);
+        WebApplicationFactory<Program> configured = empty.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(s => s.AddSingleton<IIntegrationReachabilityProbe, ThrowingReachabilityProbe>()));
+        var anon = configured.CreateClient();
+
+        var complete = await anon.PostAsJsonAsync("/setup/complete", new
+        {
+            mail = new
+            {
+                smtpHost = "smtp.example.com",
+                smtpPort = 587,
+                smtpUsername = "no-reply",
+                smtpPassword = "s3cr3t",
+                fromAddress = "no-reply@example.com",
+                fromDisplayName = "Iris",
+                enableSsl = true,
+            },
+            adminEmail = "root@example.com",
+            adminDisplayName = "Root Admin",
+            adminPassword = "a-strong-password",
+            openBao = new { skip = false, installForMe = false, endpoint = "https://openbao.example:8200", token = "s.token" },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, complete.StatusCode);
+
+        // Setup did not complete — status still says it's needed.
+        var status = await configured.CreateClient().GetFromJsonAsync<StatusDto>("/setup/status");
+        Assert.True(status!.NeedsSetup);
     }
 
     [Fact]

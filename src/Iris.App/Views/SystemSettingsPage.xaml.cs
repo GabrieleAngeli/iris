@@ -32,7 +32,7 @@ public partial class SystemSettingsPage : ContentPage
 					break;
 
 				case ConfigureAwxDialogViewModel awx:
-					await _dialogs.ShowAsync(new ConfigureAwxDialog(awx), "dlg.configure-awx", 480, 420);
+					await _dialogs.ShowAsync(new ConfigureAwxDialog(awx), "dlg.configure-awx", 520, 660);
 					if (awx.WasSaved)
 					{
 						await _vm.LoadCommand.ExecuteAsync(null);

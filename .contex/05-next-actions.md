@@ -84,6 +84,86 @@ Ordinate per priorità. Aggiornare questa lista a ogni chiusura di iterazione si
 
 ## Stato recente delle sessioni
 
+### 2026-09-10 (quinto giro) - AWX "Not configured": job template id + Configure dialog vuoto
+
+Interrogato il dev DB dopo un giro reale: il wizard aveva persistito **tutto** (endpoint,
+`AwxOAuthClientId`, ref di client-secret/refresh-token/access-token, 5 righe in
+`EncryptedSecretEntries` → auto-unlock ok) **tranne `AwxJobTemplateId`** (null) → `IsConfigured`
+falso → "Not configured. Endpoint, token and job template id are required." L'utente non aveva
+compilato il campo Job Template ID nel wizard.
+
+- `SaveAwxIntegrationSettingsHandler`: un `JobTemplateId` null ora **mantiene** quello salvato
+  invece di azzerarlo (stessa regola dei segreti — un campo vuoto in un form di update parziale
+  significa "lascia", non "cancella"). Prima riaprire Configure e salvare con il campo vuoto
+  distruggeva il job template id.
+- `IntegrationLinkResponse` +`AwxJobTemplateId`/`AwxOAuthClientId` (config non-segreta),
+  popolati da `GetSystemSettingsHandler` da `persisted` per la riga awx.
+- `ConfigureAwxDialogViewModel` pre-compila endpoint + job template id + client id (i segreti
+  restano vuoti = "keep", by design) → il dialog non è più "vuoto".
+- Verifica: `dotnet test Iris.sln` **369/369 verdi**. `dotnet build src/Iris.App` verde.
+- **Sblocco immediato per l'utente**: Configure AWX → inserire il **Job Template ID** → Save →
+  riavvio.
+
+### 2026-09-10 (quarto giro) - AWX: segreti lazy + auto-unlock wizard + fix scroll System settings
+
+Dopo il primo giro reale col wizard l'utente ha trovato: AWX "Not configured" dopo
+wizard→riavvio→unlock, Test falliti, e la lista Service connections con scroll fisso.
+
+- `AwxClient` risolve token/client-secret/refresh-token **lazy da `ISecretStore`** al primo uso
+  (come `SmtpEmailSender`), non più eager all'avvio → dopo l'unlock AWX funziona senza un
+  secondo riavvio. `AwxOptions` porta valori (config/env) o riferimenti (persistiti).
+- Il wizard fa **Unlock automatico** subito dopo il sign-in (ha la password admin) → i segreti
+  del fallback vault diventano durevoli senza passaggio manuale.
+- Anche `AuthService.SignInAsync` (login con password) fa **Unlock automatico** best-effort se
+  l'utente è `platform.admin` → dopo un riavvio basta rifare login, niente click su "Unlock".
+  Non copre remember-me/SSO.
+- `SystemSettingsPage`: lista Service connections da `CollectionView HeightRequest=220` →
+  `BindableLayout` che si adatta al contenuto.
+- OpenBao resta chicken-and-egg (documentato): per stabilità va in `appsettings`/env, altrimenti
+  serve un unlock per riavvio.
+- Verifica: `dotnet test Iris.sln` **368/368 verdi**. `dotnet build src/Iris.App` verde.
+- **Da verificare a mano dall'utente**: rifare wizard AWX (Application Resource-owner-password,
+  client id + client secret + refresh token) → deve fare auto-unlock; 1 riavvio; unlock; il
+  Test AWX in System settings deve passare senza secondo riavvio.
+
+### 2026-09-10 (terzo giro) - AWX OAuth2 refresh-token
+
+L'access token AWX dell'utente scade dopo 1 giorno (non modificabile). Scelto (via
+`AskUserQuestion`) di implementare il flusso OAuth2 refresh invece di HTTP Basic. Pianificato
+in Plan Mode. Dettagli completi in `00-current-state.md`.
+
+- `AwxClient` su 401 rinnova l'access token via `POST /api/o/token/` e ripersiste la coppia
+  (AWX ruota il refresh token a ogni refresh). 3 nuovi campi opzionali (`OAuthClientId` +
+  client secret + refresh token) in `IntegrationSettings` (migration SQLite+Postgres),
+  contratti, wizard e dialog Configure AWX.
+- La probe del wizard, con le credenziali OAuth, fa il **primo refresh** come validazione e
+  Iris persiste la coppia ruotata restituita.
+- Supporta sia Application **Confidential** (client secret → HTTP Basic) sia **Public** (nessun
+  secret → `client_id` nel body). L'utente ha una Public: nel wizard lascia vuoto il campo
+  client secret.
+- Verifica: `dotnet test Iris.sln` **366/366 verdi**. `dotnet build src/Iris.App` verde.
+- **Da verificare a mano dall'utente**: rifare il wizard AWX con endpoint + client id (+ secret
+  solo se Confidential) + refresh token → deve completare (la probe fa il primo refresh);
+  poi lasciar scadere/revocare l'access token e lanciare un deploy → deve fare 401, rinnovare
+  e riuscire; ricontrollare che il refresh token salvato sia cambiato (rotazione persistita).
+
+### 2026-09-10 - Wizard valida OpenBao/AWX + Ansible "managed via AWX"
+
+Due follow-up dopo il primo giro pulito del wizard (post-fix `/setup/complete`), scelte via
+`AskUserQuestion`:
+1. Il wizard ora testa OpenBao/AWX (raggiungibilità + token) prima di persistere e **blocca
+   il salvataggio** se fallisce - nuovo `IIntegrationReachabilityProbe`, stesso schema del
+   test SMTP. Dettagli in `00-current-state.md`.
+2. Ansible non è più un'integrazione con probe locale: rimossa la CLI
+   `ansible-playbook --version`, `GetStatusAsync` ora dice "Managed via AWX" (Iris non chiama
+   mai Ansible direttamente, lo pilota AWX sul server ops). `appsettings.Development.json`
+   `Ansible:Endpoint` svuotato.
+- Verifica: `dotnet test Iris.sln` **355/355 verdi**. `dotnet build src/Iris.App` verde.
+- **Da verificare a mano dall'utente**: rifare il wizard con endpoint/token OpenBao/AWX
+  errati (deve rifiutare con messaggio chiaro), poi con quelli veri (deve completare), e dopo
+  il riavvio di Iris.Api confermare che la riga Ansible mostri "Managed via AWX" senza
+  finire nel banner "needs attention".
+
 ### 2026-09-09 (secondo giro) - Bug reale: /setup/complete non salvava mai OpenBao/AWX
 
 Segnalato dall'utente dopo aver configurato AWX/OpenBao per davvero (creata un'Application

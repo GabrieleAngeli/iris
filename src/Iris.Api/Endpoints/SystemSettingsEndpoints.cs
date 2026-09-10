@@ -91,7 +91,9 @@ public static class SystemSettingsEndpoints
                 CancellationToken ct) =>
             {
                 var result = await handler
-                    .HandleAsync(new SaveAwxIntegrationSettingsCommand(body.Endpoint, body.Token, body.JobTemplateId), ct)
+                    .HandleAsync(new SaveAwxIntegrationSettingsCommand(
+                        body.Endpoint, body.Token, body.JobTemplateId,
+                        body.OAuthClientId, body.OAuthClientSecret, body.RefreshToken), ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);
             })

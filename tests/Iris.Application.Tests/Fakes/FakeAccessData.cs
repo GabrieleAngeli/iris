@@ -41,6 +41,8 @@ internal sealed class FakeStore
 
     public FakeEmailSender EmailSender { get; } = new();
 
+    public FakeIntegrationReachabilityProbe ReachabilityProbe { get; } = new();
+
     public List<MailProviderSettings> MailSettings { get; } = [];
 
     public List<IntegrationSettings> IntegrationSettings { get; } = [];
@@ -227,6 +229,38 @@ internal sealed class FakeEmailSender : IEmailSender
         }
 
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records probe calls instead of hitting real OpenBao/AWX. Set <see cref="FailWith"/> to
+/// simulate a bad endpoint/token, or <see cref="AwxRefreshResult"/> to simulate the probe having
+/// done the first OAuth2 refresh.</summary>
+internal sealed class FakeIntegrationReachabilityProbe : IIntegrationReachabilityProbe
+{
+    public List<(string Endpoint, string? Token)> OpenBaoProbes { get; } = [];
+
+    public List<(string Endpoint, string? Token, string? ClientId, string? ClientSecret, string? RefreshToken)> AwxProbes { get; } = [];
+
+    public IntegrationConnectionException? FailWith { get; set; }
+
+    public AwxProbeResult AwxRefreshResult { get; set; } = new(null, null);
+
+    public Task ProbeOpenBaoAsync(string endpoint, string? token, CancellationToken cancellationToken = default)
+    {
+        OpenBaoProbes.Add((endpoint, token));
+        return FailWith is not null ? throw FailWith : Task.CompletedTask;
+    }
+
+    public Task<AwxProbeResult> ProbeAwxAsync(
+        string endpoint,
+        string? token,
+        string? oAuthClientId,
+        string? oAuthClientSecret,
+        string? refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        AwxProbes.Add((endpoint, token, oAuthClientId, oAuthClientSecret, refreshToken));
+        return FailWith is not null ? throw FailWith : Task.FromResult(AwxRefreshResult);
     }
 }
 

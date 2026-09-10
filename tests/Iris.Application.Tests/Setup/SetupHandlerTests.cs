@@ -30,6 +30,7 @@ public sealed class SetupHandlerTests
         new SessionIssuer(store.UserSessionRepository, new FakeClock(Now)),
         new FakeClock(Now),
         store.UnitOfWork,
+        store.ReachabilityProbe,
         new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork),
         new SaveAwxIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork));
 
@@ -114,6 +115,73 @@ public sealed class SetupHandlerTests
         Assert.Equal("https://awx.example.com", settings.AwxEndpoint);
         Assert.Equal("awx-token", store.SecretsByReference[settings.AwxTokenSecretReference!]);
         Assert.Equal(7, settings.AwxJobTemplateId);
+
+        // Both were probed with the endpoint+token before being persisted.
+        Assert.Equal(("https://openbao.example.com", "root-token"), Assert.Single(store.ReachabilityProbe.OpenBaoProbes));
+        var awxProbe = Assert.Single(store.ReachabilityProbe.AwxProbes);
+        Assert.Equal("https://awx.example.com", awxProbe.Endpoint);
+        Assert.Equal("awx-token", awxProbe.Token);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_persists_the_rotated_token_pair_the_Awx_probe_returns_when_using_OAuth_refresh()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+        // The probe does the first refresh; AWX rotates the refresh token.
+        store.ReachabilityProbe.AwxRefreshResult = new AwxProbeResult("fresh-access", "rotated-refresh");
+
+        await CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            Awx: new AwxSetupInput(
+                Skip: false, InstallForMe: false,
+                Endpoint: "https://awx.example.com",
+                Token: null,
+                JobTemplateId: 7,
+                OAuthClientId: "client-abc",
+                OAuthClientSecret: "secret-xyz",
+                RefreshToken: "typed-refresh")));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("client-abc", settings.AwxOAuthClientId);
+        Assert.Equal("fresh-access", store.SecretsByReference[settings.AwxTokenSecretReference!]);
+        Assert.Equal("secret-xyz", store.SecretsByReference[settings.AwxOAuthClientSecretReference!]);
+        Assert.Equal("rotated-refresh", store.SecretsByReference[settings.AwxRefreshTokenSecretReference!]);
+
+        var probe = Assert.Single(store.ReachabilityProbe.AwxProbes);
+        Assert.Equal("client-abc", probe.ClientId);
+        Assert.Equal("typed-refresh", probe.RefreshToken);
+    }
+
+    [Fact]
+    public async Task CompleteSetup_fails_and_persists_nothing_when_the_OpenBao_probe_fails()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+        store.ReachabilityProbe.FailWith = new IntegrationConnectionException(IntegrationTestStage.Authenticate, "OpenBao rejected the token (403).");
+
+        await Assert.ThrowsAsync<ValidationException>(() => CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            OpenBao: new OpenBaoSetupInput(Skip: false, InstallForMe: false, Endpoint: "https://openbao.example.com", Token: "bad-token"),
+            Awx: new AwxSetupInput(Skip: false, InstallForMe: false, Endpoint: "https://awx.example.com", Token: "awx-token", JobTemplateId: 7))));
+
+        Assert.Empty(store.IntegrationSettings);
+        Assert.Empty(store.ReachabilityProbe.AwxProbes); // aborted at the OpenBao probe, never got to AWX
+    }
+
+    [Fact]
+    public async Task CompleteSetup_fails_when_the_Awx_probe_fails_even_if_OpenBao_is_fine()
+    {
+        var store = new FakeStore();
+        store.WithRole(PlatformAdminRole());
+        store.ReachabilityProbe.FailWith = new IntegrationConnectionException(IntegrationTestStage.Connect, "Could not reach AWX.");
+
+        await Assert.ThrowsAsync<ValidationException>(() => CompleteHandler(store).HandleAsync(new CompleteSetupCommand(
+            Mail(), "admin@example.com", "Root Admin", "a-strong-password",
+            OpenBao: new OpenBaoSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null),
+            Awx: new AwxSetupInput(Skip: false, InstallForMe: false, Endpoint: "https://awx.example.com", Token: "awx-token", JobTemplateId: 7))));
+
+        Assert.Empty(store.IntegrationSettings);
     }
 
     [Fact]

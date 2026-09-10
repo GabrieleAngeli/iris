@@ -119,6 +119,19 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
+    public async Task SaveAwx_with_a_null_job_template_id_keeps_the_stored_one()
+    {
+        var store = new FakeStore();
+        await AwxHandler(store).HandleAsync(new SaveAwxIntegrationSettingsCommand("https://awx.example.com", "awx-token", 7));
+
+        // Re-save from a partial Configure form that only changed the endpoint.
+        await AwxHandler(store).HandleAsync(new SaveAwxIntegrationSettingsCommand("https://awx.example.com/", null, null));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal(7, settings.AwxJobTemplateId);
+    }
+
+    [Fact]
     public async Task SaveAwx_rejects_a_blank_endpoint()
     {
         var store = new FakeStore();

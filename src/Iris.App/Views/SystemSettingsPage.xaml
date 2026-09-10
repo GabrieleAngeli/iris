@@ -98,8 +98,8 @@
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="10">
                             <Label Text="Service connections" FontFamily="{StaticResource FontSemibold}" FontSize="15" />
-                            <CollectionView ItemsSource="{Binding Integrations}" HeightRequest="220">
-                                <CollectionView.ItemTemplate>
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Integrations}">
+                                <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:IntegrationConnectionRow">
                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
                                             <VerticalStackLayout Spacing="0">
@@ -136,8 +136,8 @@
                                                    VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 

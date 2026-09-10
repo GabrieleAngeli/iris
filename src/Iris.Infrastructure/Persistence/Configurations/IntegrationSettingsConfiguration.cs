@@ -20,6 +20,9 @@ internal sealed class IntegrationSettingsConfiguration : IEntityTypeConfiguratio
         builder.Property(s => s.AwxEndpoint).HasMaxLength(500);
         builder.Property(s => s.AwxTokenSecretReference).HasMaxLength(400);
         builder.Property(s => s.AwxJobTemplateId);
+        builder.Property(s => s.AwxOAuthClientId).HasMaxLength(400);
+        builder.Property(s => s.AwxOAuthClientSecretReference).HasMaxLength(400);
+        builder.Property(s => s.AwxRefreshTokenSecretReference).HasMaxLength(400);
 
         builder.Property(s => s.AnsibleEndpoint).HasMaxLength(500);
         builder.Property(s => s.AnsiblePlaybook).IsRequired().HasMaxLength(260);

@@ -34,6 +34,7 @@ public sealed class CompleteSetupHandler(
     SessionIssuer sessionIssuer,
     IClock clock,
     IUnitOfWork unitOfWork,
+    IIntegrationReachabilityProbe reachability,
     SaveOpenBaoIntegrationSettingsHandler saveOpenBao,
     SaveAwxIntegrationSettingsHandler saveAwx)
 {
@@ -121,6 +122,18 @@ public sealed class CompleteSetupHandler(
         var openBaoProvisionRequested = command.OpenBao is { Skip: false, InstallForMe: true };
         if (command.OpenBao is { Skip: false, InstallForMe: false, Endpoint: { Length: > 0 } openBaoEndpoint })
         {
+            // Same gate as the mail test above: reach it (and check the token, if given) before
+            // persisting anything, so a wrong endpoint/token fails the wizard with a clear
+            // message instead of being saved blind.
+            try
+            {
+                await reachability.ProbeOpenBaoAsync(openBaoEndpoint, command.OpenBao.Token, cancellationToken).ConfigureAwait(false);
+            }
+            catch (IntegrationConnectionException ex)
+            {
+                throw new ValidationException($"OpenBao: {ex.Message}");
+            }
+
             await saveOpenBao.HandleAsync(
                 new SaveOpenBaoIntegrationSettingsCommand(openBaoEndpoint, command.OpenBao.Token, "secret", UseKvV2: true),
                 cancellationToken).ConfigureAwait(false);
@@ -129,8 +142,32 @@ public sealed class CompleteSetupHandler(
         var awxProvisionRequested = command.Awx is { Skip: false, InstallForMe: true };
         if (command.Awx is { Skip: false, InstallForMe: false, Endpoint: { Length: > 0 } awxEndpoint })
         {
+            AwxProbeResult awxProbe;
+            try
+            {
+                awxProbe = await reachability.ProbeAwxAsync(
+                    awxEndpoint,
+                    command.Awx.Token,
+                    command.Awx.OAuthClientId,
+                    command.Awx.OAuthClientSecret,
+                    command.Awx.RefreshToken,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (IntegrationConnectionException ex)
+            {
+                throw new ValidationException($"AWX: {ex.Message}");
+            }
+
+            // When OAuth2 refresh was validated, the probe already did the first refresh — AWX
+            // rotated the refresh token, so persist the fresh pair it returned, not what was typed.
             await saveAwx.HandleAsync(
-                new SaveAwxIntegrationSettingsCommand(awxEndpoint, command.Awx.Token, command.Awx.JobTemplateId),
+                new SaveAwxIntegrationSettingsCommand(
+                    awxEndpoint,
+                    awxProbe.RefreshedAccessToken ?? command.Awx.Token,
+                    command.Awx.JobTemplateId,
+                    command.Awx.OAuthClientId,
+                    command.Awx.OAuthClientSecret,
+                    awxProbe.RefreshedRefreshToken ?? command.Awx.RefreshToken),
                 cancellationToken).ConfigureAwait(false);
         }
 

@@ -1,14 +1,11 @@
 using Iris.Application.Abstractions;
 using Iris.Contracts.Applications;
-using Iris.Infrastructure.Processes;
 
 namespace Iris.Infrastructure.Integrations;
 
-internal sealed class AnsibleExecutionPackageBuilder(AnsibleOptions options, IProcessRunner processRunner)
+internal sealed class AnsibleExecutionPackageBuilder(AnsibleOptions options)
     : IAnsibleExecutionPackageBuilder, IIntegrationConnector
 {
-    private const string AnsiblePlaybookExecutable = "ansible-playbook";
-
     public string Key => "ansible";
 
     public string Name => "Ansible";
@@ -58,38 +55,29 @@ internal sealed class AnsibleExecutionPackageBuilder(AnsibleOptions options, IPr
             extraVars);
     }
 
-    public async Task<IntegrationConnectorStatus> GetStatusAsync(
+    public Task<IntegrationConnectorStatus> GetStatusAsync(
         bool probe = false,
         CancellationToken cancellationToken = default)
     {
-        // "Configured" reflects the endpoint, same convention as OpenBao/AWX — not the
-        // playbook, which always carries a non-blank default ("iris-deploy-application.yml")
-        // and so used to report "Configured" even on a completely untouched install. Real bug
-        // found via manual testing (2026-09-08): this made Ansible look set up when nothing had
-        // ever been configured.
-        if (string.IsNullOrWhiteSpace(options.Endpoint))
-        {
-            return new IntegrationConnectorStatus(Key, Name, "Not configured", null, "Endpoint is required.");
-        }
+        // Iris never runs `ansible-playbook` itself — Build() only assembles the extra_vars the
+        // AWX launch sends, and AWX drives the one real Ansible on the ops server. So the normal
+        // state here is "managed via AWX", not a separate thing to health-check. An explicit
+        // endpoint is the opt-in for future direct calls; even then Iris does not probe it
+        // (there is no standard Ansible health endpoint, and a fake check is worse than none).
+        var status = string.IsNullOrWhiteSpace(options.Endpoint)
+            ? new IntegrationConnectorStatus(
+                Key,
+                Name,
+                "Managed via AWX",
+                null,
+                "Ansible runs through AWX; Iris never calls it directly. Set an endpoint only for direct calls.")
+            : new IntegrationConnectorStatus(
+                Key,
+                Name,
+                "Configured",
+                Endpoint,
+                "Direct Ansible endpoint set — Iris does not health-check it.");
 
-        if (!probe)
-        {
-            return new IntegrationConnectorStatus(Key, Name, "Configured", Endpoint, $"Playbook: {options.Playbook}");
-        }
-
-        // There's nothing to reach over HTTP here — Ansible in this design (see the Fase 3
-        // plan) runs as a local CLI invocation, not a remote API Iris calls. The one real,
-        // honest thing a probe can check today is whether `ansible-playbook` itself is
-        // installed and runnable on this host, since that's the actual prerequisite for every
-        // future launch — a static "Configured" that never changed on Test (the bug reported
-        // 2026-09-08: "cliccando test non succede nulla") gave the operator no way to tell.
-        // IProcessRunner never throws for a missing executable (see SystemProcessRunner) — it
-        // just comes back with a non-zero/-1 exit code, so no try/catch is needed here.
-        var result = await processRunner
-            .RunAsync(AnsiblePlaybookExecutable, ["--version"], cancellationToken)
-            .ConfigureAwait(false);
-        return result.ExitCode == 0
-            ? new IntegrationConnectorStatus(Key, Name, "Reachable", Endpoint, result.StandardOutput.Trim().Split('\n').FirstOrDefault())
-            : new IntegrationConnectorStatus(Key, Name, "Unreachable", Endpoint, "ansible-playbook is not runnable on this host.");
+        return Task.FromResult(status);
     }
 }

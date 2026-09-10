@@ -103,7 +103,7 @@ public partial class DashboardViewModel : ObservableObject
 			foreach (var integration in settings.Integrations)
 			{
 				if (integration.Key is "openbao" or "awx" or "ansible" &&
-					integration.Status is not ("Configured" or "Reachable"))
+					integration.Status is not ("Configured" or "Reachable" or "Managed via AWX"))
 				{
 					problems.Add(integration.Name);
 				}

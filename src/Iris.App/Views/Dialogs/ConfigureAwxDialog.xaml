@@ -48,6 +48,31 @@
                         </Border>
                     </VerticalStackLayout>
                 </Grid>
+
+                <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                <Label Text="OAuth2 auto-renew (optional)" Style="{StaticResource Caption}" FontFamily="{StaticResource FontSemibold}" />
+                <Label Text="AWX access tokens expire. Fill the OAuth2 Application client id and a refresh token to let Iris renew the token automatically. The client secret is only for a Confidential application — leave it blank for a Public one. Leave the two secret fields blank to keep what's already saved." Style="{StaticResource Caption}" />
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="OAuth2 client id" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding OAuthClientId}" />
+                    </Border>
+                </VerticalStackLayout>
+                <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="OAuth2 client secret" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding OAuthClientSecret}" IsPassword="True" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5">
+                        <Label Text="Refresh token" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding RefreshToken}" IsPassword="True" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
             </VerticalStackLayout>
         </ScrollView>
 

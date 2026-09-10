@@ -428,6 +428,133 @@ che completa il setup con entrambi "use existing" e verifica via `GET /system/se
 `Endpoint`/`Status: "Pending restart"` riflettano davvero i valori inviati - **347/347 test
 verdi**.
 
+**Wizard valida OpenBao/AWX + Ansible "managed via AWX" (2026-09-10)** - due follow-up dal
+primo giro pulito del wizard (post-fix `/setup/complete`):
+1. *Il wizard non testava OpenBao/AWX.* L'SMTP fa un connect+auth+send reale prima di
+   persistere; OpenBao/AWX venivano salvati alla cieca. Aggiunto `IIntegrationReachabilityProbe`
+   (`Iris.Application.Abstractions`, stesso schema di `IEmailSender.TestConnectionAsync` +
+   `MailConnectionException`/`MailTestStage`): `IntegrationConnectionException` con
+   `IntegrationTestStage` (`Connect`/`Authenticate`). Impl `IntegrationReachabilityProbe`
+   (`Iris.Infrastructure/Integrations`, singleton, `HttpClient` proprio 10s, ctor `internal`
+   con `HttpMessageHandler` come test seam). OpenBao: `GET {ep}/v1/sys/health` (qualsiasi
+   risposta HTTP = "c'è") + se token `GET /v1/auth/token/lookup-self` con `X-Vault-Token` (non
+   2xx → `Authenticate`). AWX: `GET {ep}/api/v2/ping/` + se token `GET /api/v2/me/` con
+   `Bearer` (401 → `Authenticate`). `CompleteSetupHandler` chiama la probe *prima* di
+   `saveOpenBao`/`saveAwx`, converte `IntegrationConnectionException` → `ValidationException`
+   ("OpenBao: ..." / "AWX: ..."), quindi `/setup/complete` torna 400 e non persiste nulla;
+   nel wizard MAUI compare come `AdminError` (stesso path del fallimento SMTP).
+2. *Ansible non deve essere un'integrazione a sé.* Iris non esegue mai `ansible-playbook`:
+   `AnsibleExecutionPackageBuilder.Build()` compone solo gli `extra_vars` che il launch AWX
+   invia via HTTP; AWX pilota l'unica Ansible sul server ops. Rimossa la probe locale
+   `ansible-playbook --version` (e la dipendenza `IProcessRunner`): `GetStatusAsync` ora
+   ritorna **"Managed via AWX"** (endpoint vuoto, caso normale, nessuna probe) oppure
+   "Configured" se qualcuno imposta esplicitamente un endpoint diretto (comunque non
+   health-checkato). `appsettings.Development.json`: `Ansible:Endpoint` → `""` (era
+   `http://localhost:8043`, la causa del "configurato ma irraggiungibile" in dashboard).
+   Rimosso il fallback legacy `awxEndpoint = integrations["Ansible:Endpoint"]` in
+   `RegisterIntegrations` (AWX e Ansible ora del tutto disaccoppiati).
+   `DashboardViewModel.RefreshIntegrationWarningAsync` tratta "Managed via AWX" come sano. Il
+   bottone Configure/Test della riga Ansible resta (escape hatch per chiamate dirette,
+   `SaveAnsibleIntegrationSettings*` intatti). "Pending restart" per OpenBao/AWX dopo il
+   wizard resta corretto e atteso (conferma che la persistenza ora funziona; serve un riavvio
+   di Iris.Api).
+- Hardening della probe dopo il primo test manuale (il wizard restava a girare senza mostrare
+  nulla su un endpoint problematico): `IntegrationReachabilityProbe` ora `AllowAutoRedirect =
+  false` + `UseProxy = false`, timeout **per singola richiesta** via `CancellationTokenSource`
+  (6s) linkato al token del chiamante, catch allargato a `OperationCanceledException`/
+  `UriFormatException`. Un 3xx non viene più seguito (seguendolo su cambio schema si perde
+  l'header `Authorization` → "rejected the token" fuorviante) ma riportato come errore
+  `Connect` che nomina la `Location` ("AWX redirects http://... -> https://...; use that URL").
+  `SetupWizardViewModel.CompleteAsync` ora ha anche un catch per `TaskCanceledException`/
+  `TimeoutException` + un catch generico: il wizard non resta mai appeso senza messaggio.
+- Verifica: `dotnet test Iris.sln` **356/356 verdi** (10 test probe HTTP con stub handler,
+  incl. redirect-non-seguito + 2 handler-level + 1 API-level; -2 test CLI Ansible rimossi).
+  `dotnet build src/Iris.App` verde. **Da verificare a mano dall'utente** rifacendo il wizard
+  con endpoint/token errati (deve rifiutare con messaggio, non appendersi) poi corretti.
+
+**AWX OAuth2 refresh-token (2026-09-10)** - l'access token AWX dell'utente scade dopo 1 giorno
+e la scadenza non è modificabile sulla sua istanza; Iris risolveva il bearer una volta
+all'avvio e non lo rinnovava mai, quindi i deploy iniziavano a fallire con 401 dopo un giorno.
+Scelta dell'utente (via `AskUserQuestion`, alternativa era HTTP Basic con service account):
+implementato il flusso **OAuth2 refresh**. Confermato sulla doc AWX: refresh =
+`POST {endpoint}/api/o/token/`, `Basic base64(client_id:client_secret)`, form
+`grant_type=refresh_token&refresh_token=<rt>`; la risposta porta un **nuovo** `refresh_token`
+("the refresh operation replaces the existing token by deleting the original") → Iris deve
+ripersistere access **e** refresh token dopo ogni refresh.
+- `IntegrationSettings` +3 colonne (migration `AddAwxOAuthRefreshToIntegrationSettings`,
+  SQLite + Postgres, generate con `dotnet ef`, parità verificata): `AwxOAuthClientId` (colonna
+  in chiaro, è un identificatore), `AwxOAuthClientSecretReference` / `AwxRefreshTokenSecretReference`
+  (ref opache su `ISecretStore`, path logici `awx/oauth-client-secret` / `awx/refresh-token`).
+  `ConfigureAwx` allargato. Tutto **opzionale**: senza le 3 credenziali AWX si comporta come
+  prima (token statico, 401 resta 401).
+- `AwxOptions` +`OAuthClientId`/`OAuthClientSecret`/`RefreshToken` + `CanRefresh`. `AwxClient`
+  (singleton) ora inietta `ISecretStore` (singleton; `StoreAsync` ritorna una ref
+  **deterministica** per path logico, quindi ripersistere su `awx/token`/`awx/refresh-token`
+  non invalida le ref in `IntegrationSettings` — nessuna scrittura DB nel refresh). `_accessToken`/
+  `_refreshToken` mutabili, `SemaphoreSlim(1,1)` + guardia stale-token per il refresh
+  concorrente. `SendWithAuthRetryAsync`: su 401 con `CanRefresh` → refresh una volta → riprova.
+  Applicato a `LaunchAsync`/`GetJobStatusAsync`/probe. Ctor `internal (AwxOptions, ISecretStore,
+  HttpMessageHandler)` come test seam.
+- `IIntegrationReachabilityProbe.ProbeAwxAsync` ritorna `AwxProbeResult(RefreshedAccessToken,
+  RefreshedRefreshToken)` e, quando gli passi le credenziali OAuth, **esegue il primo refresh**
+  (prova endpoint + client creds + refresh token in un colpo) e restituisce la coppia ruotata.
+  `CompleteSetupHandler`/`SaveAwxIntegrationSettingsHandler` persistono quella coppia (non
+  quella digitata) — il refresh token digitato viene consumato/ruotato dalla validazione
+  stessa, niente refresh token morto lasciato in giro.
+- Contratti `SaveAwxIntegrationSettingsRequest`/`AwxSetupInput` + `SaveAwxIntegrationSettingsCommand`
+  +3 campi opzionali (`string? = null`, non breaking). Endpoint AWX PUT + `/setup/complete`
+  mapping aggiornati. MAUI: 3 campi (client id / client secret / refresh token) in
+  `ConfigureAwxDialog` e nello step AWX del wizard, con caption "AWX tokens expire; fill these
+  to auto-renew". Dialog AWX 520×660.
+- **Client OAuth2 Public supportato** (l'utente ha un'Application AWX che dà solo client id +
+  token + refresh token, nessun secret): `AwxOAuth.BuildRefreshRequest` — se il client secret
+  è presente → HTTP Basic (Confidential, come da doc AWX); se assente → `client_id` nel body
+  del form, nessun header Authorization (Public). `CanRefresh` non richiede più il secret.
+- Verifica: `dotnet test Iris.sln` **366/366 verdi** (`AwxClientTests`: 401→refresh→retry /
+  rotazione persistita / refresh fallito → ValidationException / doppio-401 concorrente = 1
+  solo refresh / **Public client = client_id nel body, niente Basic**; probe: refresh
+  Confidential + **Public**; 1 handler setup; +1 Domain `ConfigureAwx`; test API setup passa
+  anche i campi OAuth). `dotnet build src/Iris.App` verde. **Da verificare a mano dall'utente**
+  col wizard + credenziali OAuth reali (nel suo caso: Application Public → lasciare vuoto il
+  campo client secret).
+
+**AWX: risoluzione lazy dei segreti + auto-unlock del wizard (2026-09-10)** - dopo il primo giro
+reale, l'utente ha visto: dopo il wizard → riavvio → unlock, AWX restava "Not configured" e i
+Test fallivano. Causa: `RegisterIntegrations` risolveva `AwxOptions.Token` **una volta
+all'avvio**, ma il token era nel vault di fallback in memoria (vuoto all'avvio, si popola solo
+con l'unlock a runtime) → `IsConfigured` falso per sempre, e le options singleton non
+rileggono dopo l'unlock. Serviva un secondo riavvio che comunque non risolveva.
+- **`AwxClient` ora risolve token / client secret / refresh token in modo lazy** al primo uso
+  (`EnsureCredentialsAsync`, doppia guardia con `SemaphoreSlim`): usa il valore da config/env se
+  presente, altrimenti fa `ISecretStore.RetrieveAsync(reference)` dal riferimento persistito —
+  come già fa `SmtpEmailSender` per la password SMTP. `AwxOptions` ha ora sia i valori
+  (`Token`/`OAuthClientSecret`/`RefreshToken`, per config/env) sia i riferimenti
+  (`*SecretReference`, mutuamente esclusivi). `IsConfigured`/`CanRefresh` considerano "valore
+  OPPURE riferimento". `RegisterIntegrations` non chiama più `ResolvePersistedToken` per AWX
+  (resta per AzureDevOps/Nexus/OpenBao) — passa i riferimenti. Se `RetrieveAsync` torna null
+  (vault ancora bloccato) → `ValidationException`/status "Unreachable" con messaggio "unlock the
+  fallback secrets in System settings". **Nuovo flusso**: wizard → auto-unlock → **1 solo
+  riavvio** → unlock (restore) → AWX funziona subito via lazy resolve, niente secondo riavvio.
+- **Il wizard fa Unlock automatico** subito dopo `ApplySessionAsync` (ha ancora in mano la
+  password admin): `_api.UnlockFallbackSecretsAsync(AdminPassword)` best-effort — i 5 segreti
+  diventano durevoli subito, il banner "5 to save" si risolve da solo. Il pulsante Unlock
+  manuale resta come fallback.
+- **Anche la login password fa Unlock automatico**: `AuthService.SignInAsync`, dopo un
+  `ApplySessionAsync` riuscito, chiama `UnlockFallbackSecretsAsync(password)` best-effort se
+  l'utente è `platform.admin` — così dopo un riavvio di Iris.Api l'admin non deve più cliccare
+  "Unlock" in System settings, basta rifare login. Non copre il resume da "remember me" (lì non
+  c'è password) né l'SSO (nessuna password locale): in quei casi resta il pulsante manuale.
+- OpenBao resta il caso non risolvibile lazy (il suo token serve a costruire `OpenBaoSecretStore`
+  stesso — chicken-and-egg vero): per averlo stabile va messo in `appsettings`/env all'avvio,
+  altrimenti Iris gira sul vault di fallback cifrato con un unlock per riavvio (modello scelto
+  dall'utente: nessun auto-decrypt al boot).
+- MAUI: `SystemSettingsPage` — la lista "Service connections" era un `CollectionView`
+  `HeightRequest="220"` con scroll interno → sostituito con `VerticalStackLayout` +
+  `BindableLayout` che si adatta al contenuto.
+- Verifica: `dotnet test Iris.sln` **368/368 verdi** (+2 `AwxClientTests`: risoluzione lazy da
+  reference / fallimento chiaro se il reference non è ancora risolvibile). `dotnet build
+  src/Iris.App` verde. **Da verificare a mano dall'utente**.
+
 **OpenBao self-provisioning via Docker** - `POST /system/integrations/openbao/provision`
 (`platform.admin`) è la prima capacità del repo di eseguire processi di sistema:
 `IContainerRuntime` (`Iris.Application.Abstractions`) + `DockerCliContainerRuntime`

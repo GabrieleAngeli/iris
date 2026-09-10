@@ -38,6 +38,12 @@ public sealed class GetSystemSettingsHandler(
             var status = await connector.GetStatusAsync(probe: false, cancellationToken).ConfigureAwait(false);
             var link = new IntegrationLinkResponse(status.Key, status.Name, status.Status, status.Endpoint, status.Message);
             link = ApplyOverrides(link, persisted, activeIntegrations, healthMonitor);
+            if (link.Key == "awx" && persisted is not null)
+            {
+                // Non-secret persisted config for the Configure dialog to pre-fill.
+                link = link with { AwxJobTemplateId = persisted.AwxJobTemplateId, AwxOAuthClientId = persisted.AwxOAuthClientId };
+            }
+
             integrations.Add(link);
         }
 

@@ -90,6 +90,9 @@ public partial class SetupWizardViewModel : ObservableObject
 	[ObservableProperty] private string _awxEndpoint = string.Empty;
 	[ObservableProperty] private string _awxToken = string.Empty;
 	[ObservableProperty] private string _awxJobTemplateId = string.Empty;
+	[ObservableProperty] private string _awxOAuthClientId = string.Empty;
+	[ObservableProperty] private string _awxOAuthClientSecret = string.Empty;
+	[ObservableProperty] private string _awxRefreshToken = string.Empty;
 	[ObservableProperty] private string? _awxError;
 
 	public bool IsAwxUseExisting => AwxModeIndex == ModeUseExisting;
@@ -263,7 +266,10 @@ public partial class SetupWizardViewModel : ObservableObject
 					Skip: false, InstallForMe: false,
 					Endpoint: AwxEndpoint.Trim(),
 					Token: string.IsNullOrEmpty(AwxToken) ? null : AwxToken,
-					JobTemplateId: awxJobTemplateId),
+					JobTemplateId: awxJobTemplateId,
+					OAuthClientId: string.IsNullOrWhiteSpace(AwxOAuthClientId) ? null : AwxOAuthClientId.Trim(),
+					OAuthClientSecret: string.IsNullOrEmpty(AwxOAuthClientSecret) ? null : AwxOAuthClientSecret,
+					RefreshToken: string.IsNullOrEmpty(AwxRefreshToken) ? null : AwxRefreshToken),
 				ModeInstallForMe => new AwxSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null, JobTemplateId: null),
 				_ => new AwxSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null, JobTemplateId: null),
 			};
@@ -276,6 +282,19 @@ public partial class SetupWizardViewModel : ObservableObject
 			{
 				AdminError = signedIn.Error;
 				return;
+			}
+
+			// The wizard just persisted OpenBao/AWX/SMTP secrets into the in-memory fallback
+			// vault. Unlock right now, while we still hold the admin's password, so they become
+			// durable (encrypted) immediately — the operator would otherwise have to do this
+			// manually from System settings before restarting, or lose them.
+			try
+			{
+				await _api.UnlockFallbackSecretsAsync(AdminPassword);
+			}
+			catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+			{
+				// Best-effort — the manual Unlock button in System settings is still there.
 			}
 
 			// Hand-off point: this only runs once ApplySessionAsync succeeded above, so it's
@@ -318,6 +337,17 @@ public partial class SetupWizardViewModel : ObservableObject
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
 			AdminError = ex.Message;
+		}
+		catch (Exception ex) when (ex is TaskCanceledException or TimeoutException)
+		{
+			// The request itself timed out (e.g. the server-side OpenBao/AWX reachability check
+			// is stuck on an unreachable endpoint) — never leave the wizard spinning with
+			// nothing on screen.
+			AdminError = "The request timed out. Check the OpenBao/AWX endpoints are reachable from the Iris host, or choose \"Skip for now\" and configure them later in System settings.";
+		}
+		catch (Exception ex)
+		{
+			AdminError = $"Setup failed: {ex.Message}";
 		}
 		finally
 		{

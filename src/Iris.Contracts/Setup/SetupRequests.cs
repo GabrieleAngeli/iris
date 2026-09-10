@@ -29,8 +29,18 @@ public sealed record TestMailConnectionRequest(MailProviderInput Mail, string Te
 /// </summary>
 public sealed record OpenBaoSetupInput(bool Skip, bool InstallForMe, string? Endpoint, string? Token);
 
-/// <summary>Same shape as <see cref="OpenBaoSetupInput"/>, plus the AWX job template id.</summary>
-public sealed record AwxSetupInput(bool Skip, bool InstallForMe, string? Endpoint, string? Token, int? JobTemplateId);
+/// <summary>Same shape as <see cref="OpenBaoSetupInput"/>, plus the AWX job template id and the
+/// optional OAuth2 refresh credentials (client id/secret + refresh token) that let Iris
+/// auto-renew the access token.</summary>
+public sealed record AwxSetupInput(
+    bool Skip,
+    bool InstallForMe,
+    string? Endpoint,
+    string? Token,
+    int? JobTemplateId,
+    string? OAuthClientId = null,
+    string? OAuthClientSecret = null,
+    string? RefreshToken = null);
 
 /// <summary>
 /// Body of <c>POST /setup/complete</c> — the whole first-run wizard in one call.

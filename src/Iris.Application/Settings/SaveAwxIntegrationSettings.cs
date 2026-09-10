@@ -7,7 +7,10 @@ namespace Iris.Application.Settings;
 public sealed record SaveAwxIntegrationSettingsCommand(
     string Endpoint,
     string? Token,
-    int? JobTemplateId);
+    int? JobTemplateId,
+    string? OAuthClientId = null,
+    string? OAuthClientSecret = null,
+    string? RefreshToken = null);
 
 public sealed class SaveAwxIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
@@ -28,20 +31,40 @@ public sealed class SaveAwxIntegrationSettingsHandler(
 
         var settings = await settingsRepository.GetOrCreateAsync(cancellationToken).ConfigureAwait(false);
 
-        // Same rule as OpenBao: a blank Token keeps whatever is already stored.
-        var tokenReference = settings.AwxTokenSecretReference;
-        if (!string.IsNullOrEmpty(command.Token))
-        {
-            tokenReference = await secretStore
-                .StoreAsync("awx/token", command.Token, cancellationToken)
-                .ConfigureAwait(false);
-        }
+        // Same rule as OpenBao for every secret here: a blank value keeps whatever is already
+        // stored, it does not clear it.
+        var tokenReference = await KeepOrStoreAsync(
+            command.Token, "awx/token", settings.AwxTokenSecretReference, cancellationToken).ConfigureAwait(false);
+        var clientSecretReference = await KeepOrStoreAsync(
+            command.OAuthClientSecret, "awx/oauth-client-secret", settings.AwxOAuthClientSecretReference, cancellationToken).ConfigureAwait(false);
+        var refreshTokenReference = await KeepOrStoreAsync(
+            command.RefreshToken, "awx/refresh-token", settings.AwxRefreshTokenSecretReference, cancellationToken).ConfigureAwait(false);
 
-        settings.ConfigureAwx(endpoint, tokenReference, command.JobTemplateId);
+        var clientId = string.IsNullOrWhiteSpace(command.OAuthClientId)
+            ? settings.AwxOAuthClientId
+            : command.OAuthClientId.Trim();
+
+        // Same partial-update rule as the secrets: a blank job template id keeps the stored one
+        // rather than wiping it (the Configure dialog is a partial form — an empty field means
+        // "leave it", not "clear it").
+        var jobTemplateId = command.JobTemplateId ?? settings.AwxJobTemplateId;
+
+        settings.ConfigureAwx(endpoint, tokenReference, jobTemplateId, clientId, clientSecretReference, refreshTokenReference);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
             RestartRequired: true,
             Message: "AWX settings saved. Restart Iris.Api for this instance to start using them.");
+    }
+
+    private async Task<string?> KeepOrStoreAsync(
+        string? value, string logicalPath, string? existingReference, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return existingReference;
+        }
+
+        return await secretStore.StoreAsync(logicalPath, value, cancellationToken).ConfigureAwait(false);
     }
 }
