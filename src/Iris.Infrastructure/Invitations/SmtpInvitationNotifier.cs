@@ -32,7 +32,9 @@ internal sealed class SmtpInvitationNotifier(
 
         var body =
             $"Hello {notification.DisplayName},\n\n" +
-            $"You've been invited to Iris. Set your password to get started:\n{notification.AcceptLink}\n\n" +
+            "You've been invited to Iris. Open the Iris application, go to \"Set your password from an " +
+            "invitation\" on the sign-in screen, and paste this link (or just the token) there to set your " +
+            $"password — it isn't a web page, opening it in a browser won't work:\n{notification.AcceptLink}\n\n" +
             $"This link expires {notification.ExpiresAtUtc:u}.";
 
         await emailSender
