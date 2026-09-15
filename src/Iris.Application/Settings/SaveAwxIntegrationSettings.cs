@@ -10,7 +10,8 @@ public sealed record SaveAwxIntegrationSettingsCommand(
     int? JobTemplateId,
     string? OAuthClientId = null,
     string? OAuthClientSecret = null,
-    string? RefreshToken = null);
+    string? RefreshToken = null,
+    int? FactsJobTemplateId = null);
 
 public sealed class SaveAwxIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
@@ -48,8 +49,10 @@ public sealed class SaveAwxIntegrationSettingsHandler(
         // rather than wiping it (the Configure dialog is a partial form — an empty field means
         // "leave it", not "clear it").
         var jobTemplateId = command.JobTemplateId ?? settings.AwxJobTemplateId;
+        var factsJobTemplateId = command.FactsJobTemplateId ?? settings.AwxFactsJobTemplateId;
 
-        settings.ConfigureAwx(endpoint, tokenReference, jobTemplateId, clientId, clientSecretReference, refreshTokenReference);
+        settings.ConfigureAwx(
+            endpoint, tokenReference, jobTemplateId, clientId, clientSecretReference, refreshTokenReference, factsJobTemplateId);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(

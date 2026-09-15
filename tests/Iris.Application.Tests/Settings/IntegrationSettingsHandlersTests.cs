@@ -132,6 +132,22 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
+    public async Task SaveAwx_with_a_null_facts_job_template_id_keeps_the_stored_one()
+    {
+        var store = new FakeStore();
+        await AwxHandler(store).HandleAsync(
+            new SaveAwxIntegrationSettingsCommand("https://awx.example.com", "awx-token", 7, FactsJobTemplateId: 42));
+
+        // Re-save from a partial Configure form that only changed the deploy job template id.
+        await AwxHandler(store).HandleAsync(
+            new SaveAwxIntegrationSettingsCommand("https://awx.example.com", null, 8, FactsJobTemplateId: null));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal(8, settings.AwxJobTemplateId);
+        Assert.Equal(42, settings.AwxFactsJobTemplateId);
+    }
+
+    [Fact]
     public async Task SaveAwx_rejects_a_blank_endpoint()
     {
         var store = new FakeStore();

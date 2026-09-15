@@ -49,6 +49,11 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
 
     public int? AwxJobTemplateId { get; private set; }
 
+    /// <summary>Job template used for server inventory discovery — a separate template from
+    /// <see cref="AwxJobTemplateId"/> (which deploys applications), configured with AWX's
+    /// <c>use_fact_cache</c> so its runs populate <c>GET /api/v2/hosts/{id}/ansible_facts/</c>.</summary>
+    public int? AwxFactsJobTemplateId { get; private set; }
+
     /// <summary>OAuth2 Application client id used to refresh the AWX access token — an
     /// identifier, not a secret, so it lives here directly. Set (with the two refs below)
     /// when the AWX token should be auto-renewed instead of used static.</summary>
@@ -102,7 +107,8 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
         int? jobTemplateId,
         string? oAuthClientId = null,
         string? oAuthClientSecretReference = null,
-        string? refreshTokenSecretReference = null)
+        string? refreshTokenSecretReference = null,
+        int? factsJobTemplateId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
 
@@ -112,6 +118,7 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
         AwxOAuthClientId = string.IsNullOrWhiteSpace(oAuthClientId) ? null : oAuthClientId.Trim();
         AwxOAuthClientSecretReference = oAuthClientSecretReference;
         AwxRefreshTokenSecretReference = refreshTokenSecretReference;
+        AwxFactsJobTemplateId = factsJobTemplateId;
     }
 
     public void ConfigureAnsible(string endpoint, string playbook, string? inventory)

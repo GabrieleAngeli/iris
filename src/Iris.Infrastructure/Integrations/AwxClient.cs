@@ -191,6 +191,60 @@ internal sealed class AwxClient : IAwxClient, IIntegrationConnector, IDisposable
         return new AwxJobStatusResult(status, finished, finished && !failed, url, message);
     }
 
+    public async Task<AwxHostFactsResult> GetHostFactsAsync(
+        string hostname,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.IsConfigured)
+        {
+            throw new ValidationException("AWX is not configured. Set endpoint, token and job template id.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+
+        await EnsureCredentialsAsync(cancellationToken).ConfigureAwait(false);
+
+        var lookupUri = new Uri(
+            new Uri(_options.Endpoint!), $"/api/v2/hosts/?name={Uri.EscapeDataString(hostname)}");
+        using var lookupResponse = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, lookupUri), cancellationToken).ConfigureAwait(false);
+
+        var lookupBody = await lookupResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!lookupResponse.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the host lookup request ({(int)lookupResponse.StatusCode}): {lookupBody}");
+        }
+
+        using var lookupJson = JsonDocument.Parse(lookupBody);
+        if (!lookupJson.RootElement.TryGetProperty("results", out var results) ||
+            results.ValueKind != JsonValueKind.Array ||
+            results.GetArrayLength() == 0 ||
+            !results[0].TryGetProperty("id", out var hostIdProperty) ||
+            !hostIdProperty.TryGetInt64(out var hostId))
+        {
+            return new AwxHostFactsResult(false, null);
+        }
+
+        var factsUri = new Uri(new Uri(_options.Endpoint!), $"/api/v2/hosts/{hostId}/ansible_facts/");
+        using var factsResponse = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, factsUri), cancellationToken).ConfigureAwait(false);
+
+        var factsBody = await factsResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!factsResponse.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the facts request ({(int)factsResponse.StatusCode}): {factsBody}");
+        }
+
+        using var factsJson = JsonDocument.Parse(factsBody);
+        var facts = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var property in factsJson.RootElement.EnumerateObject())
+        {
+            facts[property.Name] = property.Value.Clone();
+        }
+
+        return new AwxHostFactsResult(true, facts);
+    }
+
     public async Task<IntegrationConnectorStatus> GetStatusAsync(
         bool probe = false,
         CancellationToken cancellationToken = default)

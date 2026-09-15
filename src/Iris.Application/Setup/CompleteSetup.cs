@@ -167,7 +167,8 @@ public sealed class CompleteSetupHandler(
                     command.Awx.JobTemplateId,
                     command.Awx.OAuthClientId,
                     command.Awx.OAuthClientSecret,
-                    awxProbe.RefreshedRefreshToken ?? command.Awx.RefreshToken),
+                    awxProbe.RefreshedRefreshToken ?? command.Awx.RefreshToken,
+                    command.Awx.FactsJobTemplateId),
                 cancellationToken).ConfigureAwait(false);
         }
 

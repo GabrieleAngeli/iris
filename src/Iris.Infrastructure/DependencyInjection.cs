@@ -78,7 +78,7 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationSettingsRepository, IntegrationSettingsRepository>();
         services.AddScoped<IFallbackSecretEntryRepository, FallbackSecretEntryRepository>();
         services.AddScoped<ITransactionLogRepository, TransactionLogRepository>();
-        services.TryAddScoped<IServerInventoryProbe, MockServerInventoryProbe>();
+        services.TryAddScoped<IServerInventoryProbe, AwxServerInventoryProbe>();
         services.TryAddSingleton<IProcessRunner, SystemProcessRunner>();
         services.TryAddScoped<IContainerRuntime, DockerCliContainerRuntime>();
         services.TryAddScoped<IDataServiceInventoryProbe, MockDataServiceInventoryProbe>();
@@ -164,6 +164,10 @@ public static class DependencyInjection
             ? persisted!.AwxJobTemplateId
             : int.TryParse(integrations["AWX:JobTemplateId"], out var jobTemplateId) ? jobTemplateId : null;
 
+        var awxFactsJobTemplateId = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
+            ? persisted!.AwxFactsJobTemplateId
+            : int.TryParse(integrations["AWX:FactsJobTemplateId"], out var factsJobTemplateId) ? factsJobTemplateId : null;
+
         // AWX secrets are NOT resolved eagerly here: when they were saved through the UI they may
         // sit in the fallback vault, which isn't readable until an admin unlocks it *after*
         // startup. So pass the persisted reference through and let AwxClient resolve it lazily
@@ -178,6 +182,7 @@ public static class DependencyInjection
             Token = string.IsNullOrWhiteSpace(persisted?.AwxTokenSecretReference) ? integrations["AWX:Token"] : null,
             TokenSecretReference = persisted?.AwxTokenSecretReference,
             JobTemplateId = awxJobTemplateId,
+            FactsJobTemplateId = awxFactsJobTemplateId,
             OAuthClientId = awxOAuthClientId,
             OAuthClientSecret = string.IsNullOrWhiteSpace(persisted?.AwxOAuthClientSecretReference) ? integrations["AWX:OAuthClientSecret"] : null,
             OAuthClientSecretReference = persisted?.AwxOAuthClientSecretReference,

@@ -651,6 +651,16 @@ public sealed class InfrastructureResourceRowViewModel : ObservableObject
 
 	public IEnumerable<CredentialRowViewModel> Credentials => _server?.Credentials ?? [];
 
+	public bool HasDisks => _server?.HasDisks == true;
+
+	public IEnumerable<ServerDiskRowViewModel> Disks => _server?.Disks ?? [];
+
+	public bool HasReachabilityStatus => _server?.HasReachabilityStatus == true;
+
+	public bool IsReachable => _server?.IsReachable == true;
+
+	public string ReachabilityText => _server?.ReachabilityText ?? string.Empty;
+
 	public IRelayCommand EditCommand => _server?.OpenEditCommand ?? _dataService!.EditCommand;
 
 	public IAsyncRelayCommand DiscoverCommand => _server?.DiscoverInventoryCommand ?? _dataService!.DiscoverCommand;
@@ -1059,6 +1069,13 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 	[ObservableProperty] private int? _diskGb;
 	[ObservableProperty] private int? _applicationDiskGb;
 	[ObservableProperty] private int? _backupDiskGb;
+	[ObservableProperty] private int? _freeMemoryMb;
+	[ObservableProperty] private int? _freeDiskGb;
+	[ObservableProperty] private bool? _isReachable;
+	[ObservableProperty] private DateTimeOffset? _lastDiscoveredAtUtc;
+	[ObservableProperty] private string? _lastDiscoveryError;
+
+	public ObservableCollection<ServerDiskRowViewModel> Disks { get; } = [];
 
 	public ObservableCollection<CredentialRowViewModel> Credentials { get; }
 
@@ -1089,12 +1106,12 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 
 			if (MemoryMb is { } memory)
 			{
-				parts.Add($"{memory} MB RAM");
+				parts.Add(FreeMemoryMb is { } freeMemory ? $"{freeMemory}/{memory} MB RAM free" : $"{memory} MB RAM");
 			}
 
 			if (DiskGb is { } disk)
 			{
-				parts.Add($"{disk} GB disk");
+				parts.Add(FreeDiskGb is { } freeDisk ? $"{freeDisk}/{disk} GB disk free" : $"{disk} GB disk");
 			}
 
 			if (ApplicationDiskGb is { } appDisk)
@@ -1124,6 +1141,20 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 
 	public bool HasCredentials => Credentials.Count > 0;
 
+	public bool HasDisks => Disks.Count > 0;
+
+	/// <summary>Null before the first discovery attempt — nothing to show yet.</summary>
+	public bool HasReachabilityStatus => IsReachable is not null;
+
+	public string ReachabilityText => IsReachable switch
+	{
+		true => LastDiscoveredAtUtc is { } at
+			? $"Reachable — last discovered {at.ToLocalTime():g}"
+			: "Reachable",
+		false => $"Discovery failed: {LastDiscoveryError}",
+		null => string.Empty,
+	};
+
 	private void ApplyFrom(ServerResponse server)
 	{
 		Name = server.Name;
@@ -1143,11 +1174,25 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 		DiskGb = server.Resources?.DiskGb;
 		ApplicationDiskGb = server.Resources?.ApplicationDiskGb;
 		BackupDiskGb = server.Resources?.BackupDiskGb;
+		FreeMemoryMb = server.Resources?.FreeMemoryMb;
+		FreeDiskGb = server.Resources?.FreeDiskGb;
+		IsReachable = server.IsReachable;
+		LastDiscoveredAtUtc = server.LastDiscoveredAtUtc;
+		LastDiscoveryError = server.LastDiscoveryError;
+		Disks.Clear();
+		foreach (var disk in server.Disks)
+		{
+			Disks.Add(new ServerDiskRowViewModel(disk));
+		}
+
 		OnPropertyChanged(nameof(HasResourceSummary));
 		OnPropertyChanged(nameof(ResourceSummary));
 		OnPropertyChanged(nameof(UsedPortsText));
 		OnPropertyChanged(nameof(HasDiscoveryDetails));
 		OnPropertyChanged(nameof(DiscoverySummary));
+		OnPropertyChanged(nameof(HasDisks));
+		OnPropertyChanged(nameof(HasReachabilityStatus));
+		OnPropertyChanged(nameof(ReachabilityText));
 	}
 
 	// ----- Add credential -----
@@ -1387,6 +1432,15 @@ public sealed partial class ServerRowViewModel : ObservableObject, IConfirmDelet
 			ApplyFrom(withCapacity);
 			_parent.RebuildResources();
 			EditCompleted?.Invoke(this, EventArgs.Empty);
+
+			// Mirrors CreateServerAsync's post-create behavior: re-run real discovery so the
+			// edited hostname/OS is reflected in fresh AWX facts, not just the manually-typed
+			// fields. The edit dialog has already closed (EditCompleted, above); this only
+			// updates the row's own busy/discovery state in the underlying list.
+			if (HasCredentials)
+			{
+				await DiscoverInventoryAsync();
+			}
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
@@ -1624,4 +1678,19 @@ public sealed class CredentialRowViewModel(ServerCredentialResponse credential, 
 			: credential.Label ?? "system user";
 
 	public ServerRowViewModel Owner => owner;
+}
+
+/// <summary>One filesystem mount found on the server's last successful discovery.</summary>
+public sealed class ServerDiskRowViewModel(ServerDiskResponse disk)
+{
+	public string DeviceName => disk.DeviceName;
+
+	public string? MountPoint => disk.MountPoint;
+
+	public int TotalGb => disk.TotalGb;
+
+	public int FreeGb => disk.FreeGb;
+
+	public string Summary =>
+		$"{disk.DeviceName}{(string.IsNullOrWhiteSpace(disk.MountPoint) ? string.Empty : $" ({disk.MountPoint})")} — {disk.FreeGb}/{disk.TotalGb} GB free";
 }

@@ -128,7 +128,8 @@ public partial class SystemSettingsViewModel(
 					object? dialogVm = integration.Key.ToLowerInvariant() switch
 					{
 						"openbao" => new ConfigureOpenBaoDialogViewModel(api, integration.Endpoint),
-						"awx" => new ConfigureAwxDialogViewModel(api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId),
+						"awx" => new ConfigureAwxDialogViewModel(
+						api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId, integration.AwxFactsJobTemplateId),
 						"ansible" => new ConfigureAnsibleDialogViewModel(api, integration.Endpoint),
 						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(api, integration.Endpoint),
 						"nexus" => new ConfigureNexusDialogViewModel(api, integration.Endpoint),
@@ -540,12 +541,17 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 	private readonly IIrisApiClient _api;
 
 	public ConfigureAwxDialogViewModel(
-		IIrisApiClient api, string? currentEndpoint, int? currentJobTemplateId = null, string? currentOAuthClientId = null)
+		IIrisApiClient api,
+		string? currentEndpoint,
+		int? currentJobTemplateId = null,
+		string? currentOAuthClientId = null,
+		int? currentFactsJobTemplateId = null)
 	{
 		_api = api;
 		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
 		JobTemplateId = currentJobTemplateId is > 0 ? currentJobTemplateId.Value.ToString() : string.Empty;
 		OAuthClientId = string.IsNullOrWhiteSpace(currentOAuthClientId) ? string.Empty : currentOAuthClientId;
+		FactsJobTemplateId = currentFactsJobTemplateId is > 0 ? currentFactsJobTemplateId.Value.ToString() : string.Empty;
 	}
 
 	[ObservableProperty] private string _endpoint;
@@ -554,6 +560,7 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 	[ObservableProperty] private string _oAuthClientId = string.Empty;
 	[ObservableProperty] private string _oAuthClientSecret = string.Empty;
 	[ObservableProperty] private string _refreshToken = string.Empty;
+	[ObservableProperty] private string _factsJobTemplateId = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
 
@@ -577,6 +584,7 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 		}
 
 		var jobTemplateId = int.TryParse(JobTemplateId, out var parsed) ? parsed : (int?)null;
+		var factsJobTemplateId = int.TryParse(FactsJobTemplateId, out var parsedFacts) ? parsedFacts : (int?)null;
 
 		IsBusy = true;
 		Error = null;
@@ -589,7 +597,8 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 				jobTemplateId,
 				string.IsNullOrWhiteSpace(OAuthClientId) ? null : OAuthClientId.Trim(),
 				string.IsNullOrEmpty(OAuthClientSecret) ? null : OAuthClientSecret,
-				string.IsNullOrEmpty(RefreshToken) ? null : RefreshToken));
+				string.IsNullOrEmpty(RefreshToken) ? null : RefreshToken,
+				factsJobTemplateId));
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}

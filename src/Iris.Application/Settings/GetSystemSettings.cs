@@ -41,7 +41,12 @@ public sealed class GetSystemSettingsHandler(
             if (link.Key == "awx" && persisted is not null)
             {
                 // Non-secret persisted config for the Configure dialog to pre-fill.
-                link = link with { AwxJobTemplateId = persisted.AwxJobTemplateId, AwxOAuthClientId = persisted.AwxOAuthClientId };
+                link = link with
+                {
+                    AwxJobTemplateId = persisted.AwxJobTemplateId,
+                    AwxOAuthClientId = persisted.AwxOAuthClientId,
+                    AwxFactsJobTemplateId = persisted.AwxFactsJobTemplateId,
+                };
             }
 
             integrations.Add(link);

@@ -583,6 +583,11 @@ internal sealed class FakeAwxClient : IAwxClient
             ? throw new ValidationException("AWX is not configured.")
             : Task.FromResult(JobStatus);
     }
+
+    public AwxHostFactsResult HostFacts { get; set; } = new(false, null);
+
+    public Task<AwxHostFactsResult> GetHostFactsAsync(string hostname, CancellationToken cancellationToken = default) =>
+        Task.FromResult(HostFacts);
 }
 
 /// <summary>Trivial stand-in for the Ansible extra-vars builder (the real one lives in Iris.Infrastructure).</summary>

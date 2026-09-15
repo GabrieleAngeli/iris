@@ -11,6 +11,7 @@ public sealed class DiscoverServerInventoryHandler(
     IServerRepository servers,
     IUserRepository users,
     IServerInventoryProbe inventoryProbe,
+    IClock clock,
     IUnitOfWork unitOfWork)
 {
     public async Task<ServerResponse> HandleAsync(
@@ -29,12 +30,16 @@ public sealed class DiscoverServerInventoryHandler(
 
         var snapshot = await inventoryProbe.DiscoverAsync(server, cancellationToken).ConfigureAwait(false);
         server.ApplyInventoryDiscovery(
+            snapshot.IsReachable,
+            clock.UtcNow,
+            snapshot.Error,
             snapshot.Os,
             snapshot.OsVersion,
             snapshot.MachineSize,
             snapshot.Capabilities,
             snapshot.Resources,
-            snapshot.UsedPorts);
+            snapshot.UsedPorts,
+            snapshot.Disks);
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 

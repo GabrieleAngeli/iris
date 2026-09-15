@@ -14,6 +14,10 @@ internal sealed class AwxOptions
 
     public int? JobTemplateId { get; init; }
 
+    /// <summary>Job template dedicated to server inventory discovery (<c>use_fact_cache</c> on),
+    /// separate from <see cref="JobTemplateId"/> which deploys applications.</summary>
+    public int? FactsJobTemplateId { get; init; }
+
     /// <summary>OAuth2 Application client id — set (with a refresh token, and a client secret for
     /// a Confidential application) to let <see cref="AwxClient"/> auto-renew the access token on a
     /// 401 instead of failing.</summary>

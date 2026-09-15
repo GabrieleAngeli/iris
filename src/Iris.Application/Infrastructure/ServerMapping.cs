@@ -22,14 +22,27 @@ internal static class ServerMapping
         server.Credentials.Select(c => c.ToResponse(LookupOwner(c, ownerNames))).ToArray(),
         server.Capabilities.Select(c => c.ToString()).ToArray(),
         server.Resources?.ToResponse(),
-        server.UsedPorts);
+        server.UsedPorts,
+        server.Disks.Select(d => d.ToResponse()).ToArray(),
+        server.IsReachable,
+        server.LastDiscoveredAtUtc,
+        server.LastDiscoveryError);
 
     public static ResourceProfileResponse ToResponse(this ResourceProfile resources) => new(
         resources.CpuCores,
         resources.MemoryMb,
         resources.DiskGb,
         resources.ApplicationDiskGb,
-        resources.BackupDiskGb);
+        resources.BackupDiskGb,
+        resources.FreeMemoryMb,
+        resources.FreeDiskGb);
+
+    public static ServerDiskResponse ToResponse(this ServerDisk disk) => new(
+        disk.DeviceName,
+        disk.MountPoint,
+        disk.FileSystem,
+        disk.TotalGb,
+        disk.FreeGb);
 
     public static ServerCredentialResponse ToResponse(this ServerCredential credential, string? ownerDisplayName = null) => new(
         credential.Id,

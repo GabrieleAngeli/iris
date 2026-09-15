@@ -81,7 +81,7 @@
                             </Border>
                         </VerticalStackLayout>
 
-                        <Grid ColumnDefinitions="2*,1*,1*" ColumnSpacing="10" IsVisible="{Binding IsAwxUseExisting}">
+                        <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10" IsVisible="{Binding IsAwxUseExisting}">
                             <VerticalStackLayout Spacing="4">
                                 <Label Text="Endpoint" Style="{StaticResource Caption}" />
                                 <Border Style="{StaticResource FieldBorder}">
@@ -94,10 +94,19 @@
                                     <Entry Text="{Binding AwxToken}" IsPassword="True" />
                                 </Border>
                             </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="2" Spacing="4">
-                                <Label Text="Job template id" Style="{StaticResource Caption}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10" IsVisible="{Binding IsAwxUseExisting}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Job template id (deploy)" Style="{StaticResource Caption}" />
                                 <Border Style="{StaticResource FieldBorder}">
                                     <Entry Text="{Binding AwxJobTemplateId}" Keyboard="Numeric" Placeholder="1" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="Job template id (facts / discovery)" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource FieldBorder}">
+                                    <Entry Text="{Binding AwxFactsJobTemplateId}" Keyboard="Numeric" Placeholder="2" />
                                 </Border>
                             </VerticalStackLayout>
                         </Grid>

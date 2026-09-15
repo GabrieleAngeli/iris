@@ -19,7 +19,8 @@ public sealed record IntegrationLinkResponse(
     // Non-secret persisted config, echoed back so the "Configure" dialog can pre-fill and the
     // operator doesn't have to re-type (or accidentally wipe) them. AWX-only for now.
     int? AwxJobTemplateId = null,
-    string? AwxOAuthClientId = null);
+    string? AwxOAuthClientId = null,
+    int? AwxFactsJobTemplateId = null);
 
 /// <summary>Non-null only when there's something to unlock (bare counts, never which secrets —
 /// see <c>IFallbackSecretVault</c>'s remarks). Drives the "Unlock secrets" banner in

@@ -101,6 +101,16 @@
                                             <Label Text="{Binding ResourceSummary}" Style="{StaticResource Caption}" />
                                             <Label Text="{Binding NetworkSummary}" Style="{StaticResource Caption}" />
                                             <Label Text="{Binding TagText, StringFormat='Tags: {0}'}" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding ReachabilityText}" Style="{StaticResource Caption}" IsVisible="{Binding HasReachabilityStatus}"
+                                                   TextColor="{Binding IsReachable, Converter={StaticResource ReachabilityColorConverter}}" />
+                                            <VerticalStackLayout Spacing="2" IsVisible="{Binding HasDisks}"
+                                                                 BindableLayout.ItemsSource="{Binding Disks}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ServerDiskRowViewModel">
+                                                        <Label Text="{Binding Summary}" Style="{StaticResource Caption}" />
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
                                         </VerticalStackLayout>
 
                                         <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">

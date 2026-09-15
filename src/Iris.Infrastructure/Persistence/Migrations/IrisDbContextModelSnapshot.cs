@@ -1000,6 +1000,40 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.ToTable("ServerCredentials", (string)null);
                 });
 
+            modelBuilder.Entity("Iris.Domain.Infrastructure.ServerDisk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileSystem")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FreeGb")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MountPoint")
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ServerNodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TotalGb")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerNodeId");
+
+                    b.ToTable("ServerDisks", (string)null);
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1028,6 +1062,16 @@ namespace Iris.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("IsReachable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("LastDiscoveredAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastDiscoveryError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MachineSize")
                         .HasMaxLength(120)
@@ -1121,6 +1165,9 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<string>("AwxEndpoint")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("AwxFactsJobTemplateId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("AwxJobTemplateId")
                         .HasColumnType("INTEGER");
@@ -1469,6 +1516,15 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Iris.Domain.Infrastructure.ServerDisk", b =>
+                {
+                    b.HasOne("Iris.Domain.Infrastructure.ServerNode", null)
+                        .WithMany("Disks")
+                        .HasForeignKey("ServerNodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>
                 {
                     b.OwnsOne("Iris.Domain.Infrastructure.ResourceProfile", "Resources", b1 =>
@@ -1491,6 +1547,14 @@ namespace Iris.Infrastructure.Persistence.Migrations
                             b1.Property<int?>("DiskGb")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("ResourceDiskGb");
+
+                            b1.Property<int?>("FreeDiskGb")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ResourceFreeDiskGb");
+
+                            b1.Property<int?>("FreeMemoryMb")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ResourceFreeMemoryMb");
 
                             b1.Property<int?>("MemoryMb")
                                 .HasColumnType("INTEGER")
@@ -1544,6 +1608,8 @@ namespace Iris.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Iris.Domain.Infrastructure.ServerNode", b =>
                 {
                     b.Navigation("Credentials");
+
+                    b.Navigation("Disks");
                 });
 
             modelBuilder.Entity("Iris.Domain.Tenancy.Customer", b =>

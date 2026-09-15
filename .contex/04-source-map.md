@@ -44,7 +44,7 @@ File da leggere prima di agire, per area.
 
 ## Infrastructure
 
-- `src/Iris.Domain/Infrastructure/{ServerNode,ServerCredential,ServerCredentialKind,ServerOs,ServerHostingType,ServerCredentialAuthMethod,NodeCapability,ResourceProfile,DataServiceInstance,DataServiceKind}.cs`
+- `src/Iris.Domain/Infrastructure/{ServerNode,ServerCredential,ServerCredentialKind,ServerOs,ServerHostingType,ServerCredentialAuthMethod,NodeCapability,ResourceProfile,ServerDisk,DataServiceInstance,DataServiceKind}.cs`
 - `src/Iris.Application/Infrastructure/*.cs` - in particolare `ServerDetailsInput.cs`,
   `ServerCredentialFactory.cs`, `UpdateServerCapacity.cs`, `DiscoverServerInventory.cs`,
   `DataServices.cs`
@@ -53,7 +53,9 @@ File da leggere prima di agire, per area.
   `src/Iris.Application/Abstractions/IDataServiceInventoryProbe.cs`,
   `src/Iris.Application/Abstractions/IDataServiceRepository.cs`,
   `src/Iris.Infrastructure/Secrets/InMemorySecretStore.cs`,
-  `src/Iris.Infrastructure/Inventory/{MockServerInventoryProbe,MockDataServiceInventoryProbe}.cs`
+  `src/Iris.Infrastructure/Inventory/{AwxServerInventoryProbe,MockDataServiceInventoryProbe}.cs` -
+  la discovery server è reale (job AWX con `use_fact_cache`, non più mock); non fa mai port
+  mapping, `UsedPorts` passa invariato
 - `src/Iris.Api/Endpoints/InfrastructureEndpoints.cs`
 - `src/Iris.Contracts/Infrastructure/{InfrastructureRequests,ServerResponse}.cs`
 - `src/Iris.App/ViewModels/ServersViewModel.cs` - include `Resources`, la lista MAUI

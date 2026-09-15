@@ -90,6 +90,7 @@ public partial class SetupWizardViewModel : ObservableObject
 	[ObservableProperty] private string _awxEndpoint = string.Empty;
 	[ObservableProperty] private string _awxToken = string.Empty;
 	[ObservableProperty] private string _awxJobTemplateId = string.Empty;
+	[ObservableProperty] private string _awxFactsJobTemplateId = string.Empty;
 	[ObservableProperty] private string _awxOAuthClientId = string.Empty;
 	[ObservableProperty] private string _awxOAuthClientSecret = string.Empty;
 	[ObservableProperty] private string _awxRefreshToken = string.Empty;
@@ -260,6 +261,7 @@ public partial class SetupWizardViewModel : ObservableObject
 			};
 
 			var awxJobTemplateId = int.TryParse(AwxJobTemplateId, out var parsedJobTemplateId) ? parsedJobTemplateId : (int?)null;
+			var awxFactsJobTemplateId = int.TryParse(AwxFactsJobTemplateId, out var parsedFactsJobTemplateId) ? parsedFactsJobTemplateId : (int?)null;
 			var awx = AwxModeIndex switch
 			{
 				ModeUseExisting => new AwxSetupInput(
@@ -269,7 +271,8 @@ public partial class SetupWizardViewModel : ObservableObject
 					JobTemplateId: awxJobTemplateId,
 					OAuthClientId: string.IsNullOrWhiteSpace(AwxOAuthClientId) ? null : AwxOAuthClientId.Trim(),
 					OAuthClientSecret: string.IsNullOrEmpty(AwxOAuthClientSecret) ? null : AwxOAuthClientSecret,
-					RefreshToken: string.IsNullOrEmpty(AwxRefreshToken) ? null : AwxRefreshToken),
+					RefreshToken: string.IsNullOrEmpty(AwxRefreshToken) ? null : AwxRefreshToken,
+					FactsJobTemplateId: awxFactsJobTemplateId),
 				ModeInstallForMe => new AwxSetupInput(Skip: false, InstallForMe: true, Endpoint: null, Token: null, JobTemplateId: null),
 				_ => new AwxSetupInput(Skip: true, InstallForMe: false, Endpoint: null, Token: null, JobTemplateId: null),
 			};

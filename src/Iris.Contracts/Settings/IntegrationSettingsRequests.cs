@@ -18,7 +18,8 @@ public sealed record SaveAwxIntegrationSettingsRequest(
     int? JobTemplateId,
     string? OAuthClientId = null,
     string? OAuthClientSecret = null,
-    string? RefreshToken = null);
+    string? RefreshToken = null,
+    int? FactsJobTemplateId = null);
 
 /// <summary>Body of <c>PUT /system/integrations/ansible</c>. No secret — this describes a
 /// playbook/inventory target, not a credentialed API.</summary>

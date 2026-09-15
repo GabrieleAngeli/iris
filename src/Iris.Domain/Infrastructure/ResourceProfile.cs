@@ -19,13 +19,17 @@ public sealed class ResourceProfile
         int? memoryMb,
         int? diskGb,
         int? applicationDiskGb = null,
-        int? backupDiskGb = null)
+        int? backupDiskGb = null,
+        int? freeMemoryMb = null,
+        int? freeDiskGb = null)
     {
         CpuCores = cpuCores;
         MemoryMb = memoryMb;
         DiskGb = diskGb;
         ApplicationDiskGb = applicationDiskGb;
         BackupDiskGb = backupDiskGb;
+        FreeMemoryMb = freeMemoryMb;
+        FreeDiskGb = freeDiskGb;
     }
 
     public int? CpuCores { get; private set; }
@@ -37,4 +41,11 @@ public sealed class ResourceProfile
     public int? ApplicationDiskGb { get; private set; }
 
     public int? BackupDiskGb { get; private set; }
+
+    /// <summary>Free RAM, as of the last successful discovery. Null when never discovered.</summary>
+    public int? FreeMemoryMb { get; private set; }
+
+    /// <summary>Free disk space across the discovered mounts, as of the last successful
+    /// discovery. Null when never discovered.</summary>
+    public int? FreeDiskGb { get; private set; }
 }

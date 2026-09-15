@@ -52,3 +52,18 @@ public sealed class StatusColorConverter : IValueConverter
 	public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
 		=> throw new NotSupportedException();
 }
+
+/// <summary>Green when a server's last discovery succeeded, red when it failed.</summary>
+public sealed class ReachabilityColorConverter : IValueConverter
+{
+	public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+	{
+		var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+		return value is true
+			? Color.FromArgb(isDark ? "#5EC75E" : "#0E700E")
+			: Color.FromArgb(isDark ? "#FF99A4" : "#C42B1C");
+	}
+
+	public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+		=> throw new NotSupportedException();
+}

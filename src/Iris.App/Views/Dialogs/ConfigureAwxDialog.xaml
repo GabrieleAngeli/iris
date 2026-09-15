@@ -34,20 +34,29 @@
                     </Border>
                 </VerticalStackLayout>
 
-                <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Token (leave blank to keep the existing one)" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Token}" IsPassword="True" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="5">
-                        <Label Text="Token (leave blank to keep the existing one)" Style="{StaticResource Caption}" />
-                        <Border Style="{StaticResource FieldBorder}">
-                            <Entry Text="{Binding Token}" IsPassword="True" />
-                        </Border>
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Grid.Column="1" Spacing="5">
-                        <Label Text="Job template id" Style="{StaticResource Caption}" />
+                        <Label Text="Job template id (deploy)" Style="{StaticResource Caption}" />
                         <Border Style="{StaticResource FieldBorder}">
                             <Entry Text="{Binding JobTemplateId}" Keyboard="Numeric" Placeholder="1" />
                         </Border>
                     </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5">
+                        <Label Text="Job template id (facts / discovery)" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding FactsJobTemplateId}" Keyboard="Numeric" Placeholder="2" />
+                        </Border>
+                    </VerticalStackLayout>
                 </Grid>
+
+                <Label Text="The facts job template must be a separate Job Template with 'use_fact_cache' enabled — it gathers server inventory (CPU/RAM/disks), it does not deploy anything." Style="{StaticResource Caption}" />
 
                 <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
                 <Label Text="OAuth2 auto-renew (optional)" Style="{StaticResource Caption}" FontFamily="{StaticResource FontSemibold}" />

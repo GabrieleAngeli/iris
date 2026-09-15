@@ -282,6 +282,7 @@ public sealed class InfrastructureHandlersTests
             store.ServerRepository,
             store.UserRepository,
             new StubServerInventoryProbe(),
+            new FakeClock(DateTimeOffset.UtcNow),
             store.UnitOfWork);
 
         await Assert.ThrowsAsync<ValidationException>(() =>
@@ -298,7 +299,15 @@ public sealed class InfrastructureHandlersTests
         Assert.Equal(300, discovered.Resources.DiskGb);
         Assert.Equal(210, discovered.Resources.ApplicationDiskGb);
         Assert.Equal(70, discovered.Resources.BackupDiskGb);
-        Assert.Equal([22, 443], discovered.UsedPorts);
+        Assert.Equal(4096, discovered.Resources.FreeMemoryMb);
+        Assert.Equal(120, discovered.Resources.FreeDiskGb);
+        // Discovery never maps/guesses ports — it passes the server's own (here: unset) value through.
+        Assert.Empty(discovered.UsedPorts);
+        Assert.True(discovered.IsReachable);
+        Assert.NotNull(discovered.LastDiscoveredAtUtc);
+        Assert.Null(discovered.LastDiscoveryError);
+        Assert.Single(discovered.Disks);
+        Assert.Equal("/dev/sda1", discovered.Disks[0].DeviceName);
     }
 
     [Fact]
@@ -414,12 +423,15 @@ public sealed class InfrastructureHandlersTests
     {
         public Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default) =>
             Task.FromResult(new ServerInventorySnapshot(
-                ServerOs.Linux,
-                "Ubuntu 24.04 LTS",
-                "D4 test shape",
-                [NodeCapability.ServiceHost],
-                new ResourceProfile(8, 16384, 300, 210, 70),
-                [443, 22, 22]));
+                IsReachable: true,
+                Error: null,
+                Os: ServerOs.Linux,
+                OsVersion: "Ubuntu 24.04 LTS",
+                MachineSize: "D4 test shape",
+                Capabilities: [NodeCapability.ServiceHost],
+                Resources: new ResourceProfile(8, 16384, 300, 210, 70, 4096, 120),
+                UsedPorts: server.UsedPorts,
+                Disks: [new ServerDiskInput("/dev/sda1", "/", "ext4", 300, 120)]));
     }
 
     private sealed class StubDataServiceInventoryProbe : IDataServiceInventoryProbe

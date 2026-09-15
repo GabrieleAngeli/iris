@@ -15,6 +15,7 @@ namespace Iris.Domain.Infrastructure;
 public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
 {
     private readonly List<ServerCredential> _credentials = [];
+    private readonly List<ServerDisk> _disks = [];
 
     // For the persistence layer.
     private ServerNode()
@@ -81,6 +82,17 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
 
     public IReadOnlyCollection<ServerCredential> Credentials => _credentials.AsReadOnly();
 
+    /// <summary>Filesystem mounts found on the last successful discovery. Empty until then.</summary>
+    public IReadOnlyCollection<ServerDisk> Disks => _disks.AsReadOnly();
+
+    /// <summary>Null until the first discovery attempt; then whether the server answered.</summary>
+    public bool? IsReachable { get; private set; }
+
+    public DateTimeOffset? LastDiscoveredAtUtc { get; private set; }
+
+    /// <summary>Why the last discovery attempt failed. Null when it succeeded (or never ran).</summary>
+    public string? LastDiscoveryError { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -138,32 +150,57 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         Environment = environment;
     }
 
+    /// <summary>
+    /// Applies the outcome of a discovery probe (<c>IServerInventoryProbe</c>). Reachability,
+    /// the timestamp and the error (if any) are always recorded. When the server was
+    /// unreachable, nothing else changes — the last known-good OS/capacity/disk data is kept
+    /// rather than blanked by a transient failure. <paramref name="usedPorts"/> is untouched by
+    /// discovery itself (the probe passes the server's own current value straight through — no
+    /// port scanning happens here or in any probe).
+    /// </summary>
     public void ApplyInventoryDiscovery(
+        bool isReachable,
+        DateTimeOffset discoveredAtUtc,
+        string? error,
         ServerOs os,
         string? osVersion,
         string? machineSize,
         IEnumerable<NodeCapability> capabilities,
         ResourceProfile? resources,
-        IEnumerable<int> usedPorts)
+        IEnumerable<int> usedPorts,
+        IEnumerable<ServerDiskInput> disks)
     {
+        IsReachable = isReachable;
+        LastDiscoveredAtUtc = discoveredAtUtc;
+        LastDiscoveryError = isReachable ? null : error;
+
+        if (!isReachable)
+        {
+            return;
+        }
+
         ArgumentNullException.ThrowIfNull(capabilities);
         ArgumentNullException.ThrowIfNull(usedPorts);
+        ArgumentNullException.ThrowIfNull(disks);
 
         Os = os;
         OsVersion = string.IsNullOrWhiteSpace(osVersion) ? null : osVersion.Trim();
         MachineSize = string.IsNullOrWhiteSpace(machineSize) ? null : machineSize.Trim();
-        UpdateCapacity(capabilities, resources, usedPorts);
+        UpdateCapacity(capabilities, resources, usedPorts, disks);
     }
 
     /// <summary>
     /// Replaces what this server can host, its resource hints and its known used ports —
     /// wholesale (the current picture, not an incremental one), kept separate from
-    /// <see cref="UpdateDetails"/> since it changes on its own cadence.
+    /// <see cref="UpdateDetails"/> since it changes on its own cadence. <paramref name="disks"/>
+    /// is only replaced when given (discovery always supplies it; the manual capacity-entry
+    /// path in <c>UpdateServerCapacity</c> doesn't know about disks and leaves them alone).
     /// </summary>
     public void UpdateCapacity(
         IEnumerable<NodeCapability> capabilities,
         ResourceProfile? resources,
-        IEnumerable<int> usedPorts)
+        IEnumerable<int> usedPorts,
+        IEnumerable<ServerDiskInput>? disks = null)
     {
         ArgumentNullException.ThrowIfNull(capabilities);
         ArgumentNullException.ThrowIfNull(usedPorts);
@@ -171,6 +208,18 @@ public sealed class ServerNode : Entity<Guid>, IAggregateRoot, IAuditableEntity
         Capabilities = capabilities.Distinct().ToList();
         Resources = resources;
         UsedPorts = usedPorts.Distinct().Order().ToList();
+
+        if (disks is null)
+        {
+            return;
+        }
+
+        _disks.Clear();
+        foreach (var disk in disks)
+        {
+            _disks.Add(new ServerDisk(
+                Guid.CreateVersion7(), Id, disk.DeviceName, disk.MountPoint, disk.FileSystem, disk.TotalGb, disk.FreeGb));
+        }
     }
 
     public void Activate() => IsActive = true;

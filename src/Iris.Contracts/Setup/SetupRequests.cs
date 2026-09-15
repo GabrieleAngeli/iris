@@ -40,7 +40,8 @@ public sealed record AwxSetupInput(
     int? JobTemplateId,
     string? OAuthClientId = null,
     string? OAuthClientSecret = null,
-    string? RefreshToken = null);
+    string? RefreshToken = null,
+    int? FactsJobTemplateId = null);
 
 /// <summary>
 /// Body of <c>POST /setup/complete</c> — the whole first-run wizard in one call.

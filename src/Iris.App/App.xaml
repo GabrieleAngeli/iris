@@ -14,6 +14,7 @@
             <local:RevealConverter x:Key="RevealConverter" />
             <local:PercentConverter x:Key="PercentConverter" />
             <local:StatusColorConverter x:Key="StatusColorConverter" />
+            <local:ReachabilityColorConverter x:Key="ReachabilityColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

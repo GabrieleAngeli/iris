@@ -276,7 +276,12 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
         Assert.Equal(4, discovered.Resources!.CpuCores);
         Assert.Equal(160, discovered.Resources.ApplicationDiskGb);
         Assert.Equal(60, discovered.Resources.BackupDiskGb);
-        Assert.Equal([22], discovered.UsedPorts);
+        Assert.Equal(90, discovered.Resources.FreeDiskGb);
+        // Discovery never maps/guesses ports — the server was created without any, and none exist after.
+        Assert.Empty(discovered.UsedPorts);
+        Assert.True(discovered.IsReachable);
+        Assert.NotNull(discovered.LastDiscoveredAtUtc);
+        Assert.Single(discovered.Disks);
 
         var readerDiscover = await Reader().PostAsync($"/servers/{server.Id}/discover", content: null);
         Assert.Equal(HttpStatusCode.Forbidden, readerDiscover.StatusCode);
@@ -355,11 +360,16 @@ public sealed class InfrastructureApiTests(IrisApiFactory factory) : IClassFixtu
         int? MemoryMb,
         int? DiskGb,
         int? ApplicationDiskGb,
-        int? BackupDiskGb);
+        int? BackupDiskGb,
+        int? FreeMemoryMb,
+        int? FreeDiskGb);
+
+    private sealed record ServerDiskDto(string DeviceName, string? MountPoint, string? FileSystem, int TotalGb, int FreeGb);
 
     private sealed record ServerFullDto(
         Guid Id, string Name, string Os, string? OsVersion, string? MachineSize, string HostingType, string Environment,
-        List<string> Capabilities, ResourceProfileDto? Resources, List<int> UsedPorts);
+        List<string> Capabilities, ResourceProfileDto? Resources, List<int> UsedPorts, List<ServerDiskDto> Disks,
+        bool? IsReachable, DateTimeOffset? LastDiscoveredAtUtc, string? LastDiscoveryError);
 
     private sealed record CredentialDto(
         Guid Id, string Username, string AuthMethod, string Kind,

@@ -37,8 +37,14 @@ internal sealed class ServerNodeConfiguration : IEntityTypeConfiguration<ServerN
             resources.Property(r => r.DiskGb).HasColumnName("ResourceDiskGb");
             resources.Property(r => r.ApplicationDiskGb).HasColumnName("ResourceApplicationDiskGb");
             resources.Property(r => r.BackupDiskGb).HasColumnName("ResourceBackupDiskGb");
+            resources.Property(r => r.FreeMemoryMb).HasColumnName("ResourceFreeMemoryMb");
+            resources.Property(r => r.FreeDiskGb).HasColumnName("ResourceFreeDiskGb");
         });
         builder.Navigation(s => s.Resources).IsRequired(false);
+
+        builder.Property(s => s.IsReachable);
+        builder.Property(s => s.LastDiscoveredAtUtc);
+        builder.Property(s => s.LastDiscoveryError).HasMaxLength(2000);
 
         builder.Property(s => s.CreatedAtUtc);
         builder.Property(s => s.UpdatedAtUtc);
@@ -51,5 +57,30 @@ internal sealed class ServerNodeConfiguration : IEntityTypeConfiguration<ServerN
         builder.Metadata
             .FindNavigation(nameof(ServerNode.Credentials))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(s => s.Disks)
+            .WithOne()
+            .HasForeignKey(d => d.ServerNodeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata
+            .FindNavigation(nameof(ServerNode.Disks))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class ServerDiskConfiguration : IEntityTypeConfiguration<ServerDisk>
+{
+    public void Configure(EntityTypeBuilder<ServerDisk> builder)
+    {
+        builder.ToTable("ServerDisks");
+        builder.HasKey(d => d.Id);
+        builder.Property(d => d.Id).ValueGeneratedNever();
+
+        builder.Property(d => d.DeviceName).IsRequired().HasMaxLength(260);
+        builder.Property(d => d.MountPoint).HasMaxLength(260);
+        builder.Property(d => d.FileSystem).HasMaxLength(60);
+        builder.Property(d => d.TotalGb);
+        builder.Property(d => d.FreeGb);
     }
 }

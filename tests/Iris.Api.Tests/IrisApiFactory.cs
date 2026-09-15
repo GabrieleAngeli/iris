@@ -70,7 +70,9 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
         // `ansible-playbook --version` via the real SystemProcessRunner (Ansible's dev appsettings
         // endpoint default is non-blank) — non-deterministic across machines and pointless I/O in
         // a test run. A no-op keeps the background service itself running (harmless) without any
-        // real probing.
+        // real probing. Same reasoning again for IServerInventoryProbe: POST /servers/{id}/discover
+        // now launches a real AWX facts job (AwxServerInventoryProbe) — there is no AWX to reach
+        // in a test run, so swap in a deterministic fake instead.
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IEmailSender, FakeEmailSender>();
@@ -78,6 +80,7 @@ public sealed class IrisApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IIntegrationHealthChecker, NoOpIntegrationHealthChecker>();
             services.AddSingleton<IIntegrationReachabilityProbe, FakeIntegrationReachabilityProbe>();
             services.AddSingleton<ISecretStorePromotion, FakeSecretStorePromotion>();
+            services.AddScoped<IServerInventoryProbe, FakeServerInventoryProbe>();
         });
     }
 
