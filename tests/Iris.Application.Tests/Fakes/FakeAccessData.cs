@@ -586,8 +586,13 @@ internal sealed class FakeAwxClient : IAwxClient
 
     public AwxHostFactsResult HostFacts { get; set; } = new(false, null);
 
-    public Task<AwxHostFactsResult> GetHostFactsAsync(string hostname, CancellationToken cancellationToken = default) =>
+    public Task<AwxHostFactsResult> GetHostFactsAsync(int jobTemplateId, string hostname, CancellationToken cancellationToken = default) =>
         Task.FromResult(HostFacts);
+
+    public AwxJobTemplateInfo? JobTemplate { get; set; }
+
+    public Task<AwxJobTemplateInfo?> GetJobTemplateAsync(string name, CancellationToken cancellationToken = default) =>
+        Task.FromResult(JobTemplate);
 }
 
 /// <summary>Trivial stand-in for the Ansible extra-vars builder (the real one lives in Iris.Infrastructure).</summary>

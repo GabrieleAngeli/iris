@@ -48,7 +48,7 @@ public partial class SystemSettingsPage : ContentPage
 					break;
 
 				case ConfigureAzureDevOpsDialogViewModel azureDevOps:
-					await _dialogs.ShowAsync(new ConfigureAzureDevOpsDialog(azureDevOps), "dlg.configure-azure-devops", 480, 380);
+					await _dialogs.ShowAsync(new ConfigureAzureDevOpsDialog(azureDevOps), "dlg.configure-azure-devops", 480, 620);
 					if (azureDevOps.WasSaved)
 					{
 						await _vm.LoadCommand.ExecuteAsync(null);
@@ -58,6 +58,14 @@ public partial class SystemSettingsPage : ContentPage
 				case ConfigureNexusDialogViewModel nexus:
 					await _dialogs.ShowAsync(new ConfigureNexusDialog(nexus), "dlg.configure-nexus", 480, 400);
 					if (nexus.WasSaved)
+					{
+						await _vm.LoadCommand.ExecuteAsync(null);
+					}
+					break;
+
+				case ConfigureOpsHostDialogViewModel opsHost:
+					await _dialogs.ShowAsync(new ConfigureOpsHostDialog(opsHost), "dlg.configure-ops-host", 480, 560);
+					if (opsHost.WasSaved)
 					{
 						await _vm.LoadCommand.ExecuteAsync(null);
 					}

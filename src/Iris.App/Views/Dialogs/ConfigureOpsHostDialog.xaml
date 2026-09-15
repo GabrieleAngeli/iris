@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
-    x:Class="Iris.App.Views.Dialogs.ConfigureAzureDevOpsDialog"
+    x:Class="Iris.App.Views.Dialogs.ConfigureOpsHostDialog"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:Iris.App.ViewModels"
-    x:DataType="vm:ConfigureAzureDevOpsDialogViewModel"
-    Title="Configure Azure DevOps">
+    x:DataType="vm:ConfigureOpsHostDialogViewModel"
+    Title="Configure ops host">
 
     <Grid RowDefinitions="*,Auto"
           BackgroundColor="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}">
@@ -13,8 +13,8 @@
         <ScrollView>
             <VerticalStackLayout Padding="22" Spacing="14">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="Configure Azure DevOps" Style="{StaticResource Subtitle}" />
-                    <Label Text="Point Iris at your Azure DevOps organization. Leave the token blank to keep the one already saved." Style="{StaticResource Caption}" />
+                    <Label Text="Configure ops host" Style="{StaticResource Subtitle}" />
+                    <Label Text="The SSH target Iris connects to in order to run the AWX automation repo's blueprint-sync playbook — exactly what an operator would run by hand. Leave the credential blank to keep the one already saved." Style="{StaticResource Caption}" />
                 </VerticalStackLayout>
 
                 <Border IsVisible="{Binding HasError}"
@@ -27,53 +27,49 @@
                            TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
                 </Border>
 
-                <VerticalStackLayout Spacing="5">
-                    <Label Text="Organization URL" Style="{StaticResource Caption}" />
-                    <Border Style="{StaticResource FieldBorder}">
-                        <Entry Text="{Binding Endpoint}" Placeholder="https://dev.azure.com/your-org" />
-                    </Border>
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="5">
-                    <Label Text="Personal access token (leave blank to keep the existing one)" Style="{StaticResource Caption}" />
-                    <Border Style="{StaticResource FieldBorder}">
-                        <Entry Text="{Binding Token}" IsPassword="True" />
-                    </Border>
-                </VerticalStackLayout>
-
-                <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
-                <Label Text="AWX automation repo (optional)" Style="{StaticResource Caption}" FontFamily="{StaticResource FontSemibold}" />
-                <Label Text="Locates the blueprint manifest Iris compares against AWX's real Job Templates to detect drift." Style="{StaticResource Caption}" />
-
-                <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10">
+                <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="5">
-                        <Label Text="Project" Style="{StaticResource Caption}" />
+                        <Label Text="Host" Style="{StaticResource Caption}" />
                         <Border Style="{StaticResource FieldBorder}">
-                            <Entry Text="{Binding Project}" />
+                            <Entry Text="{Binding Endpoint}" Placeholder="opsserver.internal" />
                         </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="5">
-                        <Label Text="Repository" Style="{StaticResource Caption}" />
+                        <Label Text="Port" Style="{StaticResource Caption}" />
                         <Border Style="{StaticResource FieldBorder}">
-                            <Entry Text="{Binding Repository}" Placeholder="awx" />
+                            <Entry Text="{Binding Port}" Keyboard="Numeric" />
                         </Border>
                     </VerticalStackLayout>
                 </Grid>
 
                 <Grid ColumnDefinitions="1*,1*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="5">
-                        <Label Text="Branch" Style="{StaticResource Caption}" />
+                        <Label Text="Username" Style="{StaticResource Caption}" />
                         <Border Style="{StaticResource FieldBorder}">
-                            <Entry Text="{Binding Branch}" Placeholder="master" />
+                            <Entry Text="{Binding Username}" Placeholder="ops" />
                         </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="5">
-                        <Label Text="Manifest path" Style="{StaticResource Caption}" />
+                        <Label Text="Auth method" Style="{StaticResource Caption}" />
                         <Border Style="{StaticResource FieldBorder}">
-                            <Entry Text="{Binding ManifestPath}" Placeholder="automation/manifests/awx_context_blueprints.yml" />
+                            <Picker ItemsSource="{Binding AuthMethods}" SelectedItem="{Binding AuthMethod}" />
                         </Border>
                     </VerticalStackLayout>
                 </Grid>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Password or private key (leave blank to keep the existing one)" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding Secret}" IsPassword="True" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="AWX repo path on the ops host" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding RepoPath}" Placeholder="/home/ops/Refactoring_ops_flow/awx" />
+                    </Border>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
 

@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Iris.Infrastructure.Containers;
 using Iris.Infrastructure.Invitations;
@@ -8,6 +9,7 @@ using Iris.Infrastructure.Mail;
 using Iris.Infrastructure.Persistence;
 using Iris.Infrastructure.Processes;
 using Iris.Infrastructure.Persistence.Interceptors;
+using Iris.Infrastructure.Remote;
 using Iris.Infrastructure.Persistence.Repositories;
 using Iris.Infrastructure.Persistence.Seeding;
 using Iris.Infrastructure.Secrets;
@@ -200,7 +202,25 @@ public static class DependencyInjection
         var azureDevOps = new AzureDevOpsOptions
         {
             Endpoint = azureDevOpsEndpoint,
-            Token = azureDevOpsToken
+            Token = azureDevOpsToken,
+            Project = persisted?.AzureDevOpsProject ?? integrations["AzureDevOps:Project"],
+            Repository = persisted?.AzureDevOpsRepository ?? integrations["AzureDevOps:Repository"],
+            Branch = persisted?.AzureDevOpsBranch ?? integrations["AzureDevOps:Branch"] ?? "master",
+            ManifestPath = persisted?.AzureDevOpsManifestPath ?? integrations["AzureDevOps:ManifestPath"]
+                ?? "automation/manifests/awx_context_blueprints.yml",
+        };
+
+        var opsHost = new OpsHostOptions
+        {
+            Endpoint = !string.IsNullOrWhiteSpace(persisted?.OpsHostEndpoint) ? persisted.OpsHostEndpoint : integrations["OpsHost:Endpoint"],
+            Port = persisted?.OpsHostPort ?? (int.TryParse(integrations["OpsHost:Port"], out var opsHostPort) ? opsHostPort : 22),
+            Username = !string.IsNullOrWhiteSpace(persisted?.OpsHostUsername) ? persisted.OpsHostUsername : integrations["OpsHost:Username"],
+            AuthMethod = persisted?.OpsHostAuthMethod ?? ServerCredentialAuthMethod.SshKey,
+            Secret = string.IsNullOrWhiteSpace(persisted?.OpsHostSecretReference) ? integrations["OpsHost:Secret"] : null,
+            SecretReference = persisted?.OpsHostSecretReference,
+            RepoPath = !string.IsNullOrWhiteSpace(persisted?.OpsAwxRepoPath)
+                ? persisted.OpsAwxRepoPath
+                : integrations["OpsHost:RepoPath"] ?? "/home/ops/Refactoring_ops_flow/awx",
         };
 
         var nexusEndpoint = !string.IsNullOrWhiteSpace(persisted?.NexusEndpoint)
@@ -220,13 +240,14 @@ public static class DependencyInjection
         // read on every GET /system/settings to tell the operator whether a since-saved
         // change still needs a restart (see GetSystemSettingsHandler).
         services.AddSingleton(new ActiveIntegrationSnapshot(
-            openBao.Endpoint, awx.Endpoint, ansible.Endpoint, azureDevOps.Endpoint, nexus.Endpoint));
+            openBao.Endpoint, awx.Endpoint, ansible.Endpoint, azureDevOps.Endpoint, nexus.Endpoint, opsHost.Endpoint));
 
         services.AddSingleton(openBao);
         services.AddSingleton(ansible);
         services.AddSingleton(awx);
         services.AddSingleton(azureDevOps);
         services.AddSingleton(nexus);
+        services.AddSingleton(opsHost);
 
         services.AddSingleton<OpenBaoConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<OpenBaoConnector>());
@@ -255,9 +276,18 @@ public static class DependencyInjection
 
         services.AddSingleton<AzureDevOpsConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
+        services.AddSingleton<IAzureDevOpsRepositoryReader>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
 
         services.AddSingleton<NexusConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<NexusConnector>());
+
+        services.AddSingleton<IRemoteCommandRunner, SshCommandRunner>();
+
+        services.AddSingleton<OpsHostConnector>();
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<OpsHostConnector>());
+
+        services.AddSingleton<AwxBlueprintDriftConnector>();
+        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AwxBlueprintDriftConnector>());
     }
 
     /// <summary>

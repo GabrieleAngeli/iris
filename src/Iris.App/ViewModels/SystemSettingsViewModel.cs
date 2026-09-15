@@ -113,15 +113,21 @@ public partial class SystemSettingsViewModel(
 			Integrations.Clear();
 			foreach (var integration in settings.Integrations)
 			{
-				// All five (openbao/awx/ansible/azure-devops/nexus) now have a real
-				// IIntegrationConnector registered server-side (see RegisterIntegrations).
-				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible" or "azure-devops" or "nexus";
+				// All seven (openbao/awx/ansible/azure-devops/nexus/ops-host/awx-blueprint) now
+				// have a real IIntegrationConnector registered server-side (see RegisterIntegrations).
+				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible" or "azure-devops" or "nexus" or "ops-host" or "awx-blueprint";
 				var canManage = CanManageSystem && hasRealConnector;
 				var isOpenBao = string.Equals(integration.Key, "openbao", StringComparison.OrdinalIgnoreCase);
+				var isAwxBlueprint = string.Equals(integration.Key, "awx-blueprint", StringComparison.OrdinalIgnoreCase);
 				var canProvision = canManage && isOpenBao;
+				var canSync = canManage && isAwxBlueprint;
+				// awx-blueprint has no Configure dialog of its own — it's entirely derived from
+				// the azure-devops (repo/manifest) and awx (job templates) settings.
+				var canConfigure = canManage && !isAwxBlueprint;
 				var row = new IntegrationConnectionRow(
-					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canManage,
-					canManage && isOpenBao ? PromoteSecretStoreAsync : null);
+					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canConfigure,
+					canManage && isOpenBao ? PromoteSecretStoreAsync : null,
+					canSync ? SyncAwxBlueprintAsync : null);
 				row.Provisioned += async (_, _) => await LoadCommand.ExecuteAsync(null);
 				row.ConfigureRequested += (_, _) =>
 				{
@@ -131,8 +137,13 @@ public partial class SystemSettingsViewModel(
 						"awx" => new ConfigureAwxDialogViewModel(
 						api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId, integration.AwxFactsJobTemplateId),
 						"ansible" => new ConfigureAnsibleDialogViewModel(api, integration.Endpoint),
-						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(api, integration.Endpoint),
+						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(
+						api, integration.Endpoint, integration.AzureDevOpsProject, integration.AzureDevOpsRepository,
+						integration.AzureDevOpsBranch, integration.AzureDevOpsManifestPath),
 						"nexus" => new ConfigureNexusDialogViewModel(api, integration.Endpoint),
+						"ops-host" => new ConfigureOpsHostDialogViewModel(
+						api, integration.Endpoint, integration.OpsHostPort, integration.OpsHostUsername,
+						integration.OpsHostAuthMethod, integration.OpsAwxRepoPath),
 						_ => null,
 					};
 					if (dialogVm is not null)
@@ -163,6 +174,8 @@ public partial class SystemSettingsViewModel(
 	private Task<ProvisionOpenBaoResponse> ProvisionOpenBaoAsync() => api.ProvisionOpenBaoAsync();
 
 	private Task<PromoteSecretStoreResponse> PromoteSecretStoreAsync() => api.PromoteSecretStoreToOpenBaoAsync();
+
+	private Task<SyncAwxBlueprintResponse> SyncAwxBlueprintAsync() => api.SyncAwxBlueprintAsync();
 
 	[RelayCommand(CanExecute = nameof(CanLoad))]
 	private async Task RefreshActivityAsync()
@@ -235,6 +248,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	private readonly Func<IntegrationConnectionRow, Task<IntegrationLinkResponse>> _tester;
 	private readonly Func<Task<ProvisionOpenBaoResponse>>? _provisioner;
 	private readonly Func<Task<PromoteSecretStoreResponse>>? _promoter;
+	private readonly Func<Task<SyncAwxBlueprintResponse>>? _syncer;
 
 	[ObservableProperty] private string _key;
 	[ObservableProperty] private string _name;
@@ -250,11 +264,13 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 		bool canTest,
 		Func<Task<ProvisionOpenBaoResponse>>? provisioner = null,
 		bool canConfigure = false,
-		Func<Task<PromoteSecretStoreResponse>>? promoter = null)
+		Func<Task<PromoteSecretStoreResponse>>? promoter = null,
+		Func<Task<SyncAwxBlueprintResponse>>? syncer = null)
 	{
 		_tester = tester;
 		_provisioner = provisioner;
 		_promoter = promoter;
+		_syncer = syncer;
 		CanTestAtAll = canTest;
 		CanConfigure = canConfigure;
 		_key = response.Key;
@@ -300,6 +316,15 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	/// "Promote" button in XAML. See <c>PromoteSecretStoreToOpenBaoHandler</c>.</summary>
 	public bool CanPromote => _promoter is not null;
 
+	/// <summary>Only set for the awx-blueprint row when the caller is platform.admin — gates the
+	/// "Sync now" button in XAML. See <c>SyncAwxBlueprintHandler</c>.</summary>
+	public bool CanSync => _syncer is not null;
+
+	/// <summary>The actual enabled/clickable state: only while drift was actually reported —
+	/// running the sync when already "In sync" is harmless but pointless, and hiding it avoids an
+	/// operator wondering whether it did anything.</summary>
+	public bool CanRunSyncNow => CanSync && !IsBusy && Status.Contains("drift", StringComparison.OrdinalIgnoreCase);
+
 	public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
 
 	/// <summary>When the background health check (see <c>IIntegrationHealthChecker</c>) has a
@@ -317,11 +342,15 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 
 	partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
+	partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(CanRunSyncNow));
+
 	partial void OnIsBusyChanged(bool value)
 	{
 		TestCommand.NotifyCanExecuteChanged();
 		ProvisionCommand.NotifyCanExecuteChanged();
 		PromoteCommand.NotifyCanExecuteChanged();
+		SyncCommand.NotifyCanExecuteChanged();
+		OnPropertyChanged(nameof(CanRunSyncNow));
 	}
 
 	[RelayCommand(CanExecute = nameof(CanTest))]
@@ -409,6 +438,39 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 	}
 
 	private bool CanRunPromote() => CanPromote && !IsBusy;
+
+	[RelayCommand(CanExecute = nameof(CanRunSyncNow))]
+	private async Task SyncAsync()
+	{
+		if (_syncer is null)
+		{
+			return;
+		}
+
+		IsBusy = true;
+		Status = "Syncing...";
+		Message = string.Empty;
+
+		try
+		{
+			var result = await _syncer();
+			var syncMessage = result.Succeeded ? "Sync completed." : result.Error ?? "Sync did not complete.";
+
+			// Re-probe immediately so the row reflects reality right away instead of sitting on
+			// a stale "Drift detected" until the next background health-check cycle.
+			Apply(await _tester(this));
+			Message = $"{syncMessage} {Message}".Trim();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Status = "Drift detected";
+			Message = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
 
 	private void Apply(IntegrationLinkResponse response)
 	{
@@ -620,19 +682,35 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 
 /// <summary>Backs the "Configure Azure DevOps" dialog — same shape/pattern as
 /// <see cref="ConfigureOpenBaoDialogViewModel"/>: endpoint (organization URL) + optional token
-/// (personal access token, blank keeps the one already saved).</summary>
+/// (personal access token, blank keeps the one already saved). Project/Repository/Branch/
+/// ManifestPath locate the AWX automation repo's blueprint manifest for the drift check
+/// (<c>AwxBlueprintDriftConnector</c>) — same blank-keeps-existing rule as the token.</summary>
 public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObject
 {
 	private readonly IIrisApiClient _api;
 
-	public ConfigureAzureDevOpsDialogViewModel(IIrisApiClient api, string? currentEndpoint)
+	public ConfigureAzureDevOpsDialogViewModel(
+		IIrisApiClient api,
+		string? currentEndpoint,
+		string? currentProject = null,
+		string? currentRepository = null,
+		string? currentBranch = null,
+		string? currentManifestPath = null)
 	{
 		_api = api;
 		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
+		Project = currentProject ?? string.Empty;
+		Repository = currentRepository ?? string.Empty;
+		Branch = currentBranch ?? string.Empty;
+		ManifestPath = currentManifestPath ?? string.Empty;
 	}
 
 	[ObservableProperty] private string _endpoint;
 	[ObservableProperty] private string _token = string.Empty;
+	[ObservableProperty] private string _project = string.Empty;
+	[ObservableProperty] private string _repository = string.Empty;
+	[ObservableProperty] private string _branch = string.Empty;
+	[ObservableProperty] private string _manifestPath = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
 
@@ -662,7 +740,104 @@ public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObje
 		{
 			await _api.SaveAzureDevOpsIntegrationSettingsAsync(new SaveAzureDevOpsIntegrationSettingsRequest(
 				Endpoint.Trim(),
-				string.IsNullOrEmpty(Token) ? null : Token));
+				string.IsNullOrEmpty(Token) ? null : Token,
+				string.IsNullOrWhiteSpace(Project) ? null : Project.Trim(),
+				string.IsNullOrWhiteSpace(Repository) ? null : Repository.Trim(),
+				string.IsNullOrWhiteSpace(Branch) ? null : Branch.Trim(),
+				string.IsNullOrWhiteSpace(ManifestPath) ? null : ManifestPath.Trim()));
+			WasSaved = true;
+			CloseRequested?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanSave() => !IsBusy;
+
+	[RelayCommand]
+	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
+}
+
+/// <summary>Backs the "Configure ops host" dialog — the SSH target Iris connects to in order to
+/// run the AWX automation repo's blueprint-sync playbook (<c>SyncAwxBlueprintHandler</c>), same
+/// shape/pattern as the other Configure dialogs. <c>Secret</c> (password or private key, per
+/// <c>AuthMethod</c>) blank keeps the one already saved.</summary>
+public sealed partial class ConfigureOpsHostDialogViewModel : ObservableObject
+{
+	private readonly IIrisApiClient _api;
+
+	public ConfigureOpsHostDialogViewModel(
+		IIrisApiClient api,
+		string? currentEndpoint,
+		int? currentPort = null,
+		string? currentUsername = null,
+		string? currentAuthMethod = null,
+		string? currentRepoPath = null)
+	{
+		_api = api;
+		Endpoint = string.IsNullOrWhiteSpace(currentEndpoint) ? string.Empty : currentEndpoint;
+		Port = currentPort is > 0 ? currentPort.Value.ToString() : "22";
+		Username = currentUsername ?? string.Empty;
+		AuthMethod = string.IsNullOrWhiteSpace(currentAuthMethod) ? "SshKey" : currentAuthMethod;
+		RepoPath = currentRepoPath ?? string.Empty;
+	}
+
+	public IReadOnlyList<string> AuthMethods { get; } = ["Password", "SshKey"];
+
+	[ObservableProperty] private string _endpoint;
+	[ObservableProperty] private string _port = "22";
+	[ObservableProperty] private string _username = string.Empty;
+	[ObservableProperty] private string _authMethod = "SshKey";
+	[ObservableProperty] private string _secret = string.Empty;
+	[ObservableProperty] private string _repoPath = string.Empty;
+	[ObservableProperty] private bool _isBusy;
+	[ObservableProperty] private string? _error;
+
+	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool WasSaved { get; private set; }
+
+	public event EventHandler? CloseRequested;
+
+	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	[RelayCommand(CanExecute = nameof(CanSave))]
+	private async Task SaveAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the ops host address.";
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(Username))
+		{
+			Error = "Enter the SSH username.";
+			return;
+		}
+
+		var port = int.TryParse(Port, out var parsedPort) ? parsedPort : 22;
+
+		IsBusy = true;
+		Error = null;
+
+		try
+		{
+			await _api.SaveOpsHostIntegrationSettingsAsync(new SaveOpsHostIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				port,
+				Username.Trim(),
+				AuthMethod,
+				string.IsNullOrEmpty(Secret) ? null : Secret,
+				string.IsNullOrWhiteSpace(RepoPath) ? null : RepoPath.Trim()));
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}

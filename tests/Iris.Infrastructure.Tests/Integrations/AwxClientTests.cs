@@ -188,6 +188,105 @@ public sealed class AwxClientTests
     }
 
     [Fact]
+    public async Task GetHostFacts_scopes_the_host_lookup_to_the_job_templates_own_inventory()
+    {
+        var handler = new StubHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/api/v2/job_templates/7/", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"id":7,"inventory":55}""");
+            }
+
+            if (path.StartsWith("/api/v2/inventories/55/hosts/", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"results":[{"id":9}]}""");
+            }
+
+            if (path.EndsWith("/api/v2/hosts/9/ansible_facts/", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"ansible_memtotal_mb":8192}""");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetHostFactsAsync(7, "web");
+
+        Assert.True(result.HostFound);
+        Assert.True(result.Facts!["ansible_memtotal_mb"].GetInt32() == 8192);
+        // The host lookup must be scoped to inventory 55 (the job template's own), never a
+        // global /api/v2/hosts/?name= search — the same alias ("web") can legitimately exist
+        // in many different customers' inventories.
+        Assert.Contains(handler.Calls, c => c.Path.StartsWith("/api/v2/inventories/55/hosts/", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Calls, c => c.Path == "/api/v2/hosts/" || c.Path.StartsWith("/api/v2/hosts/?", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetHostFacts_reports_not_found_when_the_job_templates_inventory_has_no_such_host()
+    {
+        var handler = new StubHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/api/v2/job_templates/7/", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"id":7,"inventory":55}""");
+            }
+
+            return Json(HttpStatusCode.OK, """{"results":[]}""");
+        });
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetHostFactsAsync(7, "web");
+
+        Assert.False(result.HostFound);
+    }
+
+    [Fact]
+    public async Task GetJobTemplate_returns_the_playbook_and_use_fact_cache_flag()
+    {
+        var handler = new StubHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            return path.EndsWith("/api/v2/job_templates/", StringComparison.Ordinal)
+                ? Json(HttpStatusCode.OK, """{"results":[{"id":12,"playbook":"playbooks/validation/discover-host-facts.yml","use_fact_cache":true}]}""")
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetJobTemplateAsync("cloud_02-trial-facts");
+
+        Assert.NotNull(result);
+        Assert.Equal(12, result!.Id);
+        Assert.Equal("playbooks/validation/discover-host-facts.yml", result.Playbook);
+        Assert.True(result.UseFactCache);
+    }
+
+    [Fact]
+    public async Task GetJobTemplate_returns_null_when_no_template_has_that_name()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """{"results":[]}"""));
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetJobTemplateAsync("does-not-exist");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task Concurrent_401s_trigger_only_one_refresh()
     {
         var tokenCalls = 0;

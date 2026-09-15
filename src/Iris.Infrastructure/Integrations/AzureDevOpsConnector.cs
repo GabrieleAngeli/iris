@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using Iris.Application.Abstractions;
@@ -9,12 +10,25 @@ namespace Iris.Infrastructure.Integrations;
 /// PAT actually work, nothing functional beyond that yet (no pipelines/repos/artifacts wired to
 /// anything in Iris — requested minimal scope, 2026-09-08).
 /// </summary>
-internal sealed class AzureDevOpsConnector(AzureDevOpsOptions options) : IIntegrationConnector, IDisposable
+internal sealed class AzureDevOpsConnector : IIntegrationConnector, IAzureDevOpsRepositoryReader, IDisposable
 {
-    private readonly HttpClient _http = new()
+    private readonly AzureDevOpsOptions options;
+    private readonly HttpClient _http;
+
+    public AzureDevOpsConnector(AzureDevOpsOptions options)
+        : this(options, new HttpClientHandler())
     {
-        Timeout = TimeSpan.FromSeconds(10)
-    };
+    }
+
+    /// <summary>Test seam: a stub <see cref="HttpMessageHandler"/> stands in for real HTTP.</summary>
+    internal AzureDevOpsConnector(AzureDevOpsOptions options, HttpMessageHandler handler)
+    {
+        this.options = options;
+        _http = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+    }
 
     public string Key => "azure-devops";
 
@@ -58,6 +72,50 @@ internal sealed class AzureDevOpsConnector(AzureDevOpsOptions options) : IIntegr
         {
             return new IntegrationConnectorStatus(Key, Name, "Unreachable", Endpoint, ex.Message);
         }
+    }
+
+    public async Task<string?> GetFileContentAsync(
+        string project,
+        string repository,
+        string branch,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(project);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (string.IsNullOrWhiteSpace(options.Endpoint) || string.IsNullOrWhiteSpace(options.Token))
+        {
+            throw new InvalidOperationException("Azure DevOps is not configured (endpoint/token required).");
+        }
+
+        var uri = new Uri(
+            new Uri(options.Endpoint.TrimEnd('/') + "/"),
+            $"{Uri.EscapeDataString(project)}/_apis/git/repositories/{Uri.EscapeDataString(repository)}/items" +
+            $"?path={Uri.EscapeDataString(path)}&versionDescriptor.version={Uri.EscapeDataString(branch)}" +
+            "&versionDescriptor.versionType=branch&api-version=7.1");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{options.Token}")));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new HttpRequestException(
+                $"Azure DevOps rejected the file read ({(int)response.StatusCode}) for {project}/{repository}/{path}@{branch}: {body}");
+        }
+
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose() => _http.Dispose();

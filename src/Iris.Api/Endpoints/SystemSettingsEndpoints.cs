@@ -121,12 +121,28 @@ public static class SystemSettingsEndpoints
                 CancellationToken ct) =>
             {
                 var result = await handler
-                    .HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(body.Endpoint, body.Token), ct)
+                    .HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(
+                        body.Endpoint, body.Token, body.Project, body.Repository, body.Branch, body.ManifestPath), ct)
                     .ConfigureAwait(false);
                 return Results.Ok(result);
             })
             .WithName("SaveAzureDevOpsIntegrationSettings")
-            .WithSummary("Persist the Azure DevOps organization URL/PAT. Takes effect after an Iris.Api restart.")
+            .WithSummary("Persist the Azure DevOps organization URL/PAT and the AWX automation repo location. Takes effect after an Iris.Api restart.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPut("/integrations/ops-host", async (
+                SaveOpsHostIntegrationSettingsRequest body,
+                SaveOpsHostIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveOpsHostIntegrationSettingsCommand(
+                        body.Endpoint, body.Port, body.Username, body.AuthMethod, body.Secret, body.RepoPath), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SaveOpsHostIntegrationSettings")
+            .WithSummary("Persist the ops host SSH connection Iris uses to run the AWX blueprint sync. Takes effect after an Iris.Api restart.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapPut("/integrations/nexus", async (
@@ -163,6 +179,17 @@ public static class SystemSettingsEndpoints
             })
             .WithName("PromoteSecretStoreToOpenBao")
             .WithSummary("Migrates the fallback-vault secrets into the configured OpenBao and makes OpenBao the live secret store, at runtime (no restart).")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/integrations/awx/sync-blueprint", async (
+                SyncAwxBlueprintHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new SyncAwxBlueprintCommand(), ct).ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SyncAwxBlueprint")
+            .WithSummary("Runs the AWX automation repo's blueprint-sync playbook over SSH on the ops host, reconciling AWX's Job Templates against the repo's manifest.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapGet("/integrations/{key}/status", async (

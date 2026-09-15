@@ -17,4 +17,5 @@ public sealed record ActiveIntegrationSnapshot(
     string? AwxEndpoint,
     string? AnsibleEndpoint,
     string? AzureDevOpsEndpoint = null,
-    string? NexusEndpoint = null);
+    string? NexusEndpoint = null,
+    string? OpsHostEndpoint = null);

@@ -1,4 +1,5 @@
 using Iris.Domain.Common;
+using Iris.Domain.Infrastructure;
 
 namespace Iris.Domain.Settings;
 
@@ -77,10 +78,41 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
     /// <summary>Opaque reference into <c>ISecretStore</c> — never the token itself.</summary>
     public string? AzureDevOpsTokenSecretReference { get; private set; }
 
+    /// <summary>Azure DevOps project name holding the AWX automation repository (as distinct
+    /// from <see cref="AzureDevOpsEndpoint"/>, the organization URL).</summary>
+    public string? AzureDevOpsProject { get; private set; }
+
+    /// <summary>Repository name inside <see cref="AzureDevOpsProject"/> — the AWX automation
+    /// repo (<c>Refactoring_ops_flow/awx</c> today), read-only from Iris's side.</summary>
+    public string? AzureDevOpsRepository { get; private set; }
+
+    public string? AzureDevOpsBranch { get; private set; }
+
+    /// <summary>Path, inside <see cref="AzureDevOpsRepository"/>, to the AWX context blueprint
+    /// manifest (<c>automation/manifests/awx_context_blueprints.yml</c>) — the declared-state
+    /// side of the AWX drift check.</summary>
+    public string? AzureDevOpsManifestPath { get; private set; }
+
     public string? NexusEndpoint { get; private set; }
 
     /// <summary>Opaque reference into <c>ISecretStore</c> — never the token itself.</summary>
     public string? NexusTokenSecretReference { get; private set; }
+
+    public string? OpsHostEndpoint { get; private set; }
+
+    public int OpsHostPort { get; private set; } = 22;
+
+    public string? OpsHostUsername { get; private set; }
+
+    public ServerCredentialAuthMethod OpsHostAuthMethod { get; private set; } = ServerCredentialAuthMethod.SshKey;
+
+    /// <summary>Opaque reference into <c>ISecretStore</c> — the SSH password or private key,
+    /// never stored here directly.</summary>
+    public string? OpsHostSecretReference { get; private set; }
+
+    /// <summary>Absolute path, on the ops host itself, to the AWX automation repo checkout —
+    /// where Iris <c>cd</c>s before running <c>ansible-playbook playbooks/ops/ops_awx_sync_blueprint.yml</c>.</summary>
+    public string OpsAwxRepoPath { get; private set; } = "/home/ops/Refactoring_ops_flow/awx";
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 
@@ -131,12 +163,22 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
         AnsibleInventory = string.IsNullOrWhiteSpace(inventory) ? null : inventory.Trim();
     }
 
-    public void ConfigureAzureDevOps(string endpoint, string? tokenSecretReference)
+    public void ConfigureAzureDevOps(
+        string endpoint,
+        string? tokenSecretReference,
+        string? project = null,
+        string? repository = null,
+        string? branch = null,
+        string? manifestPath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
 
         AzureDevOpsEndpoint = endpoint.Trim();
         AzureDevOpsTokenSecretReference = tokenSecretReference;
+        AzureDevOpsProject = string.IsNullOrWhiteSpace(project) ? null : project.Trim();
+        AzureDevOpsRepository = string.IsNullOrWhiteSpace(repository) ? null : repository.Trim();
+        AzureDevOpsBranch = string.IsNullOrWhiteSpace(branch) ? null : branch.Trim();
+        AzureDevOpsManifestPath = string.IsNullOrWhiteSpace(manifestPath) ? null : manifestPath.Trim();
     }
 
     public void ConfigureNexus(string endpoint, string? tokenSecretReference)
@@ -145,5 +187,24 @@ public sealed class IntegrationSettings : Entity<Guid>, IAggregateRoot, IAuditab
 
         NexusEndpoint = endpoint.Trim();
         NexusTokenSecretReference = tokenSecretReference;
+    }
+
+    public void ConfigureOpsHost(
+        string endpoint,
+        int port,
+        string username,
+        ServerCredentialAuthMethod authMethod,
+        string? secretReference,
+        string? repoPath = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(username);
+
+        OpsHostEndpoint = endpoint.Trim();
+        OpsHostPort = port is > 0 and <= 65535 ? port : 22;
+        OpsHostUsername = username.Trim();
+        OpsHostAuthMethod = authMethod;
+        OpsHostSecretReference = secretReference;
+        OpsAwxRepoPath = string.IsNullOrWhiteSpace(repoPath) ? OpsAwxRepoPath : repoPath.Trim();
     }
 }

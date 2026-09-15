@@ -101,7 +101,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Integrations}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:IntegrationConnectionRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Padding="0,7" ColumnSpacing="12">
                                             <VerticalStackLayout Spacing="0">
                                                 <Label Text="{Binding Name}" Style="{StaticResource Body}" />
                                                 <Label Text="{Binding Endpoint}" Style="{StaticResource Caption}" />
@@ -133,6 +133,13 @@
                                                     Command="{Binding ProvisionCommand}"
                                                     ToolTipProperties.Text="Starts a dev-mode OpenBao container via Docker on this host — convenience/non-production only" />
                                             <Button Grid.Column="5"
+                                                    Text="Sync now"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsVisible="{Binding CanSync}"
+                                                    IsEnabled="{Binding CanRunSyncNow}"
+                                                    Command="{Binding SyncCommand}"
+                                                    ToolTipProperties.Text="Runs the AWX automation repo's blueprint-sync playbook over SSH on the ops host, reconciling AWX's Job Templates against the repo" />
+                                            <Button Grid.Column="6"
                                                     Text="Test"
                                                     Style="{StaticResource SecondaryButton}"
                                                     IsVisible="{Binding CanTestAtAll}"

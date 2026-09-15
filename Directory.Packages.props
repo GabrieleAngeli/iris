@@ -25,6 +25,10 @@
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.8" />
     <!-- Mail (setup wizard's SMTP relay) -->
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <!-- Remote command execution (ops host, AWX blueprint sync) -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
+    <!-- YAML parsing (AWX automation repo's blueprint manifest, for drift detection) -->
+    <PackageVersion Include="YamlDotNet" Version="16.3.0" />
     <!-- Iris.Extractor CLI. Microsoft.CodeAnalysis.CSharp is pinned to 4.8.0, not a newer release,
          because Microsoft.EntityFrameworkCore.Design 9.0.8 (used by Iris.Api/Iris.Infrastructure)
          transitively depends on Microsoft.CodeAnalysis.CSharp.Workspaces 4.8.0, which requires

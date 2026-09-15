@@ -21,6 +21,8 @@ public sealed class AwxServerInventoryProbeTests
         public Func<string, AwxHostFactsResult> OnFacts { get; set; } =
             _ => new AwxHostFactsResult(false, null);
 
+        public int? LastFactsJobTemplateId { get; private set; }
+
         public int StatusCalls { get; private set; }
 
         public Task<AwxJobLaunchResult> LaunchAsync(AwxJobLaunch launch, CancellationToken cancellationToken = default) =>
@@ -32,8 +34,14 @@ public sealed class AwxServerInventoryProbeTests
             return Task.FromResult(OnStatus(jobId));
         }
 
-        public Task<AwxHostFactsResult> GetHostFactsAsync(string hostname, CancellationToken cancellationToken = default) =>
-            Task.FromResult(OnFacts(hostname));
+        public Task<AwxHostFactsResult> GetHostFactsAsync(int jobTemplateId, string hostname, CancellationToken cancellationToken = default)
+        {
+            LastFactsJobTemplateId = jobTemplateId;
+            return Task.FromResult(OnFacts(hostname));
+        }
+
+        public Task<AwxJobTemplateInfo?> GetJobTemplateAsync(string name, CancellationToken cancellationToken = default) =>
+            Task.FromResult<AwxJobTemplateInfo?>(null);
     }
 
     private static ServerNode NewServer(string? hostname = "web-01.internal") => new(

@@ -174,6 +174,10 @@ public interface IIrisApiClient
 
 	Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
+	Task<IntegrationSettingsSavedResponse> SaveOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<SyncAwxBlueprintResponse> SyncAwxBlueprintAsync(CancellationToken cancellationToken = default);
+
 	Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default);
 
 	Task TestMailSettingsAsync(MailProviderInput mail, string testRecipient, CancellationToken cancellationToken = default);
@@ -403,6 +407,12 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/nexus", request, cancellationToken);
+
+	public Task<IntegrationSettingsSavedResponse> SaveOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/ops-host", request, cancellationToken);
+
+	public Task<SyncAwxBlueprintResponse> SyncAwxBlueprintAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<SyncAwxBlueprintResponse>(HttpMethod.Post, "/system/integrations/awx/sync-blueprint", cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/settings/mail", request, cancellationToken);

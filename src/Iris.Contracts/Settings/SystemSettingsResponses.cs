@@ -20,7 +20,15 @@ public sealed record IntegrationLinkResponse(
     // operator doesn't have to re-type (or accidentally wipe) them. AWX-only for now.
     int? AwxJobTemplateId = null,
     string? AwxOAuthClientId = null,
-    int? AwxFactsJobTemplateId = null);
+    int? AwxFactsJobTemplateId = null,
+    string? AzureDevOpsProject = null,
+    string? AzureDevOpsRepository = null,
+    string? AzureDevOpsBranch = null,
+    string? AzureDevOpsManifestPath = null,
+    int? OpsHostPort = null,
+    string? OpsHostUsername = null,
+    string? OpsHostAuthMethod = null,
+    string? OpsAwxRepoPath = null);
 
 /// <summary>Non-null only when there's something to unlock (bare counts, never which secrets —
 /// see <c>IFallbackSecretVault</c>'s remarks). Drives the "Unlock secrets" banner in

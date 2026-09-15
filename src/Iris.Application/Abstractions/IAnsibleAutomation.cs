@@ -42,6 +42,10 @@ public sealed record AwxHostFactsResult(
     bool HostFound,
     IReadOnlyDictionary<string, JsonElement>? Facts);
 
+/// <summary>The subset of an AWX Job Template's configuration <c>AwxBlueprintDriftConnector</c>
+/// compares against the automation repo's declared blueprint manifest.</summary>
+public sealed record AwxJobTemplateInfo(int Id, string? Playbook, bool UseFactCache);
+
 public interface IAwxClient
 {
     Task<AwxJobLaunchResult> LaunchAsync(
@@ -53,10 +57,20 @@ public interface IAwxClient
         string jobId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Looks the host up by name in AWX's Inventory, then reads its cached
+    /// <summary>Looks the host up by name within the given Job Template's own Inventory (host
+    /// names are only unique per Inventory in AWX, not globally — the same alias can legitimately
+    /// exist in several different customers' Inventories), then reads its cached
     /// <c>ansible_facts</c> (populated by the last job run against it with
     /// <c>use_fact_cache=True</c>).</summary>
     Task<AwxHostFactsResult> GetHostFactsAsync(
+        int jobTemplateId,
         string hostname,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Looks a Job Template up by exact name. Returns null when none exists — a normal,
+    /// expected outcome for <c>AwxBlueprintDriftConnector</c> (the manifest declares a template
+    /// the sync playbook hasn't created yet).</summary>
+    Task<AwxJobTemplateInfo?> GetJobTemplateAsync(
+        string name,
         CancellationToken cancellationToken = default);
 }

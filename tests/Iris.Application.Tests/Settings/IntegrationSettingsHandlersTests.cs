@@ -2,6 +2,7 @@ using Iris.Application.Abstractions;
 using Iris.Application.Common;
 using Iris.Application.Settings;
 using Iris.Application.Tests.Fakes;
+using Iris.Domain.Infrastructure;
 
 namespace Iris.Application.Tests.Settings;
 
@@ -20,6 +21,9 @@ public sealed class IntegrationSettingsHandlersTests
         new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
 
     private static SaveNexusIntegrationSettingsHandler NexusHandler(FakeStore store) =>
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+
+    private static SaveOpsHostIntegrationSettingsHandler OpsHostHandler(FakeStore store) =>
         new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
 
     private static GetSystemSettingsHandler SystemSettingsHandler(
@@ -145,6 +149,66 @@ public sealed class IntegrationSettingsHandlersTests
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal(8, settings.AwxJobTemplateId);
         Assert.Equal(42, settings.AwxFactsJobTemplateId);
+    }
+
+    [Fact]
+    public async Task SaveAzureDevOps_with_blank_repo_fields_keeps_the_previously_stored_values()
+    {
+        var store = new FakeStore();
+        await AzureDevOpsHandler(store).HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(
+            "https://dev.azure.com/algorab-devops", "pat", "Refactoring_ops_flow", "awx", "master",
+            "automation/manifests/awx_context_blueprints.yml"));
+
+        // Re-save from a partial Configure form that only changed the endpoint.
+        await AzureDevOpsHandler(store).HandleAsync(
+            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/algorab-devops/", null));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("Refactoring_ops_flow", settings.AzureDevOpsProject);
+        Assert.Equal("awx", settings.AzureDevOpsRepository);
+        Assert.Equal("master", settings.AzureDevOpsBranch);
+        Assert.Equal("automation/manifests/awx_context_blueprints.yml", settings.AzureDevOpsManifestPath);
+    }
+
+    [Fact]
+    public async Task SaveOpsHost_creates_the_row_and_stores_the_secret()
+    {
+        var store = new FakeStore();
+
+        var result = await OpsHostHandler(store).HandleAsync(
+            new SaveOpsHostIntegrationSettingsCommand("opsserver.internal", 22, "ops", "SshKey", "-----BEGIN KEY-----"));
+
+        Assert.True(result.RestartRequired);
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal("opsserver.internal", settings.OpsHostEndpoint);
+        Assert.Equal("ops", settings.OpsHostUsername);
+        Assert.Equal(ServerCredentialAuthMethod.SshKey, settings.OpsHostAuthMethod);
+        Assert.Equal("-----BEGIN KEY-----", store.SecretsByReference[settings.OpsHostSecretReference!]);
+    }
+
+    [Fact]
+    public async Task SaveOpsHost_with_a_blank_secret_keeps_the_previously_stored_reference()
+    {
+        var store = new FakeStore();
+        await OpsHostHandler(store).HandleAsync(
+            new SaveOpsHostIntegrationSettingsCommand("opsserver.internal", 22, "ops", "SshKey", "key-v1"));
+        var firstReference = store.IntegrationSettings.Single().OpsHostSecretReference;
+
+        await OpsHostHandler(store).HandleAsync(
+            new SaveOpsHostIntegrationSettingsCommand("opsserver.internal", 22, "ops", "SshKey", null));
+
+        var settings = Assert.Single(store.IntegrationSettings);
+        Assert.Equal(firstReference, settings.OpsHostSecretReference);
+    }
+
+    [Fact]
+    public async Task SaveOpsHost_rejects_an_unknown_auth_method()
+    {
+        var store = new FakeStore();
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            OpsHostHandler(store).HandleAsync(
+                new SaveOpsHostIntegrationSettingsCommand("opsserver.internal", 22, "ops", "Kerberos", "secret")));
     }
 
     [Fact]

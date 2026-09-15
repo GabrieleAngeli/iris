@@ -49,6 +49,28 @@ public sealed class GetSystemSettingsHandler(
                 };
             }
 
+            if (link.Key == "azure-devops" && persisted is not null)
+            {
+                link = link with
+                {
+                    AzureDevOpsProject = persisted.AzureDevOpsProject,
+                    AzureDevOpsRepository = persisted.AzureDevOpsRepository,
+                    AzureDevOpsBranch = persisted.AzureDevOpsBranch,
+                    AzureDevOpsManifestPath = persisted.AzureDevOpsManifestPath,
+                };
+            }
+
+            if (link.Key == "ops-host" && persisted is not null)
+            {
+                link = link with
+                {
+                    OpsHostPort = persisted.OpsHostPort,
+                    OpsHostUsername = persisted.OpsHostUsername,
+                    OpsHostAuthMethod = persisted.OpsHostAuthMethod.ToString(),
+                    OpsAwxRepoPath = persisted.OpsAwxRepoPath,
+                };
+            }
+
             integrations.Add(link);
         }
 
@@ -70,7 +92,8 @@ public sealed class GetSystemSettingsHandler(
             HasPendingChange(persisted?.AwxEndpoint, activeIntegrations.AwxEndpoint) ||
             HasPendingChange(persisted?.AnsibleEndpoint, activeIntegrations.AnsibleEndpoint) ||
             HasPendingChange(persisted?.AzureDevOpsEndpoint, activeIntegrations.AzureDevOpsEndpoint) ||
-            HasPendingChange(persisted?.NexusEndpoint, activeIntegrations.NexusEndpoint);
+            HasPendingChange(persisted?.NexusEndpoint, activeIntegrations.NexusEndpoint) ||
+            HasPendingChange(persisted?.OpsHostEndpoint, activeIntegrations.OpsHostEndpoint);
 
         if (!query.CanManageSystem)
         {
@@ -135,6 +158,7 @@ public sealed class GetSystemSettingsHandler(
             "ansible" => (persisted?.AnsibleEndpoint, active.AnsibleEndpoint),
             "azure-devops" => (persisted?.AzureDevOpsEndpoint, active.AzureDevOpsEndpoint),
             "nexus" => (persisted?.NexusEndpoint, active.NexusEndpoint),
+            "ops-host" => (persisted?.OpsHostEndpoint, active.OpsHostEndpoint),
             _ => (null, null),
         };
 

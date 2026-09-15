@@ -30,15 +30,33 @@ public sealed record SaveAnsibleIntegrationSettingsRequest(
 
 /// <summary>Body of <c>PUT /system/integrations/azure-devops</c>. <c>Endpoint</c> is the
 /// organization URL (e.g. <c>https://dev.azure.com/your-org</c>); same empty-token rule as
-/// OpenBao/AWX.</summary>
+/// OpenBao/AWX. <c>Project</c>/<c>Repository</c>/<c>Branch</c>/<c>ManifestPath</c> locate the AWX
+/// automation repo's blueprint manifest for the drift check — same partial-update rule (blank
+/// keeps the stored value) as AWX's job template ids.</summary>
 public sealed record SaveAzureDevOpsIntegrationSettingsRequest(
     string Endpoint,
-    string? Token);
+    string? Token,
+    string? Project = null,
+    string? Repository = null,
+    string? Branch = null,
+    string? ManifestPath = null);
 
 /// <summary>Body of <c>PUT /system/integrations/nexus</c>. Same empty-token rule as OpenBao/AWX.</summary>
 public sealed record SaveNexusIntegrationSettingsRequest(
     string Endpoint,
     string? Token);
+
+/// <summary>Body of <c>PUT /system/integrations/ops-host</c> — the SSH target Iris connects to in
+/// order to run <c>ansible-playbook playbooks/ops/ops_awx_sync_blueprint.yml</c> exactly as an
+/// operator would by hand. <c>Secret</c> (password or private key, per <c>AuthMethod</c>) left
+/// empty/null keeps whatever is already stored, same rule as every other credential here.</summary>
+public sealed record SaveOpsHostIntegrationSettingsRequest(
+    string Endpoint,
+    int Port,
+    string Username,
+    string AuthMethod,
+    string? Secret,
+    string? RepoPath = null);
 
 /// <summary><c>RestartRequired</c> is always <c>true</c> here: a save always changes the
 /// persisted row, and <c>RegisterIntegrations</c> only reads it once, at process startup
@@ -58,3 +76,10 @@ public sealed record ProvisionOpenBaoResponse(string Endpoint, bool RestartRequi
 /// <summary>Result of <c>POST /system/integrations/openbao/promote</c> — switching the live
 /// secret store from the encrypted fallback vault to real OpenBao at runtime.</summary>
 public sealed record PromoteSecretStoreResponse(bool Promoted, int MigratedSecrets, string Message);
+
+/// <summary>Result of <c>POST /system/integrations/awx/sync-blueprint</c> — running the AWX
+/// automation repo's blueprint-sync playbook over SSH on the ops host. <c>Output</c> is the tail
+/// of the playbook's own stdout (on success) or stderr (on failure, surfaced instead via the
+/// thrown <c>ValidationException</c> — <c>Error</c> stays for forward compatibility, currently
+/// always null on a 200 response).</summary>
+public sealed record SyncAwxBlueprintResponse(bool Succeeded, string Output, string? Error);

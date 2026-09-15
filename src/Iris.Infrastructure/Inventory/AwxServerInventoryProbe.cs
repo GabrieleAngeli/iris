@@ -76,7 +76,7 @@ internal sealed class AwxServerInventoryProbe(
         AwxHostFactsResult factsResult;
         try
         {
-            factsResult = await awx.GetHostFactsAsync(server.Hostname, cancellationToken).ConfigureAwait(false);
+            factsResult = await awx.GetHostFactsAsync(options.FactsJobTemplateId!.Value, server.Hostname, cancellationToken).ConfigureAwait(false);
         }
         catch (ValidationException ex)
         {

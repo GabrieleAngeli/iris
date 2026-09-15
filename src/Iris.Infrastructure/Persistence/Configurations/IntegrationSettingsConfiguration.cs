@@ -1,3 +1,4 @@
+using Iris.Domain.Infrastructure;
 using Iris.Domain.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -31,9 +32,20 @@ internal sealed class IntegrationSettingsConfiguration : IEntityTypeConfiguratio
 
         builder.Property(s => s.AzureDevOpsEndpoint).HasMaxLength(500);
         builder.Property(s => s.AzureDevOpsTokenSecretReference).HasMaxLength(400);
+        builder.Property(s => s.AzureDevOpsProject).HasMaxLength(200);
+        builder.Property(s => s.AzureDevOpsRepository).HasMaxLength(200);
+        builder.Property(s => s.AzureDevOpsBranch).HasMaxLength(200);
+        builder.Property(s => s.AzureDevOpsManifestPath).HasMaxLength(500);
 
         builder.Property(s => s.NexusEndpoint).HasMaxLength(500);
         builder.Property(s => s.NexusTokenSecretReference).HasMaxLength(400);
+
+        builder.Property(s => s.OpsHostEndpoint).HasMaxLength(500);
+        builder.Property(s => s.OpsHostPort).HasDefaultValue(22);
+        builder.Property(s => s.OpsHostUsername).HasMaxLength(200);
+        builder.Property(s => s.OpsHostAuthMethod).HasConversion<string>().HasMaxLength(20).HasDefaultValue(ServerCredentialAuthMethod.SshKey);
+        builder.Property(s => s.OpsHostSecretReference).HasMaxLength(400);
+        builder.Property(s => s.OpsAwxRepoPath).IsRequired().HasMaxLength(500).HasDefaultValue("/home/ops/Refactoring_ops_flow/awx");
 
         builder.Property(s => s.CreatedAtUtc);
         builder.Property(s => s.UpdatedAtUtc);

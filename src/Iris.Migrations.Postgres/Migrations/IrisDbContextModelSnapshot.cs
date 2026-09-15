@@ -1193,9 +1193,25 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)");
 
+                    b.Property<string>("AzureDevOpsBranch")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("AzureDevOpsEndpoint")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("AzureDevOpsManifestPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("AzureDevOpsProject")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("AzureDevOpsRepository")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("AzureDevOpsTokenSecretReference")
                         .HasMaxLength(400)
@@ -1227,6 +1243,37 @@ namespace Iris.Migrations.Postgres.Migrations
 
                     b.Property<bool>("OpenBaoUseKvV2")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("OpsAwxRepoPath")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasDefaultValue("/home/ops/Refactoring_ops_flow/awx");
+
+                    b.Property<string>("OpsHostAuthMethod")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("SshKey");
+
+                    b.Property<string>("OpsHostEndpoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("OpsHostPort")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(22);
+
+                    b.Property<string>("OpsHostSecretReference")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("OpsHostUsername")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");

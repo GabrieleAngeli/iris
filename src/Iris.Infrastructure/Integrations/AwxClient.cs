@@ -192,6 +192,7 @@ internal sealed class AwxClient : IAwxClient, IIntegrationConnector, IDisposable
     }
 
     public async Task<AwxHostFactsResult> GetHostFactsAsync(
+        int jobTemplateId,
         string hostname,
         CancellationToken cancellationToken = default)
     {
@@ -204,8 +205,31 @@ internal sealed class AwxClient : IAwxClient, IIntegrationConnector, IDisposable
 
         await EnsureCredentialsAsync(cancellationToken).ConfigureAwait(false);
 
+        // Host names in AWX are only unique per Inventory, not globally — this org's real
+        // inventories reuse short aliases ("web", "engine", "dbservices") across many different
+        // customer instances. A global /api/v2/hosts/?name= search would silently match the
+        // wrong customer's host. Resolve the facts Job Template's own Inventory first and scope
+        // the lookup to it.
+        var templateUri = new Uri(new Uri(_options.Endpoint!), $"/api/v2/job_templates/{jobTemplateId}/");
+        using var templateResponse = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, templateUri), cancellationToken).ConfigureAwait(false);
+
+        var templateBody = await templateResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!templateResponse.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the job template lookup ({(int)templateResponse.StatusCode}): {templateBody}");
+        }
+
+        using var templateJson = JsonDocument.Parse(templateBody);
+        if (!templateJson.RootElement.TryGetProperty("inventory", out var inventoryProperty) ||
+            !inventoryProperty.TryGetInt64(out var inventoryId))
+        {
+            return new AwxHostFactsResult(false, null);
+        }
+
         var lookupUri = new Uri(
-            new Uri(_options.Endpoint!), $"/api/v2/hosts/?name={Uri.EscapeDataString(hostname)}");
+            new Uri(_options.Endpoint!),
+            $"/api/v2/inventories/{inventoryId}/hosts/?name={Uri.EscapeDataString(hostname)}");
         using var lookupResponse = await SendWithAuthRetryAsync(
             () => new HttpRequestMessage(HttpMethod.Get, lookupUri), cancellationToken).ConfigureAwait(false);
 
@@ -243,6 +267,46 @@ internal sealed class AwxClient : IAwxClient, IIntegrationConnector, IDisposable
         }
 
         return new AwxHostFactsResult(true, facts);
+    }
+
+    public async Task<AwxJobTemplateInfo?> GetJobTemplateAsync(
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.IsConfigured)
+        {
+            throw new ValidationException("AWX is not configured. Set endpoint, token and job template id.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        await EnsureCredentialsAsync(cancellationToken).ConfigureAwait(false);
+
+        var uri = new Uri(new Uri(_options.Endpoint!), $"/api/v2/job_templates/?name={Uri.EscapeDataString(name)}");
+        using var response = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken).ConfigureAwait(false);
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the job template lookup ({(int)response.StatusCode}): {body}");
+        }
+
+        using var json = JsonDocument.Parse(body);
+        if (!json.RootElement.TryGetProperty("results", out var results) ||
+            results.ValueKind != JsonValueKind.Array ||
+            results.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var first = results[0];
+        var id = first.TryGetProperty("id", out var idProperty) && idProperty.TryGetInt32(out var parsedId) ? parsedId : 0;
+        var playbook = first.TryGetProperty("playbook", out var playbookProperty) ? playbookProperty.GetString() : null;
+        var useFactCache = first.TryGetProperty("use_fact_cache", out var useFactCacheProperty) &&
+            useFactCacheProperty.ValueKind == JsonValueKind.True;
+
+        return new AwxJobTemplateInfo(id, playbook, useFactCache);
     }
 
     public async Task<IntegrationConnectorStatus> GetStatusAsync(
