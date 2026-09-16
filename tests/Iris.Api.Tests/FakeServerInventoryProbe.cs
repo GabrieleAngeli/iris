@@ -12,7 +12,8 @@ namespace Iris.Api.Tests;
 /// </summary>
 internal sealed class FakeServerInventoryProbe : IServerInventoryProbe
 {
-    public Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default)
+    public Task<ServerInventorySnapshot> DiscoverAsync(
+        ServerNode server, string? awxJobTemplateName = null, CancellationToken cancellationToken = default)
     {
         var isWindows = server.Os == ServerOs.Windows;
         var resources = new ResourceProfile(

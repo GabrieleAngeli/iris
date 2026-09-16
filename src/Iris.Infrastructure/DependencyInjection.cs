@@ -277,6 +277,7 @@ public static class DependencyInjection
         services.AddSingleton<AzureDevOpsConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
         services.AddSingleton<IAzureDevOpsRepositoryReader>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
+        services.AddSingleton<IAzureDevOpsRepositoryWriter>(sp => sp.GetRequiredService<AzureDevOpsConnector>());
 
         services.AddSingleton<NexusConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<NexusConnector>());

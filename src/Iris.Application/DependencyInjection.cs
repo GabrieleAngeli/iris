@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.TryAddScoped<CreateCustomerHandler>();
         services.TryAddScoped<UpdateCustomerHandler>();
         services.TryAddScoped<AddContextHandler>();
+        services.TryAddScoped<SetContextAwxNameHandler>();
         services.TryAddScoped<CreateUserHandler>();
         services.TryAddScoped<UpdateUserHandler>();
         services.TryAddScoped<DeleteUserHandler>();
@@ -98,6 +99,7 @@ public static class DependencyInjection
         services.TryAddScoped<ValidateApplicationInstallationHandler>();
         services.TryAddScoped<GetApplicationInstallationAnsiblePlanHandler>();
         services.TryAddScoped<GenerateApplicationAnsibleScaffoldHandler>();
+        services.TryAddScoped<ProposeAnsibleScaffoldToAwxRepoHandler>();
         services.TryAddScoped<LaunchApplicationInstallationAwxJobHandler>();
         services.TryAddScoped<ListInstallationRunsHandler>();
         services.TryAddScoped<GetInstallationRunHandler>();

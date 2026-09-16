@@ -33,14 +33,10 @@ internal sealed class AwxServerInventoryProbe(
         "tmpfs", "devtmpfs", "overlay", "squashfs", "proc", "sysfs", "cgroup", "cgroup2", "devfs", "autofs",
     };
 
-    public async Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default)
+    public async Task<ServerInventorySnapshot> DiscoverAsync(
+        ServerNode server, string? awxJobTemplateName = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(server);
-
-        if (options.FactsJobTemplateId is not > 0)
-        {
-            throw new ValidationException("Configure the AWX facts job template first.");
-        }
 
         if (string.IsNullOrWhiteSpace(server.Hostname))
         {
@@ -48,11 +44,47 @@ internal sealed class AwxServerInventoryProbe(
                 "The server has no hostname set — AWX can't match it to an inventory host.");
         }
 
+        int jobTemplateId;
+        if (awxJobTemplateName is { Length: > 0 })
+        {
+            AwxJobTemplateInfo? template;
+            try
+            {
+                template = await awx.GetJobTemplateAsync(awxJobTemplateName, cancellationToken).ConfigureAwait(false);
+            }
+            catch (ValidationException ex)
+            {
+                return ServerInventorySnapshot.Unreachable($"Could not look up AWX job template '{awxJobTemplateName}': {ex.Message}");
+            }
+
+            if (template is null)
+            {
+                return ServerInventorySnapshot.Unreachable(
+                    $"AWX has no job template named '{awxJobTemplateName}' yet — sync the awx repo's blueprint first.");
+            }
+
+            if (!template.UseFactCache)
+            {
+                return ServerInventorySnapshot.Unreachable(
+                    $"AWX job template '{awxJobTemplateName}' exists but does not have 'use_fact_cache' enabled.");
+            }
+
+            jobTemplateId = template.Id;
+        }
+        else if (options.FactsJobTemplateId is > 0)
+        {
+            jobTemplateId = options.FactsJobTemplateId.Value;
+        }
+        else
+        {
+            throw new ValidationException("Configure the AWX facts job template first.");
+        }
+
         AwxJobLaunchResult launch;
         try
         {
             launch = await awx.LaunchAsync(
-                new AwxJobLaunch(options.FactsJobTemplateId, BuildPackage(server)), cancellationToken)
+                new AwxJobLaunch(jobTemplateId, BuildPackage(server)), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (ValidationException ex)
@@ -76,7 +108,7 @@ internal sealed class AwxServerInventoryProbe(
         AwxHostFactsResult factsResult;
         try
         {
-            factsResult = await awx.GetHostFactsAsync(options.FactsJobTemplateId!.Value, server.Hostname, cancellationToken).ConfigureAwait(false);
+            factsResult = await awx.GetHostFactsAsync(jobTemplateId, server.Hostname, cancellationToken).ConfigureAwait(false);
         }
         catch (ValidationException ex)
         {

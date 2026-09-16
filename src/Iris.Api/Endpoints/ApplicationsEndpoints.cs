@@ -217,6 +217,21 @@ public static class ApplicationsEndpoints
             .WithSummary("A one-shot Ansible role/playbook scaffold (Jinja2 templates + skeleton) generated from this version's manifest — a starting point, not a managed artifact.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Read));
 
+        applications.MapPost("/{applicationId:guid}/versions/{versionId:guid}/ansible-scaffold/propose", async (
+                Guid applicationId,
+                Guid versionId,
+                ProposeAnsibleScaffoldToAwxRepoHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(applicationId, versionId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ProposeAnsibleScaffoldToAwxRepo")
+            .WithSummary("Proposes the generated Ansible scaffold as a Pull Request in the AWX automation repo, instead of just downloading it.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Applications.Write));
+
         applications.MapPost("/{applicationId:guid}/versions/{versionId:guid}/import", async (
                 Guid applicationId,
                 Guid versionId,

@@ -19,7 +19,7 @@ public partial class CustomersPage : ContentPage
 			await _dialogs.ShowAsync(new NewCustomerDialog(_vm), "dlg.new-customer", 520, 440);
 
 		_vm.AddContextRequested += async (_, row) =>
-			await _dialogs.ShowAsync(new AddContextDialog(row), "dlg.add-context", 520, 460);
+			await _dialogs.ShowAsync(new AddContextDialog(row), "dlg.add-context", 520, 560);
 
 		_vm.EditCustomerRequested += async (_, row) =>
 			await _dialogs.ShowAsync(new EditCustomerDialog(row), "dlg.edit-customer", 520, 420);

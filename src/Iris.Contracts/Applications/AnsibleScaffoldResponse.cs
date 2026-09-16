@@ -20,3 +20,7 @@ public sealed record AnsibleScaffoldResponse(
     string Version,
     DateTimeOffset GeneratedAtUtc,
     IReadOnlyList<AnsibleScaffoldFileResponse> Files);
+
+/// <summary>Result of <c>POST /applications/{applicationId}/versions/{versionId}/ansible-scaffold/propose</c>
+/// — the Pull Request Iris opened in the AWX automation repo with the generated scaffold.</summary>
+public sealed record ProposeAnsibleScaffoldResponse(int PullRequestId, string Url);

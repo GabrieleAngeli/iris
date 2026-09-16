@@ -83,6 +83,10 @@
                                                         <Border Style="{StaticResource Badge}" VerticalOptions="Center">
                                                             <Label Text="{Binding Kind}" Style="{StaticResource Caption}" />
                                                         </Border>
+                                                        <Border Style="{StaticResource Badge}" VerticalOptions="Center" IsVisible="{Binding HasAwxContextName}"
+                                                                ToolTipProperties.Text="AWX automation repo context — used to resolve Job Templates by name">
+                                                            <Label Text="{Binding AwxContextName, StringFormat='AWX: {0}'}" Style="{StaticResource Caption}" />
+                                                        </Border>
                                                     </HorizontalStackLayout>
                                                     <Label Grid.Column="1" Text="Inactive" Style="{StaticResource Caption}"
                                                            VerticalOptions="Center"

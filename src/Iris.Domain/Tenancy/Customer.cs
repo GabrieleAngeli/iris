@@ -41,7 +41,7 @@ public sealed class Customer : Entity<Guid>, IAggregateRoot, IAuditableEntity
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
-    public CustomerContext AddContext(Guid contextId, string name, ContextKind kind)
+    public CustomerContext AddContext(Guid contextId, string name, ContextKind kind, string? awxContextName = null)
     {
         if (_contexts.Any(c => string.Equals(c.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)))
         {
@@ -49,6 +49,7 @@ public sealed class Customer : Entity<Guid>, IAggregateRoot, IAuditableEntity
         }
 
         var context = new CustomerContext(contextId, Id, name, kind);
+        context.SetAwxContextName(awxContextName);
         _contexts.Add(context);
         return context;
     }

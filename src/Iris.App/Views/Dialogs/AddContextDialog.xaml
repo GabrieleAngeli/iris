@@ -28,6 +28,14 @@
                     </Border>
                 </VerticalStackLayout>
 
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="AWX context name (optional)" Style="{StaticResource Caption}" />
+                    <Border Style="{StaticResource FieldBorder}">
+                        <Entry Text="{Binding NewContextAwxName}" Placeholder="cloud_02-trial" />
+                    </Border>
+                    <Label Text="Set this only if this environment has a matching context in the AWX automation repo — lets Iris resolve Job Templates by name (e.g. '{name}-facts') instead of a single global id." Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+
                 <Label Text="{Binding ContextError}" IsVisible="{Binding HasContextError}" FontSize="12"
                        TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
             </VerticalStackLayout>

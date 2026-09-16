@@ -26,5 +26,10 @@ public sealed record ServerInventorySnapshot(
 
 public interface IServerInventoryProbe
 {
-    Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default);
+    /// <summary><paramref name="awxJobTemplateName"/>, when given, is the AWX Job Template name
+    /// to resolve for this discovery (e.g. <c>"cloud_02-trial-facts"</c>) — set by the caller once
+    /// it has unambiguously resolved which AWX context the server belongs to. When null, the
+    /// probe falls back to whatever global job template id it's configured with.</summary>
+    Task<ServerInventorySnapshot> DiscoverAsync(
+        ServerNode server, string? awxJobTemplateName = null, CancellationToken cancellationToken = default);
 }

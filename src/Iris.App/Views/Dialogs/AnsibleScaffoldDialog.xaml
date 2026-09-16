@@ -28,6 +28,33 @@
             </Border>
 
             <ActivityIndicator IsRunning="{Binding IsGeneratingAnsibleScaffold}" IsVisible="{Binding IsGeneratingAnsibleScaffold}" HorizontalOptions="Start" />
+
+            <Border IsVisible="{Binding HasProposeAnsibleScaffoldError}"
+                    BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                    Stroke="{AppThemeBinding Light=#F1BBBB, Dark=#7A3B38}"
+                    StrokeThickness="1"
+                    Padding="12,10"
+                    StrokeShape="RoundRectangle 6">
+                <Label Text="{Binding ProposeAnsibleScaffoldError}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+            </Border>
+
+            <Border IsVisible="{Binding HasProposedAnsibleScaffoldPullRequest}"
+                    BackgroundColor="{AppThemeBinding Light=#E7F5EC, Dark=#1E3A2A}"
+                    Stroke="{AppThemeBinding Light=#B9E2C6, Dark=#3B7A52}"
+                    StrokeThickness="1"
+                    Padding="12,10"
+                    StrokeShape="RoundRectangle 6">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="Pull Request opened:" FontSize="12" Style="{StaticResource Body}" />
+                    <Label Text="{Binding ProposedAnsibleScaffoldPullRequestUrl}" FontSize="12"
+                           TextDecorations="Underline" TextColor="{StaticResource Primary}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnOpenPullRequest" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+            </Border>
         </VerticalStackLayout>
 
         <Grid Grid.Row="1" ColumnDefinitions="260,*" ColumnSpacing="0"
@@ -65,9 +92,15 @@
                IsVisible="{Binding HasAnsibleScaffoldFiles, Converter={StaticResource InvertBoolConverter}}"
                Style="{StaticResource Caption}" Padding="22" />
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Padding="22,12"
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="22,12"
               BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
-            <Button Grid.Column="1" Text="Close" Style="{StaticResource SecondaryButton}" Clicked="OnClose" />
+            <ActivityIndicator Grid.Column="0" IsRunning="{Binding IsProposingAnsibleScaffold}"
+                                IsVisible="{Binding IsProposingAnsibleScaffold}" HorizontalOptions="Start" />
+            <Button Grid.Column="1" Text="Propose as PR to awx repo"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding ProposeAnsibleScaffoldToAwxRepoCommand}"
+                    IsVisible="{Binding HasAnsibleScaffoldFiles}" />
+            <Button Grid.Column="2" Text="Close" Style="{StaticResource SecondaryButton}" Clicked="OnClose" />
         </Grid>
     </Grid>
 </ContentPage>

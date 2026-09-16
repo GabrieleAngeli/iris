@@ -38,7 +38,7 @@ public sealed class ListAccessibleCustomersHandler(
         var contexts = customer.Contexts
             .Where(ctx => snapshot.CanSeeContext(customer.Id, ctx.Id))
             .OrderBy(ctx => ctx.Kind)
-            .Select(ctx => new ContextSummaryResponse(ctx.Id, ctx.Name, ctx.Kind.ToString(), ctx.IsActive))
+            .Select(ctx => new ContextSummaryResponse(ctx.Id, ctx.Name, ctx.Kind.ToString(), ctx.IsActive, ctx.AwxContextName))
             .ToArray();
 
         return new CustomerSummaryResponse(customer.Id, customer.Key, customer.Name, customer.IsActive, contexts);

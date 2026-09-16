@@ -85,6 +85,8 @@ public interface IIrisApiClient
 
 	Task<AnsibleScaffoldResponse> GetApplicationAnsibleScaffoldAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default);
 
+	Task<ProposeAnsibleScaffoldResponse> ProposeApplicationAnsibleScaffoldAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default);
+
 	Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default);
 
 	/// <summary>Runs the deployment Validation Engine for an installation. Requires <c>deployments.validate</c>.</summary>
@@ -302,6 +304,9 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<AnsibleScaffoldResponse> GetApplicationAnsibleScaffoldAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<AnsibleScaffoldResponse>(HttpMethod.Get, $"/applications/{applicationId}/versions/{versionId}/ansible-scaffold", cancellationToken);
+
+	public Task<ProposeAnsibleScaffoldResponse> ProposeApplicationAnsibleScaffoldAsync(Guid applicationId, Guid versionId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<ProposeAnsibleScaffoldResponse>(HttpMethod.Post, $"/applications/{applicationId}/versions/{versionId}/ansible-scaffold/propose", cancellationToken);
 
 	public Task<ApplicationInstallationAwxLaunchResponse> LaunchApplicationInstallationAwxJobAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest request, CancellationToken cancellationToken = default) =>
 		PostAsync<ApplicationInstallationAwxLaunchResponse>($"/applications/installations/{installationId}/awx/launch", request, cancellationToken);

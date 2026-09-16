@@ -3,8 +3,14 @@ namespace Iris.Contracts.Governance;
 /// <summary>Body of <c>POST /customers</c>.</summary>
 public sealed record CreateCustomerRequest(string Key, string Name);
 
-/// <summary>Body of <c>POST /customers/{customerId}/contexts</c>.</summary>
-public sealed record AddContextRequest(string Name, string Kind);
+/// <summary>Body of <c>POST /customers/{customerId}/contexts</c>. <c>AwxContextName</c> is
+/// optional — set it only when this environment has a matching context in the AWX automation
+/// repo (e.g. <c>cloud_02-trial</c>), used to resolve Job Templates by name instead of a global id.</summary>
+public sealed record AddContextRequest(string Name, string Kind, string? AwxContextName = null);
+
+/// <summary>Body of <c>PUT /customers/{customerId}/contexts/{contextId}/awx-context-name</c>.
+/// Blank/null clears it.</summary>
+public sealed record SetContextAwxNameRequest(string? AwxContextName);
 
 /// <summary>Body of <c>PUT /customers/{customerId}</c>.</summary>
 public sealed record UpdateCustomerRequest(string Name, bool IsActive);

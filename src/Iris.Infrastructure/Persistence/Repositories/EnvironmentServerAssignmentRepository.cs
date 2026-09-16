@@ -16,6 +16,13 @@ internal sealed class EnvironmentServerAssignmentRepository(IrisDbContext dbCont
         dbContext.EnvironmentServerAssignments
             .SingleOrDefaultAsync(assignment => assignment.Id == assignmentId, cancellationToken);
 
+    public async Task<IReadOnlyList<EnvironmentServerAssignment>> GetForServerAsync(Guid serverNodeId, CancellationToken cancellationToken = default) =>
+        await dbContext.EnvironmentServerAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.ServerNodeId == serverNodeId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
     public Task<bool> ExistsAsync(Guid customerContextId, Guid serverNodeId, CancellationToken cancellationToken = default) =>
         dbContext.EnvironmentServerAssignments
             .AsNoTracking()

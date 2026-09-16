@@ -4,7 +4,8 @@ public sealed record ContextSummaryResponse(
     Guid Id,
     string Name,
     string Kind,
-    bool IsActive);
+    bool IsActive,
+    string? AwxContextName = null);
 
 public sealed record CustomerSummaryResponse(
     Guid Id,

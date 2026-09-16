@@ -108,6 +108,7 @@ public partial class CustomersViewModel : ObservableObject
 	{
 		row.NewContextName = string.Empty;
 		row.NewContextKind = "Test";
+		row.NewContextAwxName = string.Empty;
 		row.ContextError = null;
 		AddContextRequested?.Invoke(this, row);
 	}
@@ -195,6 +196,7 @@ public sealed partial class CustomerRowViewModel : ObservableObject
 
 	[ObservableProperty] private string _newContextName = string.Empty;
 	[ObservableProperty] private string _newContextKind = "Test";
+	[ObservableProperty] private string _newContextAwxName = string.Empty;
 	[ObservableProperty] private bool _isAddingContext;
 	[ObservableProperty] private string? _contextError;
 
@@ -220,7 +222,8 @@ public sealed partial class CustomerRowViewModel : ObservableObject
 
 		try
 		{
-			var created = await _api.AddContextAsync(_customerId, new AddContextRequest(name, NewContextKind));
+			var created = await _api.AddContextAsync(_customerId, new AddContextRequest(
+				name, NewContextKind, string.IsNullOrWhiteSpace(NewContextAwxName) ? null : NewContextAwxName.Trim()));
 			Contexts.Add(new ContextRowViewModel(created));
 			OnPropertyChanged(nameof(HasNoContexts));
 			AddContextCompleted?.Invoke(this, EventArgs.Empty);
@@ -387,4 +390,8 @@ public sealed class ContextRowViewModel(ContextSummaryResponse context)
 	public string Kind => context.Kind;
 
 	public bool IsActive => context.IsActive;
+
+	public string? AwxContextName => context.AwxContextName;
+
+	public bool HasAwxContextName => !string.IsNullOrWhiteSpace(AwxContextName);
 }

@@ -43,7 +43,7 @@ public sealed class UpdateCustomerHandler(ICustomerRepository customers, IUnitOf
     {
         var contexts = customer.Contexts
             .OrderBy(ctx => ctx.Kind)
-            .Select(ctx => new ContextSummaryResponse(ctx.Id, ctx.Name, ctx.Kind.ToString(), ctx.IsActive))
+            .Select(ctx => new ContextSummaryResponse(ctx.Id, ctx.Name, ctx.Kind.ToString(), ctx.IsActive, ctx.AwxContextName))
             .ToArray();
 
         return new CustomerSummaryResponse(customer.Id, customer.Key, customer.Name, customer.IsActive, contexts);

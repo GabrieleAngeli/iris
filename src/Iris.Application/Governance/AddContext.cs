@@ -6,7 +6,7 @@ using Iris.Domain.Tenancy;
 namespace Iris.Application.Governance;
 
 /// <summary>Command for <c>POST /customers/{customerId}/contexts</c>.</summary>
-public sealed record AddContextCommand(Guid CustomerId, string Name, string Kind);
+public sealed record AddContextCommand(Guid CustomerId, string Name, string Kind, string? AwxContextName = null);
 
 public sealed class AddContextHandler(ICustomerRepository customers, IUnitOfWork unitOfWork)
 {
@@ -32,7 +32,7 @@ public sealed class AddContextHandler(ICustomerRepository customers, IUnitOfWork
         CustomerContext context;
         try
         {
-            context = customer.AddContext(Guid.CreateVersion7(), command.Name, kind);
+            context = customer.AddContext(Guid.CreateVersion7(), command.Name, kind, command.AwxContextName);
         }
         catch (InvalidOperationException ex)
         {
@@ -41,6 +41,6 @@ public sealed class AddContextHandler(ICustomerRepository customers, IUnitOfWork
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new ContextSummaryResponse(context.Id, context.Name, context.Kind.ToString(), context.IsActive);
+        return new ContextSummaryResponse(context.Id, context.Name, context.Kind.ToString(), context.IsActive, context.AwxContextName);
     }
 }

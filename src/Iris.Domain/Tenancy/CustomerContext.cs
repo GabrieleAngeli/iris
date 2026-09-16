@@ -34,6 +34,13 @@ public sealed class CustomerContext : Entity<Guid>, IAuditableEntity
 
     public bool IsActive { get; private set; }
 
+    /// <summary>The matching "context" name in the AWX automation repo (e.g. <c>cloud_02-trial</c>),
+    /// if this environment has one — used to resolve Job Templates by name
+    /// (<c>"{AwxContextName}-facts"</c>, <c>"{AwxContextName}-site"</c>) instead of a single
+    /// global id, since the repo declares Job Templates per context. Null until set; not every
+    /// context needs one (only those actually represented in the awx repo).</summary>
+    public string? AwxContextName { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -43,6 +50,9 @@ public sealed class CustomerContext : Entity<Guid>, IAuditableEntity
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name.Trim();
     }
+
+    public void SetAwxContextName(string? awxContextName) =>
+        AwxContextName = string.IsNullOrWhiteSpace(awxContextName) ? null : awxContextName.Trim();
 
     public void Activate() => IsActive = true;
 

@@ -537,6 +537,10 @@ internal sealed class FakeEnvironmentServerAssignmentRepository(FakeStore store)
     public Task<EnvironmentServerAssignment?> GetAsync(Guid assignmentId, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.EnvironmentServerAssignments.SingleOrDefault(assignment => assignment.Id == assignmentId));
 
+    public Task<IReadOnlyList<EnvironmentServerAssignment>> GetForServerAsync(Guid serverNodeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<EnvironmentServerAssignment>>(
+            store.EnvironmentServerAssignments.Where(assignment => assignment.ServerNodeId == serverNodeId).ToList());
+
     public Task<bool> ExistsAsync(Guid customerContextId, Guid serverNodeId, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.EnvironmentServerAssignments.Any(assignment =>
             assignment.CustomerContextId == customerContextId && assignment.ServerNodeId == serverNodeId));

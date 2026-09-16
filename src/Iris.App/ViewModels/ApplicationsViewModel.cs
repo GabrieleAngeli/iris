@@ -2123,6 +2123,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private AnsibleScaffoldFileRowViewModel? _selectedAnsibleScaffoldFile;
 	[ObservableProperty] private bool _isGeneratingAnsibleScaffold;
 	[ObservableProperty] private string? _ansibleScaffoldError;
+	[ObservableProperty] private bool _isProposingAnsibleScaffold;
+	[ObservableProperty] private string? _proposeAnsibleScaffoldError;
+	[ObservableProperty] private string? _proposedAnsibleScaffoldPullRequestUrl;
 
 	public bool HasAnsibleScaffoldError => !string.IsNullOrWhiteSpace(AnsibleScaffoldError);
 
@@ -2130,7 +2133,23 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	public bool CanGenerateAnsibleScaffold => SelectedInstallVersion is not null;
 
+	public bool CanProposeAnsibleScaffold => HasAnsibleScaffoldFiles && !IsProposingAnsibleScaffold;
+
+	public bool HasProposeAnsibleScaffoldError => !string.IsNullOrWhiteSpace(ProposeAnsibleScaffoldError);
+
+	public bool HasProposedAnsibleScaffoldPullRequest => !string.IsNullOrWhiteSpace(ProposedAnsibleScaffoldPullRequestUrl);
+
 	partial void OnAnsibleScaffoldErrorChanged(string? value) => OnPropertyChanged(nameof(HasAnsibleScaffoldError));
+
+	partial void OnProposeAnsibleScaffoldErrorChanged(string? value) => OnPropertyChanged(nameof(HasProposeAnsibleScaffoldError));
+
+	partial void OnProposedAnsibleScaffoldPullRequestUrlChanged(string? value) => OnPropertyChanged(nameof(HasProposedAnsibleScaffoldPullRequest));
+
+	partial void OnIsProposingAnsibleScaffoldChanged(bool value)
+	{
+		OnPropertyChanged(nameof(CanProposeAnsibleScaffold));
+		ProposeAnsibleScaffoldToAwxRepoCommand.NotifyCanExecuteChanged();
+	}
 
 	public string VersionCountText => VersionCount == 1 ? "1 version" : $"{VersionCount} versions";
 
@@ -2281,7 +2300,10 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		AnsibleScaffoldFiles.Clear();
 		SelectedAnsibleScaffoldFile = null;
 		AnsibleScaffoldError = null;
+		ProposeAnsibleScaffoldError = null;
+		ProposedAnsibleScaffoldPullRequestUrl = null;
 		OnPropertyChanged(nameof(HasAnsibleScaffoldFiles));
+		OnPropertyChanged(nameof(CanProposeAnsibleScaffold));
 		_parent.RaiseAnsibleScaffoldRequested(this);
 
 		IsGeneratingAnsibleScaffold = true;
@@ -2294,6 +2316,7 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 			}
 
 			OnPropertyChanged(nameof(HasAnsibleScaffoldFiles));
+			OnPropertyChanged(nameof(CanProposeAnsibleScaffold));
 			SelectedAnsibleScaffoldFile = AnsibleScaffoldFiles.FirstOrDefault();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
@@ -2308,6 +2331,35 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 
 	[RelayCommand]
 	private void SelectAnsibleScaffoldFile(AnsibleScaffoldFileRowViewModel? file) => SelectedAnsibleScaffoldFile = file;
+
+	/// <summary>Proposes the just-generated scaffold as a Pull Request in the AWX automation repo
+	/// instead of leaving it as a download-only artifact — Iris never pushes to the repo's base
+	/// branch directly, a human reviews and merges this PR.</summary>
+	[RelayCommand(CanExecute = nameof(CanProposeAnsibleScaffold))]
+	private async Task ProposeAnsibleScaffoldToAwxRepoAsync()
+	{
+		if (SelectedInstallVersion is not { } version)
+		{
+			return;
+		}
+
+		ProposeAnsibleScaffoldError = null;
+		ProposedAnsibleScaffoldPullRequestUrl = null;
+		IsProposingAnsibleScaffold = true;
+		try
+		{
+			var result = await _api.ProposeApplicationAnsibleScaffoldAsync(_applicationId, version.Id);
+			ProposedAnsibleScaffoldPullRequestUrl = result.Url;
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			ProposeAnsibleScaffoldError = ex.Message;
+		}
+		finally
+		{
+			IsProposingAnsibleScaffold = false;
+		}
+	}
 
 	private void ResetInstallationDraft()
 	{

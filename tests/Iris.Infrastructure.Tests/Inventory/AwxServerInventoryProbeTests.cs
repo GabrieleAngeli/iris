@@ -40,8 +40,15 @@ public sealed class AwxServerInventoryProbeTests
             return Task.FromResult(OnFacts(hostname));
         }
 
-        public Task<AwxJobTemplateInfo?> GetJobTemplateAsync(string name, CancellationToken cancellationToken = default) =>
-            Task.FromResult<AwxJobTemplateInfo?>(null);
+        public Func<string, AwxJobTemplateInfo?> OnGetJobTemplate { get; set; } = _ => null;
+
+        public string? LastRequestedJobTemplateName { get; private set; }
+
+        public Task<AwxJobTemplateInfo?> GetJobTemplateAsync(string name, CancellationToken cancellationToken = default)
+        {
+            LastRequestedJobTemplateName = name;
+            return Task.FromResult(OnGetJobTemplate(name));
+        }
     }
 
     private static ServerNode NewServer(string? hostname = "web-01.internal") => new(
@@ -150,6 +157,64 @@ public sealed class AwxServerInventoryProbeTests
         Assert.Equal("/dev/sda1", snapshot.Disks[0].DeviceName);
         // No port mapping/guessing happens here — the server's own (empty) value passes through.
         Assert.Equal(server.UsedPorts, snapshot.UsedPorts);
+    }
+
+    [Fact]
+    public async Task Discover_resolves_the_job_template_by_name_when_given_an_awx_context()
+    {
+        var awx = new FakeAwxClient
+        {
+            OnGetJobTemplate = name => name == "cloud_02-trial-facts" ? new AwxJobTemplateInfo(99, "playbooks/validation/discover-host-facts.yml", true) : null,
+            OnFacts = _ => LinuxFacts(),
+        };
+        // No global FactsJobTemplateId configured — the name-based path must not need it.
+        var probe = new AwxServerInventoryProbe(awx, Configured(factsJobTemplateId: null));
+
+        var snapshot = await probe.DiscoverAsync(NewServer(), awxJobTemplateName: "cloud_02-trial-facts");
+
+        Assert.True(snapshot.IsReachable);
+        Assert.Equal("cloud_02-trial-facts", awx.LastRequestedJobTemplateName);
+        Assert.Equal(99, awx.LastFactsJobTemplateId);
+    }
+
+    [Fact]
+    public async Task Discover_reports_unreachable_when_the_named_job_template_does_not_exist_yet()
+    {
+        var awx = new FakeAwxClient { OnGetJobTemplate = _ => null };
+        var probe = new AwxServerInventoryProbe(awx, Configured());
+
+        var snapshot = await probe.DiscoverAsync(NewServer(), awxJobTemplateName: "cloud_02-trial-facts");
+
+        Assert.False(snapshot.IsReachable);
+        Assert.Contains("no job template named", snapshot.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Discover_reports_unreachable_when_the_named_template_does_not_have_fact_cache_enabled()
+    {
+        var awx = new FakeAwxClient
+        {
+            OnGetJobTemplate = _ => new AwxJobTemplateInfo(99, "some/playbook.yml", false),
+        };
+        var probe = new AwxServerInventoryProbe(awx, Configured());
+
+        var snapshot = await probe.DiscoverAsync(NewServer(), awxJobTemplateName: "cloud_02-trial-facts");
+
+        Assert.False(snapshot.IsReachable);
+        Assert.Contains("use_fact_cache", snapshot.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Discover_falls_back_to_the_global_job_template_when_no_name_is_given()
+    {
+        var awx = new FakeAwxClient { OnFacts = _ => LinuxFacts() };
+        var probe = new AwxServerInventoryProbe(awx, Configured(factsJobTemplateId: 42));
+
+        var snapshot = await probe.DiscoverAsync(NewServer(), awxJobTemplateName: null);
+
+        Assert.True(snapshot.IsReachable);
+        Assert.Null(awx.LastRequestedJobTemplateName);
+        Assert.Equal(42, awx.LastFactsJobTemplateId);
     }
 
     [Fact]

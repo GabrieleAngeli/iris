@@ -21,6 +21,23 @@ public partial class AnsibleScaffoldDialog : ContentPage
 
 	private void OnClose(object? sender, EventArgs e) => Close();
 
+	private async void OnOpenPullRequest(object? sender, TappedEventArgs e)
+	{
+		if (Row.ProposedAnsibleScaffoldPullRequestUrl is not { } url || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+		{
+			return;
+		}
+
+		try
+		{
+			await Launcher.Default.OpenAsync(uri);
+		}
+		catch (Exception)
+		{
+			// best-effort — the link text itself already shows the PR url to copy manually
+		}
+	}
+
 	private void Close()
 	{
 		if (_closing)

@@ -4,7 +4,9 @@ using Iris.Application.Infrastructure;
 using Iris.Application.Tests.Fakes;
 using Iris.Contracts.Infrastructure;
 using Iris.Domain.Access;
+using Iris.Domain.Deployments;
 using Iris.Domain.Infrastructure;
+using Iris.Domain.Tenancy;
 
 namespace Iris.Application.Tests.Infrastructure;
 
@@ -281,6 +283,8 @@ public sealed class InfrastructureHandlersTests
         var discover = new DiscoverServerInventoryHandler(
             store.ServerRepository,
             store.UserRepository,
+            store.CustomerRepository,
+            store.EnvironmentServerAssignmentRepository,
             new StubServerInventoryProbe(),
             new FakeClock(DateTimeOffset.UtcNow),
             store.UnitOfWork);
@@ -308,6 +312,76 @@ public sealed class InfrastructureHandlersTests
         Assert.Null(discovered.LastDiscoveryError);
         Assert.Single(discovered.Disks);
         Assert.Equal("/dev/sda1", discovered.Disks[0].DeviceName);
+    }
+
+    [Fact]
+    public async Task DiscoverServerInventory_resolves_the_awx_job_template_name_for_an_unambiguous_context()
+    {
+        var store = new FakeStore();
+        var customer = new Customer(Guid.CreateVersion7(), "acme", "Acme");
+        var context = customer.AddContext(Guid.CreateVersion7(), "Trial", ContextKind.Staging, "cloud_02-trial");
+        store.WithCustomer(customer);
+
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+        await AddCredentialHandler(store).HandleAsync(new AddServerCredentialCommand(
+            server.Id, "deploy", "SshKey", "key", "ServiceAccount", null, "ansible", null));
+        store.EnvironmentServerAssignments.Add(new EnvironmentServerAssignment(Guid.CreateVersion7(), context.Id, server.Id, null));
+
+        var probe = new StubServerInventoryProbe();
+        var discover = new DiscoverServerInventoryHandler(
+            store.ServerRepository, store.UserRepository, store.CustomerRepository, store.EnvironmentServerAssignmentRepository,
+            probe, new FakeClock(DateTimeOffset.UtcNow), store.UnitOfWork);
+
+        await discover.HandleAsync(new DiscoverServerInventoryCommand(server.Id));
+
+        Assert.Equal("cloud_02-trial-facts", probe.LastAwxJobTemplateName);
+    }
+
+    [Fact]
+    public async Task DiscoverServerInventory_falls_back_to_the_global_template_when_the_server_has_no_assignment()
+    {
+        var store = new FakeStore();
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "web-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+        await AddCredentialHandler(store).HandleAsync(new AddServerCredentialCommand(
+            server.Id, "deploy", "SshKey", "key", "ServiceAccount", null, "ansible", null));
+
+        var probe = new StubServerInventoryProbe();
+        var discover = new DiscoverServerInventoryHandler(
+            store.ServerRepository, store.UserRepository, store.CustomerRepository, store.EnvironmentServerAssignmentRepository,
+            probe, new FakeClock(DateTimeOffset.UtcNow), store.UnitOfWork);
+
+        await discover.HandleAsync(new DiscoverServerInventoryCommand(server.Id));
+
+        Assert.Null(probe.LastAwxJobTemplateName);
+    }
+
+    [Fact]
+    public async Task DiscoverServerInventory_falls_back_to_the_global_template_when_assignments_disagree_on_context()
+    {
+        var store = new FakeStore();
+        var customer = new Customer(Guid.CreateVersion7(), "acme", "Acme");
+        var contextA = customer.AddContext(Guid.CreateVersion7(), "Trial", ContextKind.Staging, "cloud_02-trial");
+        var contextB = customer.AddContext(Guid.CreateVersion7(), "Staging", ContextKind.Staging, "cloud_01-staging");
+        store.WithCustomer(customer);
+
+        var server = await CreateHandler(store).HandleAsync(new CreateServerCommand(
+            "shared-01", null, "Linux", "SelfHosted", "1.2.3.4", null, "Production"));
+        await AddCredentialHandler(store).HandleAsync(new AddServerCredentialCommand(
+            server.Id, "deploy", "SshKey", "key", "ServiceAccount", null, "ansible", null));
+        // A server shared across two contexts with different AWX names — genuinely ambiguous.
+        store.EnvironmentServerAssignments.Add(new EnvironmentServerAssignment(Guid.CreateVersion7(), contextA.Id, server.Id, null));
+        store.EnvironmentServerAssignments.Add(new EnvironmentServerAssignment(Guid.CreateVersion7(), contextB.Id, server.Id, null));
+
+        var probe = new StubServerInventoryProbe();
+        var discover = new DiscoverServerInventoryHandler(
+            store.ServerRepository, store.UserRepository, store.CustomerRepository, store.EnvironmentServerAssignmentRepository,
+            probe, new FakeClock(DateTimeOffset.UtcNow), store.UnitOfWork);
+
+        await discover.HandleAsync(new DiscoverServerInventoryCommand(server.Id));
+
+        Assert.Null(probe.LastAwxJobTemplateName);
     }
 
     [Fact]
@@ -421,8 +495,13 @@ public sealed class InfrastructureHandlersTests
 
     private sealed class StubServerInventoryProbe : IServerInventoryProbe
     {
-        public Task<ServerInventorySnapshot> DiscoverAsync(ServerNode server, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ServerInventorySnapshot(
+        public string? LastAwxJobTemplateName { get; private set; }
+
+        public Task<ServerInventorySnapshot> DiscoverAsync(
+            ServerNode server, string? awxJobTemplateName = null, CancellationToken cancellationToken = default)
+        {
+            LastAwxJobTemplateName = awxJobTemplateName;
+            return Task.FromResult(new ServerInventorySnapshot(
                 IsReachable: true,
                 Error: null,
                 Os: ServerOs.Linux,
@@ -432,6 +511,7 @@ public sealed class InfrastructureHandlersTests
                 Resources: new ResourceProfile(8, 16384, 300, 210, 70, 4096, 120),
                 UsedPorts: server.UsedPorts,
                 Disks: [new ServerDiskInput("/dev/sda1", "/", "ext4", 300, 120)]));
+        }
     }
 
     private sealed class StubDataServiceInventoryProbe : IDataServiceInventoryProbe

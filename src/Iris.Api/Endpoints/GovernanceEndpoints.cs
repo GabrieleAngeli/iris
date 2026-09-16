@@ -197,12 +197,28 @@ public static class GovernanceEndpoints
                 CancellationToken ct) =>
             {
                 var result = await handler
-                    .HandleAsync(new AddContextCommand(customerId, body.Name, body.Kind), ct)
+                    .HandleAsync(new AddContextCommand(customerId, body.Name, body.Kind, body.AwxContextName), ct)
                     .ConfigureAwait(false);
                 return Results.Created($"/customers/{customerId}/contexts/{result.Id}", result);
             })
             .WithName("AddCustomerContext")
             .WithSummary("Add an environment/context to a customer.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageCustomers));
+
+        customers.MapPut("/{customerId:guid}/contexts/{contextId:guid}/awx-context-name", async (
+                Guid customerId,
+                Guid contextId,
+                SetContextAwxNameRequest body,
+                SetContextAwxNameHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SetContextAwxNameCommand(customerId, contextId, body.AwxContextName), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("SetContextAwxName")
+            .WithSummary("Set (or clear) which context in the AWX automation repo this environment corresponds to.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.Governance.ManageCustomers));
 
         return app;
