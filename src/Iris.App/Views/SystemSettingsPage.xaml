@@ -23,15 +23,6 @@
                            TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
                 </Border>
 
-                <Border IsVisible="{Binding RestartRequired}"
-                        BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#433519}"
-                        Stroke="{AppThemeBinding Light=#F0DFA0, Dark=#6B5726}"
-                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
-                    <Label Text="Some integration settings were changed and require an Iris.Api restart to take effect."
-                           FontSize="13"
-                           TextColor="{AppThemeBinding Light={StaticResource Warning}, Dark={StaticResource WarningDark}}" />
-                </Border>
-
                 <Border IsVisible="{Binding FallbackSecretsPending}"
                         BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#433519}"
                         Stroke="{AppThemeBinding Light=#F0DFA0, Dark=#6B5726}"

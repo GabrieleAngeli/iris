@@ -132,25 +132,32 @@ public sealed class GovernanceApiTests(IrisApiFactory factory) : IClassFixture<I
         Assert.True(adminSettings!.CanManageSystem);
         Assert.NotNull(adminSettings.Mail);
         Assert.Contains(adminSettings.Integrations, i => i.Key == "openbao");
-        Assert.Contains(adminSettings.Integrations, i => i.Key == "ansible");
+        Assert.Contains(adminSettings.Integrations, i => i.Key == "awx");
+        // Ansible is never surfaced here — it's not a real, health-checkable connector (Iris
+        // never calls it directly, AWX is the one real Ansible executor), so it was removed from
+        // this list at the user's request (2026-09-16).
+        Assert.DoesNotContain(adminSettings.Integrations, i => i.Key == "ansible");
 
         Assert.NotNull(readerSettings);
         Assert.False(readerSettings!.CanManageSystem);
         Assert.Null(readerSettings.Mail);
         Assert.Contains(readerSettings.Integrations, i => i.Key == "openbao");
-        Assert.Contains(readerSettings.Integrations, i => i.Key == "ansible");
+        Assert.Contains(readerSettings.Integrations, i => i.Key == "awx");
     }
 
     [Fact]
     public async Task Platform_admin_can_probe_integration_status()
     {
         var adminStatus = await Admin()
-            .GetFromJsonAsync<IntegrationLinkDto>("/system/integrations/ansible/status?probe=false");
+            .GetFromJsonAsync<IntegrationLinkDto>("/system/integrations/awx/status?probe=false");
         Assert.NotNull(adminStatus);
-        Assert.Equal("ansible", adminStatus!.Key);
+        Assert.Equal("awx", adminStatus!.Key);
 
-        var readerStatus = await Reader().GetAsync("/system/integrations/ansible/status?probe=false");
+        var readerStatus = await Reader().GetAsync("/system/integrations/awx/status?probe=false");
         Assert.Equal(HttpStatusCode.Forbidden, readerStatus.StatusCode);
+
+        var ansibleStatus = await Admin().GetAsync("/system/integrations/ansible/status?probe=false");
+        Assert.Equal(HttpStatusCode.NotFound, ansibleStatus.StatusCode);
 
         var missingStatus = await Admin().GetAsync("/system/integrations/missing/status?probe=false");
         Assert.Equal(HttpStatusCode.NotFound, missingStatus.StatusCode);

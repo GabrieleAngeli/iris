@@ -85,9 +85,8 @@ public sealed class ProvisionOpenBaoHandler(
 
         return new ProvisionOpenBaoResponse(
             endpoint,
-            RestartRequired: true,
-            "OpenBao dev-mode container started — convenience/non-production use only. " +
-            "Restart Iris.Api for this instance to start using it.");
+            RestartRequired: false,
+            "OpenBao dev-mode container started and active immediately — convenience/non-production use only.");
     }
 
     /// <summary>OpenBao is a Vault fork and keeps Vault's dev-mode banner format: a line

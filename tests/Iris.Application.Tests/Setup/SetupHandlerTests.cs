@@ -31,8 +31,8 @@ public sealed class SetupHandlerTests
         new FakeClock(Now),
         store.UnitOfWork,
         store.ReachabilityProbe,
-        new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork),
-        new SaveAwxIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork));
+        new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader),
+        new SaveAwxIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader));
 
     private static TestMailConnectionHandler TestMailHandler(FakeStore store) => new(store.EmailSender);
 

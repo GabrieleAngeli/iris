@@ -13,6 +13,7 @@ public sealed record ProposeAnsibleScaffoldToAwxRepoCommand(Guid ApplicationId, 
 
 public sealed class ProposeAnsibleScaffoldToAwxRepoHandler(
     GenerateApplicationAnsibleScaffoldHandler scaffoldGenerator,
+    IApplicationRepository applications,
     IIntegrationSettingsRepository settingsRepository,
     IAzureDevOpsRepositoryWriter writer,
     IClock clock)
@@ -23,26 +24,33 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var application = await applications.GetAsync(command.ApplicationId, cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException("Application", command.ApplicationId);
         var settings = await settingsRepository.GetAsync(cancellationToken).ConfigureAwait(false);
-        if (settings is null ||
-            string.IsNullOrWhiteSpace(settings.AzureDevOpsProject) ||
-            string.IsNullOrWhiteSpace(settings.AzureDevOpsRepository))
+
+        // A per-application override (App settings) wins field-by-field; anything left unset
+        // falls back to the global Azure DevOps "AWX automation repo" settings.
+        var project = application.AwxRepositoryProject ?? settings?.AzureDevOpsProject;
+        var repository = application.AwxRepositoryName ?? settings?.AzureDevOpsRepository;
+        if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(repository))
         {
             throw new ValidationException(
-                "Configure the AWX automation repo's project/repository in System settings (Configure Azure DevOps) before proposing a scaffold.");
+                "Configure the AWX automation repo's project/repository — either on this application, or globally in " +
+                "System settings (Configure Azure DevOps) — before proposing a scaffold.");
         }
 
         var scaffold = await scaffoldGenerator
             .HandleAsync(new GenerateApplicationAnsibleScaffoldQuery(command.ApplicationId, command.VersionId), cancellationToken)
             .ConfigureAwait(false);
 
-        var branch = string.IsNullOrWhiteSpace(settings.AzureDevOpsBranch) ? "master" : settings.AzureDevOpsBranch;
+        var branch = application.AwxRepositoryBranch
+            ?? (string.IsNullOrWhiteSpace(settings?.AzureDevOpsBranch) ? "master" : settings.AzureDevOpsBranch);
         var newBranchName = $"iris/ansible-scaffold/{scaffold.ApplicationSlug}-{scaffold.Version}-{clock.UtcNow:yyyyMMddHHmmss}";
         var files = scaffold.Files.ToDictionary(file => RemapPath(scaffold.ApplicationSlug, file.RelativePath), file => file.Content);
 
         var proposal = new AzureDevOpsChangeProposal(
-            settings.AzureDevOpsProject!,
-            settings.AzureDevOpsRepository!,
+            project,
+            repository,
             branch,
             newBranchName,
             $"Iris: Ansible scaffold for {scaffold.ApplicationSlug} v{scaffold.Version}",

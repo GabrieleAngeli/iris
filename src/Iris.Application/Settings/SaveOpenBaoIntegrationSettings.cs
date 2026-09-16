@@ -13,7 +13,8 @@ public sealed record SaveOpenBaoIntegrationSettingsCommand(
 public sealed class SaveOpenBaoIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
     ISecretStore secretStore,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveOpenBaoIntegrationSettingsCommand command,
@@ -47,9 +48,11 @@ public sealed class SaveOpenBaoIntegrationSettingsHandler(
 
         settings.ConfigureOpenBao(endpoint, tokenReference, mountPath, command.UseKvV2);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "OpenBao settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "OpenBao settings saved. Endpoint and mount path are active immediately; " +
+                "use Promote to switch to a newly-saved token as the live secret store.");
     }
 }

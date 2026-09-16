@@ -31,7 +31,7 @@ public sealed class SyncAwxBlueprintHandlerTests
     private static async Task<FakeStore> SeededStoreAsync()
     {
         var store = new FakeStore();
-        await new SaveOpsHostIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork)
+        await new SaveOpsHostIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader)
             .HandleAsync(new SaveOpsHostIntegrationSettingsCommand(
                 "opsserver.internal", 2222, "ops", "SshKey", "-----BEGIN KEY-----", "/home/ops/Refactoring_ops_flow/awx"))
             .ConfigureAwait(false);

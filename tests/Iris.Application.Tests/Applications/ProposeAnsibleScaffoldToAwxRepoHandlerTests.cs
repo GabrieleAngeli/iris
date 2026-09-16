@@ -20,6 +20,7 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandlerTests
     private static ProposeAnsibleScaffoldToAwxRepoHandler Handler(FakeStore store, FakeAzureDevOpsRepositoryWriter writer) =>
         new(
             new GenerateApplicationAnsibleScaffoldHandler(store.ApplicationRepository, new FakeClock(Now)),
+            store.ApplicationRepository,
             store.IntegrationSettingsRepository,
             writer,
             new FakeClock(Now));
@@ -84,6 +85,37 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandlerTests
         await Handler(store, writer).HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(appId, versionId));
 
         Assert.Equal("master", Assert.Single(writer.Proposals).BaseBranch);
+    }
+
+    [Fact]
+    public async Task Propose_uses_the_applications_own_repo_override_instead_of_the_global_settings()
+    {
+        var store = new FakeStore();
+        var settings = await store.IntegrationSettingsRepository.GetOrCreateAsync();
+        settings.ConfigureAzureDevOps("https://dev.azure.com/algorab-devops", null, "Refactoring_ops_flow", "awx", "master", null);
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null,
+            AwxRepositoryProject: "SomeOtherProject", AwxRepositoryName: "custom-awx-repo", AwxRepositoryBranch: "develop"));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "4.0.0", "refs/tags/4.0.0", new RuntimeMetadataRequest("java17", "Linux", 2, 1024, [8080])));
+        var writer = new FakeAzureDevOpsRepositoryWriter();
+
+        await Handler(store, writer).HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(app.Id, version.Id));
+
+        var proposal = Assert.Single(writer.Proposals);
+        Assert.Equal("SomeOtherProject", proposal.Project);
+        Assert.Equal("custom-awx-repo", proposal.Repository);
+        Assert.Equal("develop", proposal.BaseBranch);
+    }
+
+    [Fact]
+    public async Task Propose_throws_not_found_for_an_unknown_application()
+    {
+        var store = new FakeStore();
+        var writer = new FakeAzureDevOpsRepositoryWriter();
+
+        await Assert.ThrowsAsync<NotFoundException>(() => Handler(store, writer)
+            .HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(Guid.NewGuid(), Guid.NewGuid())));
     }
 }
 

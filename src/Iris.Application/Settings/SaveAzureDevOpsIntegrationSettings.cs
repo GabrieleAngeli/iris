@@ -15,7 +15,8 @@ public sealed record SaveAzureDevOpsIntegrationSettingsCommand(
 public sealed class SaveAzureDevOpsIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
     ISecretStore secretStore,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveAzureDevOpsIntegrationSettingsCommand command,
@@ -50,9 +51,10 @@ public sealed class SaveAzureDevOpsIntegrationSettingsHandler(
 
         settings.ConfigureAzureDevOps(endpoint, tokenReference, project, repository, branch, manifestPath);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "Azure DevOps settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "Azure DevOps settings saved and active immediately.");
     }
 }

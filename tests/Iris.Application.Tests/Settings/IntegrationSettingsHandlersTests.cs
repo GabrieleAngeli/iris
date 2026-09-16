@@ -9,37 +9,36 @@ namespace Iris.Application.Tests.Settings;
 public sealed class IntegrationSettingsHandlersTests
 {
     private static SaveOpenBaoIntegrationSettingsHandler OpenBaoHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static SaveAwxIntegrationSettingsHandler AwxHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static SaveAnsibleIntegrationSettingsHandler AnsibleHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static SaveAzureDevOpsIntegrationSettingsHandler AzureDevOpsHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static SaveNexusIntegrationSettingsHandler NexusHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static SaveOpsHostIntegrationSettingsHandler OpsHostHandler(FakeStore store) =>
-        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork);
+        new(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader);
 
     private static GetSystemSettingsHandler SystemSettingsHandler(
-        FakeStore store, ActiveIntegrationSnapshot? snapshot = null, IEnumerable<IIntegrationConnector>? connectors = null,
-        IIntegrationHealthMonitor? healthMonitor = null) =>
+        FakeStore store, IEnumerable<IIntegrationConnector>? connectors = null,
+        IIntegrationHealthMonitor? healthMonitor = null, ISecretStorePromotion? secretStorePromotion = null) =>
         new(store.MailProviderSettingsRepository, store.IntegrationSettingsRepository,
-            snapshot ?? new ActiveIntegrationSnapshot(null, null, null),
             connectors ?? [],
             new FakeCurrentUser(Guid.CreateVersion7()),
             new FakeUserProvisioningService(new Iris.Domain.Access.User(Guid.CreateVersion7(), "ext-1", "admin@iris.local", "Admin")),
             new FakeFallbackSecretVault(),
-            healthMonitor ?? new FakeIntegrationHealthMonitor());
+            healthMonitor ?? new FakeIntegrationHealthMonitor(),
+            secretStorePromotion ?? new FakeSecretStorePromotion());
 
-    /// <summary>Stands in for <c>OpenBaoConnector</c> — reports whatever the active (pre-restart)
-    /// config locked in, exactly like the real connector does, so <c>GetSystemSettingsHandler</c>'s
-    /// pending-restart override can be exercised without touching Infrastructure.</summary>
+    /// <summary>Stands in for a real <c>IIntegrationConnector</c> (e.g. <c>OpenBaoConnector</c>)
+    /// reporting whatever its live configuration currently says.</summary>
     private sealed class FakeConnector(string key, string name, string? endpoint) : IIntegrationConnector
     {
         public string Key => key;
@@ -59,7 +58,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await OpenBaoHandler(store).HandleAsync(
             new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("https://openbao.example.com", settings.OpenBaoEndpoint);
         Assert.Equal("root-token", store.SecretsByReference[settings.OpenBaoTokenSecretReference!]);
@@ -101,7 +100,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await AwxHandler(store).HandleAsync(
             new SaveAwxIntegrationSettingsCommand("https://awx.example.com", "awx-token", 7));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("https://awx.example.com", settings.AwxEndpoint);
         Assert.Equal(7, settings.AwxJobTemplateId);
@@ -178,7 +177,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await OpsHostHandler(store).HandleAsync(
             new SaveOpsHostIntegrationSettingsCommand("opsserver.internal", 22, "ops", "SshKey", "-----BEGIN KEY-----"));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("opsserver.internal", settings.OpsHostEndpoint);
         Assert.Equal("ops", settings.OpsHostUsername);
@@ -230,7 +229,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await AnsibleHandler(store).HandleAsync(
             new SaveAnsibleIntegrationSettingsCommand("https://ansible.example.com", "deploy.yml", "hosts.ini"));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("https://ansible.example.com", settings.AnsibleEndpoint);
         Assert.Equal("deploy.yml", settings.AnsiblePlaybook);
@@ -258,7 +257,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await AzureDevOpsHandler(store).HandleAsync(
             new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso", "pat-token"));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("https://dev.azure.com/contoso", settings.AzureDevOpsEndpoint);
         Assert.Equal("pat-token", store.SecretsByReference[settings.AzureDevOpsTokenSecretReference!]);
@@ -299,7 +298,7 @@ public sealed class IntegrationSettingsHandlersTests
         var result = await NexusHandler(store).HandleAsync(
             new SaveNexusIntegrationSettingsCommand("https://nexus.example.com", "nexus-token"));
 
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("https://nexus.example.com", settings.NexusEndpoint);
         Assert.Equal("nexus-token", store.SecretsByReference[settings.NexusTokenSecretReference!]);
@@ -347,104 +346,19 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
-    public async Task GetSystemSettings_surfaces_pending_restart_for_a_saved_azure_devops_endpoint()
+    public async Task Saving_awx_settings_reconfigures_the_live_connector_immediately()
     {
-        var store = new FakeStore();
-        await AzureDevOpsHandler(store).HandleAsync(
-            new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/contoso", "pat-token"));
-
-        var result = await SystemSettingsHandler(
-                store,
-                new ActiveIntegrationSnapshot(null, null, null),
-                [new FakeConnector("azure-devops", "Azure DevOps", endpoint: null)])
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        var azureDevOps = Assert.Single(result.Integrations, i => i.Key == "azure-devops");
-        Assert.Equal("Pending restart", azureDevOps.Status);
-        Assert.Equal("https://dev.azure.com/contoso", azureDevOps.Endpoint);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_reports_RestartRequired_false_when_nothing_is_persisted_and_nothing_active()
-    {
+        // The centerpiece of the 2026-09-16 fix: a save used to only ever update the DB row —
+        // the live connector kept using whatever was true at process startup until a restart.
+        // Every Save*IntegrationSettingsHandler now calls IIntegrationSettingsReloader right
+        // after persisting, so the change is live without one. This is exercised for real
+        // (a real AwxOptions singleton actually re-read and mutated) in
+        // Iris.Infrastructure.Tests; here we just confirm the handler calls it at all.
         var store = new FakeStore();
 
-        var result = await SystemSettingsHandler(store).HandleAsync(new GetSystemSettingsQuery(true));
+        await AwxHandler(store).HandleAsync(new SaveAwxIntegrationSettingsCommand("https://awx.example.com", "awx-token", 7));
 
-        Assert.False(result.RestartRequired);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_reports_RestartRequired_true_when_a_saved_endpoint_differs_from_what_is_active()
-    {
-        var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
-
-        // The running process locked in "no OpenBao endpoint" at startup — a save afterward
-        // means it's out of date until a restart.
-        var result = await SystemSettingsHandler(store, new ActiveIntegrationSnapshot(null, null, null))
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        Assert.True(result.RestartRequired);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_reports_RestartRequired_false_when_the_active_snapshot_already_matches()
-    {
-        var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
-
-        var result = await SystemSettingsHandler(
-                store, new ActiveIntegrationSnapshot("https://openbao.example.com", null, null))
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        Assert.False(result.RestartRequired);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_ignores_a_never_persisted_group_even_if_the_active_config_has_a_default()
-    {
-        // Regression test for a real bug found via manual end-to-end verification
-        // (2026-09-08): dev appsettings ships non-null default endpoints for AWX/Ansible that
-        // were never saved through PUT/provision. The active snapshot reflects those config
-        // defaults directly (non-null), while nothing was ever persisted for those two groups
-        // (null) — that must not count as "a change pending a restart".
-        var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
-
-        var result = await SystemSettingsHandler(
-                store,
-                new ActiveIntegrationSnapshot(
-                    OpenBaoEndpoint: "https://openbao.example.com", // matches what was just persisted
-                    AwxEndpoint: "http://localhost:8043",           // config default, never persisted
-                    AnsibleEndpoint: "http://localhost:8043"))      // config default, never persisted
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        Assert.False(result.RestartRequired);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_surfaces_the_persisted_endpoint_and_a_pending_restart_status_when_not_yet_active()
-    {
-        // Regression test for a real usability complaint (2026-09-08): "use existing OpenBao" in
-        // the wizard saved the endpoint/token correctly, but the System settings row kept showing
-        // the old (unconfigured) live connector status — a real save looked exactly like a no-op.
-        var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
-
-        var result = await SystemSettingsHandler(
-                store,
-                new ActiveIntegrationSnapshot(null, null, null),
-                [new FakeConnector("openbao", "OpenBao", endpoint: null)])
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
-        Assert.Equal("Pending restart", openBao.Status);
-        Assert.Equal("https://openbao.example.com", openBao.Endpoint);
+        Assert.Equal(1, store.IntegrationSettingsReloader.ReloadCalls);
     }
 
     [Fact]
@@ -461,7 +375,6 @@ public sealed class IntegrationSettingsHandlersTests
 
         var result = await SystemSettingsHandler(
                 store,
-                new ActiveIntegrationSnapshot(null, null, null),
                 [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")],
                 monitor)
             .HandleAsync(new GetSystemSettingsQuery(true));
@@ -470,29 +383,6 @@ public sealed class IntegrationSettingsHandlersTests
         Assert.Equal("Unreachable", openBao.Status);
         Assert.Equal("Connection refused.", openBao.Message);
         Assert.Equal(checkedAt, openBao.CheckedAtUtc);
-    }
-
-    [Fact]
-    public async Task GetSystemSettings_prefers_pending_restart_over_a_stale_health_check_of_the_old_config()
-    {
-        // The health monitor only ever probes the currently-ACTIVE (pre-restart) connector — once
-        // a new endpoint is saved but not yet active, that probe result describes the OLD config,
-        // not the one the operator just saved. "Pending restart" must win.
-        var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
-        var monitor = new FakeIntegrationHealthMonitor()
-            .Seed("openbao", "Unreachable", "stale check of the old endpoint", DateTimeOffset.UtcNow);
-
-        var result = await SystemSettingsHandler(
-                store,
-                new ActiveIntegrationSnapshot(null, null, null),
-                [new FakeConnector("openbao", "OpenBao", endpoint: null)],
-                monitor)
-            .HandleAsync(new GetSystemSettingsQuery(true));
-
-        var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
-        Assert.Equal("Pending restart", openBao.Status);
     }
 
     [Fact]
@@ -509,11 +399,12 @@ public sealed class IntegrationSettingsHandlersTests
 
         var handler = new GetSystemSettingsHandler(
             store.MailProviderSettingsRepository, store.IntegrationSettingsRepository,
-            new ActiveIntegrationSnapshot(null, null, null), [],
+            [],
             new FakeCurrentUser(Guid.CreateVersion7()),
             new FakeUserProvisioningService(user),
             vault,
-            new FakeIntegrationHealthMonitor());
+            new FakeIntegrationHealthMonitor(),
+            new FakeSecretStorePromotion());
 
         var result = await handler.HandleAsync(new GetSystemSettingsQuery(true));
 
@@ -523,20 +414,19 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
-    public async Task GetSystemSettings_leaves_the_live_status_alone_once_it_matches_what_was_persisted()
+    public async Task GetSystemSettings_reports_openbao_as_the_active_secret_store_once_promoted()
     {
         var store = new FakeStore();
-        await OpenBaoHandler(store).HandleAsync(
-            new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example.com", "root-token", "secret", true));
+        var promotion = new FakeSecretStorePromotion { IsOpenBaoActive = true };
 
         var result = await SystemSettingsHandler(
                 store,
-                new ActiveIntegrationSnapshot("https://openbao.example.com", null, null),
-                [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")])
+                [new FakeConnector("openbao", "OpenBao", endpoint: "https://openbao.example.com")],
+                secretStorePromotion: promotion)
             .HandleAsync(new GetSystemSettingsQuery(true));
 
         var openBao = Assert.Single(result.Integrations, i => i.Key == "openbao");
-        Assert.Equal("Configured", openBao.Status);
+        Assert.True(openBao.IsSecretStoreActive);
     }
 
     [Fact]

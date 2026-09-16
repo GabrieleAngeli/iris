@@ -12,7 +12,12 @@ public sealed record CreateApplicationRequest(
     string? ArtifactFeed = null,
     string? ArtifactName = null,
     string? ArtifactPath = null,
-    string? BuildPipelineUrl = null);
+    string? BuildPipelineUrl = null,
+    // Optional overrides of the global Azure DevOps "AWX automation repo" settings, used only by
+    // POST .../ansible-scaffold/propose — left unset, that feature falls back to the global ones.
+    string? AwxRepositoryProject = null,
+    string? AwxRepositoryName = null,
+    string? AwxRepositoryBranch = null);
 
 /// <summary>Body of <c>PUT /applications/{applicationId}</c>. The catalog slug is immutable.</summary>
 public sealed record UpdateApplicationRequest(
@@ -26,7 +31,10 @@ public sealed record UpdateApplicationRequest(
     string? ArtifactFeed = null,
     string? ArtifactName = null,
     string? ArtifactPath = null,
-    string? BuildPipelineUrl = null);
+    string? BuildPipelineUrl = null,
+    string? AwxRepositoryProject = null,
+    string? AwxRepositoryName = null,
+    string? AwxRepositoryBranch = null);
 
 public sealed record RuntimeMetadataRequest(
     string RuntimeName,

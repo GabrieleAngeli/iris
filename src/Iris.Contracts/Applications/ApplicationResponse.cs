@@ -39,4 +39,7 @@ public sealed record ApplicationResponse(
     string? ArtifactPath,
     string? BuildPipelineUrl,
     bool IsActive,
-    IReadOnlyList<ApplicationVersionSummaryResponse> Versions);
+    IReadOnlyList<ApplicationVersionSummaryResponse> Versions,
+    string? AwxRepositoryProject = null,
+    string? AwxRepositoryName = null,
+    string? AwxRepositoryBranch = null);

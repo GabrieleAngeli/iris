@@ -16,7 +16,8 @@ public sealed record SaveAwxIntegrationSettingsCommand(
 public sealed class SaveAwxIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
     ISecretStore secretStore,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveAwxIntegrationSettingsCommand command,
@@ -54,10 +55,11 @@ public sealed class SaveAwxIntegrationSettingsHandler(
         settings.ConfigureAwx(
             endpoint, tokenReference, jobTemplateId, clientId, clientSecretReference, refreshTokenReference, factsJobTemplateId);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "AWX settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "AWX settings saved and active immediately.");
     }
 
     private async Task<string?> KeepOrStoreAsync(

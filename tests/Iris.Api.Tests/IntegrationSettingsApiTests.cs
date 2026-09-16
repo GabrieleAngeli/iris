@@ -125,8 +125,12 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
     }
 
     [Fact]
-    public async Task Admin_can_save_OpenBao_settings_and_sees_RestartRequired_afterward()
+    public async Task Admin_can_save_OpenBao_settings_and_they_are_active_immediately_without_a_restart()
     {
+        // Regression test for the 2026-09-16 fix: a save used to only update the DB row — the
+        // live OpenBaoOptions singleton this process already locked in at startup never changed
+        // until a restart. IIntegrationSettingsReloader now re-syncs it in place right after the
+        // save, so the real connector reflects the new endpoint on the very next request.
         var admin = Admin();
 
         var save = await admin.PutAsJsonAsync("/system/integrations/openbao",
@@ -134,16 +138,12 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.OK, save.StatusCode);
         var saved = await save.Content.ReadFromJsonAsync<SavedDto>();
-        Assert.True(saved!.RestartRequired);
+        Assert.False(saved!.RestartRequired);
 
-        // The running test host already locked in its OpenBaoOptions singleton at startup, from
-        // whatever appsettings the test host boots with — by design (see RegisterIntegrations /
-        // ActiveIntegrationSnapshot), a save afterward does not change what that live connector
-        // reports; only RestartRequired flips, until the process actually restarts. Asserting the
-        // connector's own reported Endpoint changed here would contradict that design.
         var settings = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
-        Assert.True(settings!.RestartRequired);
-        Assert.Contains(settings.Integrations, i => i.Key == "openbao");
+        Assert.False(settings!.RestartRequired);
+        var openBao = settings.Integrations.Single(i => i.Key == "openbao");
+        Assert.Equal("https://openbao.example.com", openBao.Endpoint);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var provisioned = await response.Content.ReadFromJsonAsync<ProvisionedDto>();
         Assert.Equal("http://localhost:8200", provisioned!.Endpoint);
-        Assert.True(provisioned.RestartRequired);
+        Assert.False(provisioned.RestartRequired);
     }
 
     [Fact]

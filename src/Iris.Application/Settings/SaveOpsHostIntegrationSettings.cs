@@ -20,7 +20,8 @@ public sealed record SaveOpsHostIntegrationSettingsCommand(
 public sealed class SaveOpsHostIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
     ISecretStore secretStore,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveOpsHostIntegrationSettingsCommand command,
@@ -57,9 +58,10 @@ public sealed class SaveOpsHostIntegrationSettingsHandler(
 
         settings.ConfigureOpsHost(endpoint, command.Port, username, authMethod, secretReference, command.RepoPath);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "Ops host settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "Ops host settings saved and active immediately.");
     }
 }

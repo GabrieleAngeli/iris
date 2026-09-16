@@ -11,7 +11,8 @@ public sealed record SaveNexusIntegrationSettingsCommand(
 public sealed class SaveNexusIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
     ISecretStore secretStore,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveNexusIntegrationSettingsCommand command,
@@ -40,9 +41,10 @@ public sealed class SaveNexusIntegrationSettingsHandler(
 
         settings.ConfigureNexus(endpoint, tokenReference);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "Nexus settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "Nexus settings saved and active immediately.");
     }
 }

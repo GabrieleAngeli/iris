@@ -113,20 +113,26 @@ public partial class SystemSettingsViewModel(
 			Integrations.Clear();
 			foreach (var integration in settings.Integrations)
 			{
-				// All seven (openbao/awx/ansible/azure-devops/nexus/ops-host/awx-blueprint) now
-				// have a real IIntegrationConnector registered server-side (see RegisterIntegrations).
-				var hasRealConnector = integration.Key is "openbao" or "awx" or "ansible" or "azure-devops" or "nexus" or "ops-host" or "awx-blueprint";
+				// Six (openbao/awx/azure-devops/nexus/ops-host/awx-blueprint) have a real
+				// IIntegrationConnector registered server-side (see RegisterIntegrations).
+				// Ansible is deliberately not one of them (2026-09-16) — Iris never calls it
+				// directly, AWX is the one real Ansible executor, so a "reachability" card for
+				// it was misleading busywork; the backend no longer returns it here at all.
+				var hasRealConnector = integration.Key is "openbao" or "awx" or "azure-devops" or "nexus" or "ops-host" or "awx-blueprint";
 				var canManage = CanManageSystem && hasRealConnector;
 				var isOpenBao = string.Equals(integration.Key, "openbao", StringComparison.OrdinalIgnoreCase);
 				var isAwxBlueprint = string.Equals(integration.Key, "awx-blueprint", StringComparison.OrdinalIgnoreCase);
-				var canProvision = canManage && isOpenBao;
+				// Once OpenBao is genuinely the active secret store, Promote/Provision have
+				// nothing left to do — hide them instead of leaving dead buttons on screen.
+				var canManageOpenBao = canManage && isOpenBao && !integration.IsSecretStoreActive;
+				var canProvision = canManageOpenBao;
 				var canSync = canManage && isAwxBlueprint;
 				// awx-blueprint has no Configure dialog of its own — it's entirely derived from
 				// the azure-devops (repo/manifest) and awx (job templates) settings.
 				var canConfigure = canManage && !isAwxBlueprint;
 				var row = new IntegrationConnectionRow(
 					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canConfigure,
-					canManage && isOpenBao ? PromoteSecretStoreAsync : null,
+					canManageOpenBao ? PromoteSecretStoreAsync : null,
 					canSync ? SyncAwxBlueprintAsync : null);
 				row.Provisioned += async (_, _) => await LoadCommand.ExecuteAsync(null);
 				row.ConfigureRequested += (_, _) =>
@@ -136,7 +142,6 @@ public partial class SystemSettingsViewModel(
 						"openbao" => new ConfigureOpenBaoDialogViewModel(api, integration.Endpoint),
 						"awx" => new ConfigureAwxDialogViewModel(
 						api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId, integration.AwxFactsJobTemplateId),
-						"ansible" => new ConfigureAnsibleDialogViewModel(api, integration.Endpoint),
 						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(
 						api, integration.Endpoint, integration.AzureDevOpsProject, integration.AzureDevOpsRepository,
 						integration.AzureDevOpsBranch, integration.AzureDevOpsManifestPath),
@@ -156,7 +161,7 @@ public partial class SystemSettingsViewModel(
 
 			await LoadActivityAsync();
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -187,7 +192,7 @@ public partial class SystemSettingsViewModel(
 		{
 			await LoadActivityAsync();
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -364,7 +369,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 		{
 			Apply(await _tester(this));
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Status = "Unreachable";
 			Message = ex.Message;
@@ -397,7 +402,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 			Message = result.Message;
 			Provisioned?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Status = "Unreachable";
 			Message = ex.Message;
@@ -427,7 +432,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 			Message = result.Message;
 			Provisioned?.Invoke(this, EventArgs.Empty); // reuse: reloads settings + RestartRequired
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Message = ex.Message;
 		}
@@ -461,7 +466,7 @@ public sealed partial class IntegrationConnectionRow : ObservableObject
 			Apply(await _tester(this));
 			Message = $"{syncMessage} {Message}".Trim();
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Status = "Drift detected";
 			Message = ex.Message;
@@ -579,7 +584,7 @@ public sealed partial class ConfigureOpenBaoDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -664,7 +669,7 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -748,7 +753,7 @@ public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObje
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -841,7 +846,7 @@ public sealed partial class ConfigureOpsHostDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -906,7 +911,7 @@ public sealed partial class ConfigureNexusDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -978,7 +983,7 @@ public sealed partial class ConfigureAnsibleDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -1099,7 +1104,7 @@ public sealed partial class ConfigureMailDialogViewModel : ObservableObject
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -1135,7 +1140,7 @@ public sealed partial class ConfigureMailDialogViewModel : ObservableObject
 			await _api.TestMailSettingsAsync(input, TestRecipient.Trim());
 			Info = $"Test email sent to {TestRecipient.Trim()}.";
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}
@@ -1199,7 +1204,7 @@ public sealed partial class UnlockFallbackSecretsDialogViewModel(IIrisApiClient 
 			WasSaved = true;
 			CloseRequested?.Invoke(this, EventArgs.Empty);
 		}
-		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		catch (Exception ex)
 		{
 			Error = ex.Message;
 		}

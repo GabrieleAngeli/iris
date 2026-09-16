@@ -197,6 +197,7 @@ public static class SystemSettingsEndpoints
                 bool probe,
                 IEnumerable<IIntegrationConnector> connectors,
                 IIntegrationHealthMonitor healthMonitor,
+                ISecretStorePromotion secretStorePromotion,
                 IClock clock,
                 CancellationToken ct) =>
             {
@@ -225,7 +226,8 @@ public static class SystemSettingsEndpoints
                     status.Status,
                     status.Endpoint,
                     status.Message,
-                    checkedAtUtc));
+                    checkedAtUtc,
+                    IsSecretStoreActive: string.Equals(status.Key, "openbao", StringComparison.OrdinalIgnoreCase) && secretStorePromotion.IsOpenBaoActive));
             })
             .WithName("GetIntegrationStatus")
             .WithSummary("Returns the configured connector status, optionally probing the remote service.")

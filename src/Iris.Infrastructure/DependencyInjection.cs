@@ -113,136 +113,19 @@ public static class DependencyInjection
         // IrisDbInitializer, called from Program.cs), and the DB itself may not even be
         // reachable yet in a container-orchestrated startup. Either case falls back to the
         // IConfiguration-only values below; startup must never fail because of this.
-        // OpenBaoOptions/AwxOptions/AnsibleOptions properties are init-only, so every value
-        // has to be resolved (config vs. persisted) *before* constructing them, not after.
         var persisted = TryReadPersistedIntegrationSettings(provider, connectionString, migrationsAssembly);
 
-        var openBaoEndpoint = !string.IsNullOrWhiteSpace(persisted?.OpenBaoEndpoint)
-            ? persisted.OpenBaoEndpoint
-            : integrations["OpenBao:Endpoint"];
-        var openBaoMountPath = !string.IsNullOrWhiteSpace(persisted?.OpenBaoEndpoint)
-            ? persisted!.OpenBaoMountPath
-            : integrations["OpenBao:MountPath"] ?? "secret";
-        var openBaoUseKvV2 = !string.IsNullOrWhiteSpace(persisted?.OpenBaoEndpoint)
-            ? persisted!.OpenBaoUseKvV2
-            : !bool.TryParse(integrations["OpenBao:UseKvV2"], out var useKvV2) || useKvV2;
-        // OpenBao's own token is never resolved from a persisted reference here — doing so
-        // would require a working OpenBao connection authenticated with that very token
-        // (circular). Only a token given directly via IConfiguration bootstraps OpenBao
-        // itself; a token saved through the wizard/UI needs re-entering once after the
-        // restart that's supposed to activate real OpenBao (see the plan's documented
-        // limitation) — this is a deliberate simplification, not an oversight.
-        var openBaoToken = integrations["OpenBao:Token"];
+        var openBao = IntegrationOptionsFactory.BuildOpenBao(persisted, integrations);
+        var ansible = IntegrationOptionsFactory.BuildAnsible(persisted, integrations);
+        var awx = IntegrationOptionsFactory.BuildAwx(persisted, integrations);
+        var azureDevOps = IntegrationOptionsFactory.BuildAzureDevOps(persisted, integrations, openBao);
+        var opsHost = IntegrationOptionsFactory.BuildOpsHost(persisted, integrations);
+        var nexus = IntegrationOptionsFactory.BuildNexus(persisted, integrations, openBao);
 
-        var openBao = new OpenBaoOptions
-        {
-            Endpoint = openBaoEndpoint,
-            Token = openBaoToken,
-            MountPath = openBaoMountPath,
-            UseKvV2 = openBaoUseKvV2
-        };
-
-        var ansibleEndpoint = !string.IsNullOrWhiteSpace(persisted?.AnsibleEndpoint)
-            ? persisted.AnsibleEndpoint
-            : integrations["Ansible:Endpoint"];
-        var ansiblePlaybook = !string.IsNullOrWhiteSpace(persisted?.AnsibleEndpoint)
-            ? persisted!.AnsiblePlaybook
-            : integrations["Ansible:Playbook"] ?? "iris-deploy-application.yml";
-        var ansibleInventory = !string.IsNullOrWhiteSpace(persisted?.AnsibleEndpoint)
-            ? persisted!.AnsibleInventory
-            : integrations["Ansible:Inventory"];
-
-        var ansible = new AnsibleOptions
-        {
-            Endpoint = ansibleEndpoint,
-            Playbook = ansiblePlaybook,
-            Inventory = ansibleInventory
-        };
-
-        var awxEndpoint = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
-            ? persisted.AwxEndpoint
-            : integrations["AWX:Endpoint"];
-
-        var awxJobTemplateId = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
-            ? persisted!.AwxJobTemplateId
-            : int.TryParse(integrations["AWX:JobTemplateId"], out var jobTemplateId) ? jobTemplateId : null;
-
-        var awxFactsJobTemplateId = !string.IsNullOrWhiteSpace(persisted?.AwxEndpoint)
-            ? persisted!.AwxFactsJobTemplateId
-            : int.TryParse(integrations["AWX:FactsJobTemplateId"], out var factsJobTemplateId) ? factsJobTemplateId : null;
-
-        // AWX secrets are NOT resolved eagerly here: when they were saved through the UI they may
-        // sit in the fallback vault, which isn't readable until an admin unlocks it *after*
-        // startup. So pass the persisted reference through and let AwxClient resolve it lazily
-        // from the active ISecretStore on first use (config/env values are still used directly).
-        var awxOAuthClientId = !string.IsNullOrWhiteSpace(persisted?.AwxOAuthClientId)
-            ? persisted!.AwxOAuthClientId
-            : integrations["AWX:OAuthClientId"];
-
-        var awx = new AwxOptions
-        {
-            Endpoint = awxEndpoint,
-            Token = string.IsNullOrWhiteSpace(persisted?.AwxTokenSecretReference) ? integrations["AWX:Token"] : null,
-            TokenSecretReference = persisted?.AwxTokenSecretReference,
-            JobTemplateId = awxJobTemplateId,
-            FactsJobTemplateId = awxFactsJobTemplateId,
-            OAuthClientId = awxOAuthClientId,
-            OAuthClientSecret = string.IsNullOrWhiteSpace(persisted?.AwxOAuthClientSecretReference) ? integrations["AWX:OAuthClientSecret"] : null,
-            OAuthClientSecretReference = persisted?.AwxOAuthClientSecretReference,
-            RefreshToken = string.IsNullOrWhiteSpace(persisted?.AwxRefreshTokenSecretReference) ? integrations["AWX:RefreshToken"] : null,
-            RefreshTokenSecretReference = persisted?.AwxRefreshTokenSecretReference
-        };
-
-        var azureDevOpsEndpoint = !string.IsNullOrWhiteSpace(persisted?.AzureDevOpsEndpoint)
-            ? persisted.AzureDevOpsEndpoint
-            : integrations["AzureDevOps:Endpoint"];
-        var azureDevOpsToken = !string.IsNullOrWhiteSpace(persisted?.AzureDevOpsTokenSecretReference)
-            ? ResolvePersistedToken(persisted!.AzureDevOpsTokenSecretReference, openBao)
-            : integrations["AzureDevOps:Token"];
-
-        var azureDevOps = new AzureDevOpsOptions
-        {
-            Endpoint = azureDevOpsEndpoint,
-            Token = azureDevOpsToken,
-            Project = persisted?.AzureDevOpsProject ?? integrations["AzureDevOps:Project"],
-            Repository = persisted?.AzureDevOpsRepository ?? integrations["AzureDevOps:Repository"],
-            Branch = persisted?.AzureDevOpsBranch ?? integrations["AzureDevOps:Branch"] ?? "master",
-            ManifestPath = persisted?.AzureDevOpsManifestPath ?? integrations["AzureDevOps:ManifestPath"]
-                ?? "automation/manifests/awx_context_blueprints.yml",
-        };
-
-        var opsHost = new OpsHostOptions
-        {
-            Endpoint = !string.IsNullOrWhiteSpace(persisted?.OpsHostEndpoint) ? persisted.OpsHostEndpoint : integrations["OpsHost:Endpoint"],
-            Port = persisted?.OpsHostPort ?? (int.TryParse(integrations["OpsHost:Port"], out var opsHostPort) ? opsHostPort : 22),
-            Username = !string.IsNullOrWhiteSpace(persisted?.OpsHostUsername) ? persisted.OpsHostUsername : integrations["OpsHost:Username"],
-            AuthMethod = persisted?.OpsHostAuthMethod ?? ServerCredentialAuthMethod.SshKey,
-            Secret = string.IsNullOrWhiteSpace(persisted?.OpsHostSecretReference) ? integrations["OpsHost:Secret"] : null,
-            SecretReference = persisted?.OpsHostSecretReference,
-            RepoPath = !string.IsNullOrWhiteSpace(persisted?.OpsAwxRepoPath)
-                ? persisted.OpsAwxRepoPath
-                : integrations["OpsHost:RepoPath"] ?? "/home/ops/Refactoring_ops_flow/awx",
-        };
-
-        var nexusEndpoint = !string.IsNullOrWhiteSpace(persisted?.NexusEndpoint)
-            ? persisted.NexusEndpoint
-            : integrations["Nexus:Endpoint"];
-        var nexusToken = !string.IsNullOrWhiteSpace(persisted?.NexusTokenSecretReference)
-            ? ResolvePersistedToken(persisted!.NexusTokenSecretReference, openBao)
-            : integrations["Nexus:Token"];
-
-        var nexus = new NexusOptions
-        {
-            Endpoint = nexusEndpoint,
-            Token = nexusToken
-        };
-
-        // What this process actually locked in, captured once — compared against a fresh DB
-        // read on every GET /system/settings to tell the operator whether a since-saved
-        // change still needs a restart (see GetSystemSettingsHandler).
-        services.AddSingleton(new ActiveIntegrationSnapshot(
-            openBao.Endpoint, awx.Endpoint, ansible.Endpoint, azureDevOps.Endpoint, nexus.Endpoint, opsHost.Endpoint));
-
+        // These are registered as already-constructed instances (not factories) — every consumer
+        // below shares the exact same reference. IIntegrationSettingsReloader relies on this: it
+        // mutates these same objects' properties in place after a save, so a changed setting takes
+        // effect immediately, with no restart and no change needed to any connector class.
         services.AddSingleton(openBao);
         services.AddSingleton(ansible);
         services.AddSingleton(awx);
@@ -265,9 +148,20 @@ public static class DependencyInjection
         services.AddSingleton<ISecretStorePromotion>(sp => sp.GetRequiredService<SwitchableSecretStore>());
         services.AddScoped<IFallbackSecretVault, FallbackSecretVault>();
 
+        // Not registered as an IIntegrationConnector: Build() never actually calls out to
+        // AnsibleOptions.Endpoint (it only assembles the extra_vars an AWX job launch sends —
+        // AWX is the one real Ansible executor, see LaunchApplicationInstallationAwxJobHandler),
+        // so a "reachability" card for it in System settings was misleading busywork. Removed at
+        // the user's request (2026-09-16): "in sistem setting c'è ancora la configurazione di
+        // ansible, sarebbe da togliere". AnsiblePlaybook/AnsibleInventory (the two fields Build()
+        // does use) remain settable via SaveAnsibleIntegrationSettingsHandler directly.
         services.AddSingleton<AnsibleExecutionPackageBuilder>();
         services.AddSingleton<IAnsibleExecutionPackageBuilder>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
-        services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AnsibleExecutionPackageBuilder>());
+
+        // Scoped, not singleton: it depends on IIntegrationSettingsRepository (scoped, backed by
+        // the per-request IrisDbContext) — its own constructor deps on the six options
+        // singletons are fine the other way around (a scoped service may depend on singletons).
+        services.TryAddScoped<IIntegrationSettingsReloader, IntegrationSettingsReloader>();
 
         services.AddSingleton<IIntegrationReachabilityProbe, IntegrationReachabilityProbe>();
 
@@ -332,40 +226,4 @@ public static class DependencyInjection
         }
     }
 
-    /// <summary>
-    /// Resolves a secret reference saved by a previous PUT /system/integrations/* call back
-    /// into its raw value, using <paramref name="resolverOpenBao"/> as the (possibly not yet
-    /// usable) OpenBao connection to resolve it through. Returns null — logging why, never
-    /// throwing — if the reference can't be resolved: a <c>mock-openbao:</c> reference never
-    /// survives a restart (it was only ever in that prior process's memory), and an
-    /// <c>openbao://</c> reference can't be resolved until <paramref name="resolverOpenBao"/>
-    /// itself already has a working endpoint+token.
-    /// </summary>
-    private static string? ResolvePersistedToken(string? reference, OpenBaoOptions resolverOpenBao)
-    {
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return null;
-        }
-
-        if (!resolverOpenBao.IsSecretStoreConfigured)
-        {
-            Console.Error.WriteLine(
-                $"[Iris.Infrastructure] Cannot resolve secret reference '{reference}' at startup: " +
-                "the OpenBao connection needed to resolve it isn't itself configured yet.");
-            return null;
-        }
-
-        try
-        {
-            using var resolver = new OpenBaoSecretStore(resolverOpenBao);
-            return resolver.RetrieveAsync(reference).GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine(
-                $"[Iris.Infrastructure] Could not resolve secret reference '{reference}' at startup: {ex.Message}");
-            return null;
-        }
-    }
 }

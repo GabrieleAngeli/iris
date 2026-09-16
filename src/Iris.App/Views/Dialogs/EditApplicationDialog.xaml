@@ -87,6 +87,28 @@
                     </Border>
                 </VerticalStackLayout>
 
+                <Label Text="AWX repo override (optional — defaults to the global Azure DevOps settings)" Style="{StaticResource Caption}" />
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Project" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditAwxRepositoryProject}" Placeholder="Refactoring_ops_flow" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Repository" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditAwxRepositoryName}" Placeholder="awx" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" Spacing="4">
+                        <Label Text="Branch" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding EditAwxRepositoryBranch}" Placeholder="master" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Description" Style="{StaticResource Caption}" />
                     <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="96">

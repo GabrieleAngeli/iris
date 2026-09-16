@@ -11,7 +11,8 @@ public sealed record SaveAnsibleIntegrationSettingsCommand(
 
 public sealed class SaveAnsibleIntegrationSettingsHandler(
     IIntegrationSettingsRepository settingsRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IIntegrationSettingsReloader reloader)
 {
     public async Task<IntegrationSettingsSavedResponse> HandleAsync(
         SaveAnsibleIntegrationSettingsCommand command,
@@ -34,9 +35,10 @@ public sealed class SaveAnsibleIntegrationSettingsHandler(
         var settings = await settingsRepository.GetOrCreateAsync(cancellationToken).ConfigureAwait(false);
         settings.ConfigureAnsible(endpoint, playbook, command.Inventory);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await reloader.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         return new IntegrationSettingsSavedResponse(
-            RestartRequired: true,
-            Message: "Ansible settings saved. Restart Iris.Api for this instance to start using them.");
+            RestartRequired: false,
+            Message: "Ansible settings saved and active immediately.");
     }
 }

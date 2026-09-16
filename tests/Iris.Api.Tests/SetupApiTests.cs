@@ -177,14 +177,16 @@ public sealed class SetupApiTests(IrisApiFactory factory) : IClassFixture<IrisAp
         var authed = emptyConfigured.CreateClient();
         authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!.Token);
 
+        // Settings saved during setup are reconfigured on the live connectors immediately
+        // (IIntegrationSettingsReloader) — no more restart, no more "Pending restart" status.
         var settings = await authed.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
         var openBaoLink = Assert.Single(settings!.Integrations, i => i.Key == "openbao");
         Assert.Equal("https://openbao.example:8200", openBaoLink.Endpoint);
-        Assert.Equal("Pending restart", openBaoLink.Status);
+        Assert.Equal("Configured", openBaoLink.Status);
         var awxLink = Assert.Single(settings.Integrations, i => i.Key == "awx");
         Assert.Equal("https://awx.example", awxLink.Endpoint);
-        Assert.Equal("Pending restart", awxLink.Status);
-        Assert.True(settings.RestartRequired);
+        Assert.Equal("Configured", awxLink.Status);
+        Assert.False(settings.RestartRequired);
     }
 
     private sealed class ThrowingReachabilityProbe : IIntegrationReachabilityProbe

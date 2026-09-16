@@ -116,6 +116,9 @@ public partial class ApplicationsViewModel : ObservableObject
 	[ObservableProperty] private string _newApplicationArtifactName = string.Empty;
 	[ObservableProperty] private string _newApplicationArtifactPath = string.Empty;
 	[ObservableProperty] private string _newApplicationBuildPipelineUrl = string.Empty;
+	[ObservableProperty] private string _newApplicationAwxRepositoryProject = string.Empty;
+	[ObservableProperty] private string _newApplicationAwxRepositoryName = string.Empty;
+	[ObservableProperty] private string _newApplicationAwxRepositoryBranch = string.Empty;
 	[ObservableProperty] private bool _isCreatingApplication;
 	[ObservableProperty] private string? _createApplicationError;
 
@@ -137,6 +140,9 @@ public partial class ApplicationsViewModel : ObservableObject
 		NewApplicationArtifactName = string.Empty;
 		NewApplicationArtifactPath = string.Empty;
 		NewApplicationBuildPipelineUrl = string.Empty;
+		NewApplicationAwxRepositoryProject = string.Empty;
+		NewApplicationAwxRepositoryName = string.Empty;
+		NewApplicationAwxRepositoryBranch = string.Empty;
 		CreateApplicationError = null;
 		NewApplicationRequested?.Invoke(this, EventArgs.Empty);
 	}
@@ -170,7 +176,10 @@ public partial class ApplicationsViewModel : ObservableObject
 				Clean(NewApplicationArtifactFeed),
 				Clean(NewApplicationArtifactName),
 				Clean(NewApplicationArtifactPath),
-				Clean(NewApplicationBuildPipelineUrl)));
+				Clean(NewApplicationBuildPipelineUrl),
+				Clean(NewApplicationAwxRepositoryProject),
+				Clean(NewApplicationAwxRepositoryName),
+				Clean(NewApplicationAwxRepositoryBranch)));
 
 			Applications.Insert(0, new ApplicationRowViewModel(created, _api, this));
 			NewApplicationCompleted?.Invoke(this, EventArgs.Empty);
@@ -2079,6 +2088,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private string? _artifactName;
 	[ObservableProperty] private string? _artifactPath;
 	[ObservableProperty] private string? _buildPipelineUrl;
+	[ObservableProperty] private string? _awxRepositoryProject;
+	[ObservableProperty] private string? _awxRepositoryName;
+	[ObservableProperty] private string? _awxRepositoryBranch;
 	[ObservableProperty] private bool _isActive;
 	[ObservableProperty] private int _versionCount;
 	[ObservableProperty] private int _configurationKeyCount;
@@ -2254,6 +2266,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		ArtifactName = application.ArtifactName;
 		ArtifactPath = application.ArtifactPath;
 		BuildPipelineUrl = application.BuildPipelineUrl;
+		AwxRepositoryProject = application.AwxRepositoryProject;
+		AwxRepositoryName = application.AwxRepositoryName;
+		AwxRepositoryBranch = application.AwxRepositoryBranch;
 		IsActive = application.IsActive;
 		VersionCount = application.Versions.Count;
 		ConfigurationKeyCount = application.Versions.Sum(v => v.ConfigurationKeyCount);
@@ -2832,6 +2847,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private string _editArtifactName = string.Empty;
 	[ObservableProperty] private string _editArtifactPath = string.Empty;
 	[ObservableProperty] private string _editBuildPipelineUrl = string.Empty;
+	[ObservableProperty] private string _editAwxRepositoryProject = string.Empty;
+	[ObservableProperty] private string _editAwxRepositoryName = string.Empty;
+	[ObservableProperty] private string _editAwxRepositoryBranch = string.Empty;
 	[ObservableProperty] private bool _editActive;
 	[ObservableProperty] private bool _isEditBusy;
 	[ObservableProperty] private string? _editError;
@@ -2878,6 +2896,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		EditArtifactName = ArtifactName ?? string.Empty;
 		EditArtifactPath = ArtifactPath ?? string.Empty;
 		EditBuildPipelineUrl = BuildPipelineUrl ?? string.Empty;
+		EditAwxRepositoryProject = AwxRepositoryProject ?? string.Empty;
+		EditAwxRepositoryName = AwxRepositoryName ?? string.Empty;
+		EditAwxRepositoryBranch = AwxRepositoryBranch ?? string.Empty;
 		EditActive = IsActive;
 		_parent.RaiseEditRequested(this);
 	}
@@ -2969,7 +2990,10 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				ApplicationsViewModel.Clean(EditArtifactFeed),
 				ApplicationsViewModel.Clean(EditArtifactName),
 				ApplicationsViewModel.Clean(EditArtifactPath),
-				ApplicationsViewModel.Clean(EditBuildPipelineUrl)));
+				ApplicationsViewModel.Clean(EditBuildPipelineUrl),
+				ApplicationsViewModel.Clean(EditAwxRepositoryProject),
+				ApplicationsViewModel.Clean(EditAwxRepositoryName),
+				ApplicationsViewModel.Clean(EditAwxRepositoryBranch)));
 
 			ApplyFrom(updated);
 			EditCompleted?.Invoke(this, EventArgs.Empty);

@@ -33,7 +33,10 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         string? artifactFeed = null,
         string? artifactName = null,
         string? artifactPath = null,
-        string? buildPipelineUrl = null)
+        string? buildPipelineUrl = null,
+        string? awxRepositoryProject = null,
+        string? awxRepositoryName = null,
+        string? awxRepositoryBranch = null)
         : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -52,6 +55,9 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         ArtifactName = Clean(artifactName);
         ArtifactPath = Clean(artifactPath);
         BuildPipelineUrl = Clean(buildPipelineUrl);
+        AwxRepositoryProject = Clean(awxRepositoryProject);
+        AwxRepositoryName = Clean(awxRepositoryName);
+        AwxRepositoryBranch = Clean(awxRepositoryBranch);
         IsActive = true;
     }
 
@@ -76,6 +82,15 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
     public string? ArtifactPath { get; private set; }
 
     public string? BuildPipelineUrl { get; private set; }
+
+    /// <summary>Optional overrides of the global Azure DevOps <c>AWX automation repo</c> settings
+    /// (<c>IntegrationSettings.AzureDevOps*</c>), used only by "propose Ansible scaffold as PR" —
+    /// when unset, that feature falls back to the global project/repository/branch.</summary>
+    public string? AwxRepositoryProject { get; private set; }
+
+    public string? AwxRepositoryName { get; private set; }
+
+    public string? AwxRepositoryBranch { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -108,7 +123,10 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         string? artifactFeed = null,
         string? artifactName = null,
         string? artifactPath = null,
-        string? buildPipelineUrl = null)
+        string? buildPipelineUrl = null,
+        string? awxRepositoryProject = null,
+        string? awxRepositoryName = null,
+        string? awxRepositoryBranch = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryUrl);
@@ -124,6 +142,9 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         ArtifactName = Clean(artifactName);
         ArtifactPath = Clean(artifactPath);
         BuildPipelineUrl = Clean(buildPipelineUrl);
+        AwxRepositoryProject = Clean(awxRepositoryProject);
+        AwxRepositoryName = Clean(awxRepositoryName);
+        AwxRepositoryBranch = Clean(awxRepositoryBranch);
         IsActive = isActive;
     }
 

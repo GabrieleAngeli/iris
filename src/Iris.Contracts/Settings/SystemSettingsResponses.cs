@@ -28,7 +28,11 @@ public sealed record IntegrationLinkResponse(
     int? OpsHostPort = null,
     string? OpsHostUsername = null,
     string? OpsHostAuthMethod = null,
-    string? OpsAwxRepoPath = null);
+    string? OpsAwxRepoPath = null,
+    // "openbao" only: whether OpenBao is genuinely the active secret store right now (not just
+    // configured/reachable) — lets the client hide Promote/Provision once there's nothing left
+    // to do. Meaningless (always false) for every other connector.
+    bool IsSecretStoreActive = false);
 
 /// <summary>Non-null only when there's something to unlock (bare counts, never which secrets —
 /// see <c>IFallbackSecretVault</c>'s remarks). Drives the "Unlock secrets" banner in

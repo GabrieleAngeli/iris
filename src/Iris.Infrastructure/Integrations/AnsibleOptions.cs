@@ -2,9 +2,9 @@ namespace Iris.Infrastructure.Integrations;
 
 internal sealed class AnsibleOptions
 {
-    public string? Endpoint { get; init; }
+    public string? Endpoint { get; set; }
 
-    public string Playbook { get; init; } = "iris-deploy-application.yml";
+    public string Playbook { get; set; } = "iris-deploy-application.yml";
 
-    public string? Inventory { get; init; }
+    public string? Inventory { get; set; }
 }

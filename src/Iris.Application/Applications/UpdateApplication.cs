@@ -18,7 +18,10 @@ public sealed record UpdateApplicationCommand(
     string? ArtifactFeed = null,
     string? ArtifactName = null,
     string? ArtifactPath = null,
-    string? BuildPipelineUrl = null);
+    string? BuildPipelineUrl = null,
+    string? AwxRepositoryProject = null,
+    string? AwxRepositoryName = null,
+    string? AwxRepositoryBranch = null);
 
 public sealed class UpdateApplicationHandler(IApplicationRepository applications, IUnitOfWork unitOfWork)
 {
@@ -63,7 +66,10 @@ public sealed class UpdateApplicationHandler(IApplicationRepository applications
             command.ArtifactFeed,
             command.ArtifactName,
             command.ArtifactPath,
-            command.BuildPipelineUrl);
+            command.BuildPipelineUrl,
+            command.AwxRepositoryProject,
+            command.AwxRepositoryName,
+            command.AwxRepositoryBranch);
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 

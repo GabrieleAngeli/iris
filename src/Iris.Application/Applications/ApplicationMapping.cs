@@ -20,7 +20,10 @@ internal static class ApplicationMapping
         application.ArtifactPath,
         application.BuildPipelineUrl,
         application.IsActive,
-        application.Versions.Select(v => v.ToSummaryResponse()).ToArray());
+        application.Versions.Select(v => v.ToSummaryResponse()).ToArray(),
+        application.AwxRepositoryProject,
+        application.AwxRepositoryName,
+        application.AwxRepositoryBranch);
 
     public static ApplicationVersionSummaryResponse ToSummaryResponse(this ApplicationVersion version) => new(
         version.Id,

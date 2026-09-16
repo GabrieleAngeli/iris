@@ -11,7 +11,7 @@ public sealed class PromoteSecretStoreToOpenBaoHandlerTests
         new(store.IntegrationSettingsRepository, store.SecretStore, promotion);
 
     private static Task SeedOpenBaoAsync(FakeStore store, string? token) =>
-        new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork)
+        new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader)
             .HandleAsync(new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example:8200", token, "secret", UseKvV2: true));
 
     [Fact]

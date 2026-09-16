@@ -125,6 +125,8 @@ internal sealed class FakeStore
 
     public FakeIntegrationSettingsRepository IntegrationSettingsRepository => new(this);
 
+    public FakeIntegrationSettingsReloader IntegrationSettingsReloader { get; } = new();
+
     /// <summary>A real <see cref="UserAccessService"/> composed from the fake repositories.</summary>
     public UserAccessService AccessService => new(UserRepository, RoleAssignmentRepository, RoleRepository);
 }
@@ -206,6 +208,20 @@ internal sealed class FakeIntegrationSettingsRepository(FakeStore store) : IInte
         var created = IntegrationSettings.CreateEmpty();
         store.IntegrationSettings.Add(created);
         return Task.FromResult(created);
+    }
+}
+
+/// <summary>No-op stand-in for the real (Iris.Infrastructure) reloader — application-layer tests
+/// only need to confirm a Save handler calls it, not that it mutates live connector options
+/// (that's covered in Iris.Infrastructure.Tests).</summary>
+internal sealed class FakeIntegrationSettingsReloader : IIntegrationSettingsReloader
+{
+    public int ReloadCalls { get; private set; }
+
+    public Task ReloadAsync(CancellationToken cancellationToken = default)
+    {
+        ReloadCalls++;
+        return Task.CompletedTask;
     }
 }
 

@@ -18,7 +18,10 @@ public sealed record CreateApplicationCommand(
     string? ArtifactFeed = null,
     string? ArtifactName = null,
     string? ArtifactPath = null,
-    string? BuildPipelineUrl = null);
+    string? BuildPipelineUrl = null,
+    string? AwxRepositoryProject = null,
+    string? AwxRepositoryName = null,
+    string? AwxRepositoryBranch = null);
 
 public sealed partial class CreateApplicationHandler(IApplicationRepository applications, IUnitOfWork unitOfWork)
 {
@@ -65,7 +68,10 @@ public sealed partial class CreateApplicationHandler(IApplicationRepository appl
             command.ArtifactFeed,
             command.ArtifactName,
             command.ArtifactPath,
-            command.BuildPipelineUrl);
+            command.BuildPipelineUrl,
+            command.AwxRepositoryProject,
+            command.AwxRepositoryName,
+            command.AwxRepositoryBranch);
 
         await applications.AddAsync(application, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

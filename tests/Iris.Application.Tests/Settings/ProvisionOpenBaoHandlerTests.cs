@@ -8,7 +8,7 @@ namespace Iris.Application.Tests.Settings;
 public sealed class ProvisionOpenBaoHandlerTests
 {
     private static ProvisionOpenBaoHandler Handler(FakeStore store, FakeContainerRuntime runtime) =>
-        new(runtime, new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork));
+        new(runtime, new SaveOpenBaoIntegrationSettingsHandler(store.IntegrationSettingsRepository, store.SecretStore, store.UnitOfWork, store.IntegrationSettingsReloader));
 
     [Theory]
     [InlineData("==> OpenBao server started!\nRoot Token: s.abc123\n", "s.abc123")]
@@ -117,7 +117,7 @@ public sealed class ProvisionOpenBaoHandlerTests
         var result = await Handler(store, runtime).HandleAsync(new ProvisionOpenBaoCommand());
 
         Assert.Equal("http://localhost:8200", result.Endpoint);
-        Assert.True(result.RestartRequired);
+        Assert.False(result.RestartRequired);
         Assert.Single(runtime.RunCalls);
         var settings = Assert.Single(store.IntegrationSettings);
         Assert.Equal("http://localhost:8200", settings.OpenBaoEndpoint);
