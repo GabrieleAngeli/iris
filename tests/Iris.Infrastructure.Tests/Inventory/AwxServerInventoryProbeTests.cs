@@ -34,6 +34,9 @@ public sealed class AwxServerInventoryProbeTests
             return Task.FromResult(OnStatus(jobId));
         }
 
+        public Task<string?> GetJobOutputAsync(string jobId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(null);
+
         public Task<AwxHostFactsResult> GetHostFactsAsync(int jobTemplateId, string hostname, CancellationToken cancellationToken = default)
         {
             LastFactsJobTemplateId = jobTemplateId;

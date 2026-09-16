@@ -70,4 +70,26 @@ public sealed class InstallationRunTests
 
         Assert.Throws<ArgumentException>(() => run.MarkFailed(" ", Now));
     }
+
+    [Fact]
+    public void CaptureOutcome_stores_elapsed_seconds_and_output()
+    {
+        var run = NewRun();
+
+        run.CaptureOutcome(12.5, "PLAY [deploy] ***\nok: [host]");
+
+        Assert.Equal(12.5, run.ElapsedSeconds);
+        Assert.Equal("PLAY [deploy] ***\nok: [host]", run.Output);
+    }
+
+    [Fact]
+    public void CaptureOutcome_treats_blank_output_as_null()
+    {
+        var run = NewRun();
+
+        run.CaptureOutcome(3.0, "   ");
+
+        Assert.Equal(3.0, run.ElapsedSeconds);
+        Assert.Null(run.Output);
+    }
 }

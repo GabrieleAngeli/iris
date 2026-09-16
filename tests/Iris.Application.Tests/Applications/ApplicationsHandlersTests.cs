@@ -6,6 +6,7 @@ using Iris.Contracts.Applications;
 using Iris.Domain.Applications;
 using Iris.Domain.Infrastructure;
 using Iris.Domain.Tenancy;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Iris.Application.Tests.Applications;
 
@@ -908,7 +909,7 @@ public sealed class ApplicationsHandlersTests
         new(store.ApplicationInstallationRepository, store.InstallationRunRepository);
 
     private static GetInstallationRunHandler GetRunHandler(FakeStore store, FakeAwxClient awx) =>
-        new(store.InstallationRunRepository, awx, new FakeClock(Now), store.UnitOfWork);
+        new(store.InstallationRunRepository, new InstallationRunRefresher(awx, new FakeClock(Now)), store.UnitOfWork);
 
     private static async Task<Guid> SeedInstallation(FakeStore store)
     {
@@ -1022,5 +1023,338 @@ public sealed class ApplicationsHandlersTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => GetRunHandler(store, awx)
             .HandleAsync(new GetInstallationRunQuery(Guid.NewGuid(), launched.RunId)));
+    }
+
+    private static InstallationRunRefresher Refresher(FakeAwxClient awx) => new(awx, new FakeClock(Now));
+
+    [Fact]
+    public async Task InstallationRunRefresher_no_ops_when_the_run_is_already_terminal()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var awx = new FakeAwxClient { LaunchResult = new AwxJobLaunchResult(1, "successful", null, null) };
+        var launched = await LaunchRunHandler(store, awx).HandleAsync(
+            new LaunchApplicationInstallationAwxJobCommand(installationId, new ApplicationInstallationAwxLaunchRequest()));
+        var run = await store.InstallationRunRepository.GetForUpdateAsync(launched.RunId);
+
+        await Refresher(awx).RefreshAsync(run!);
+
+        Assert.Equal(0, awx.StatusCalls);
+    }
+
+    [Fact]
+    public async Task InstallationRunRefresher_no_ops_when_there_is_no_external_job_id_yet()
+    {
+        var run = new InstallationRun(Guid.CreateVersion7(), Guid.CreateVersion7(), InstallationRunKind.AwxJob, null);
+        var awx = new FakeAwxClient();
+
+        await Refresher(awx).RefreshAsync(run);
+
+        Assert.Equal(0, awx.StatusCalls);
+    }
+
+    [Fact]
+    public async Task InstallationRunRefresher_updates_status_without_capturing_outcome_while_still_running()
+    {
+        var run = new InstallationRun(Guid.CreateVersion7(), Guid.CreateVersion7(), InstallationRunKind.AwxJob, null);
+        run.MarkSubmitted("42", null, InstallationRunStatus.Pending, null, Now);
+        var awx = new FakeAwxClient { JobStatus = new AwxJobStatusResult("running", false, false, null, "queued") };
+
+        await Refresher(awx).RefreshAsync(run);
+
+        Assert.Equal(InstallationRunStatus.Running, run.Status);
+        Assert.False(run.IsTerminal);
+        Assert.Null(run.ElapsedSeconds);
+        Assert.Equal(0, awx.OutputCalls);
+    }
+
+    [Fact]
+    public async Task InstallationRunRefresher_captures_elapsed_and_output_when_newly_terminal()
+    {
+        var run = new InstallationRun(Guid.CreateVersion7(), Guid.CreateVersion7(), InstallationRunKind.AwxJob, null);
+        run.MarkSubmitted("42", null, InstallationRunStatus.Running, null, Now);
+        var awx = new FakeAwxClient
+        {
+            JobStatus = new AwxJobStatusResult("successful", true, true, null, null, 12.5),
+            JobOutput = "PLAY [deploy] ***\nok: [host]",
+        };
+
+        await Refresher(awx).RefreshAsync(run);
+
+        Assert.Equal(InstallationRunStatus.Succeeded, run.Status);
+        Assert.True(run.IsTerminal);
+        Assert.Equal(12.5, run.ElapsedSeconds);
+        Assert.Equal("PLAY [deploy] ***\nok: [host]", run.Output);
+        Assert.Equal(1, awx.OutputCalls);
+    }
+
+    [Fact]
+    public async Task InstallationRunRefresher_keeps_the_last_known_status_when_awx_is_unreachable()
+    {
+        var run = new InstallationRun(Guid.CreateVersion7(), Guid.CreateVersion7(), InstallationRunKind.AwxJob, null);
+        run.MarkSubmitted("42", null, InstallationRunStatus.Running, null, Now);
+        var awx = new FakeAwxClient { JobStatus = null };
+
+        await Refresher(awx).RefreshAsync(run);
+
+        Assert.Equal(InstallationRunStatus.Running, run.Status);
+        Assert.Null(run.ElapsedSeconds);
+    }
+
+    [Fact]
+    public async Task InstallationRunRefresher_still_captures_elapsed_when_the_output_fetch_fails()
+    {
+        var run = new InstallationRun(Guid.CreateVersion7(), Guid.CreateVersion7(), InstallationRunKind.AwxJob, null);
+        run.MarkSubmitted("42", null, InstallationRunStatus.Running, null, Now);
+        var awx = new FakeAwxClient
+        {
+            JobStatus = new AwxJobStatusResult("failed", true, false, null, "playbook error", 3.2),
+            ThrowOnOutput = true,
+        };
+
+        await Refresher(awx).RefreshAsync(run);
+
+        Assert.Equal(InstallationRunStatus.Failed, run.Status);
+        Assert.Equal(3.2, run.ElapsedSeconds);
+        Assert.Null(run.Output);
+    }
+
+    private static PollActiveInstallationRunsHandler PollHandler(FakeStore store, FakeAwxClient awx) =>
+        new(store.InstallationRunRepository, Refresher(awx), store.UnitOfWork, NullLogger<PollActiveInstallationRunsHandler>.Instance);
+
+    [Fact]
+    public async Task PollActiveInstallationRuns_refreshes_every_active_run_and_returns_the_count()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var awx = new FakeAwxClient { LaunchResult = new AwxJobLaunchResult(1, "running", null, null) };
+        await LaunchRunHandler(store, awx).HandleAsync(
+            new LaunchApplicationInstallationAwxJobCommand(installationId, new ApplicationInstallationAwxLaunchRequest()));
+        await LaunchRunHandler(store, awx).HandleAsync(
+            new LaunchApplicationInstallationAwxJobCommand(installationId, new ApplicationInstallationAwxLaunchRequest()));
+        awx.JobStatus = new AwxJobStatusResult("successful", true, true, null, null, 5.0);
+
+        var refreshedCount = await PollHandler(store, awx).HandleAsync();
+
+        Assert.Equal(2, refreshedCount);
+        Assert.All(store.InstallationRuns, run => Assert.Equal(InstallationRunStatus.Succeeded, run.Status));
+    }
+
+    [Fact]
+    public async Task PollActiveInstallationRuns_does_not_touch_runs_that_are_already_terminal()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var awx = new FakeAwxClient { LaunchResult = new AwxJobLaunchResult(1, "successful", null, null) };
+        await LaunchRunHandler(store, awx).HandleAsync(
+            new LaunchApplicationInstallationAwxJobCommand(installationId, new ApplicationInstallationAwxLaunchRequest()));
+
+        var refreshedCount = await PollHandler(store, awx).HandleAsync();
+
+        Assert.Equal(0, refreshedCount);
+        Assert.Equal(0, awx.StatusCalls);
+    }
+
+    private static PrepareApplicationInstallationActionHandler PrepareActionHandler(FakeStore store) =>
+        new(store.ApplicationInstallationRepository, ValidateHandler(store), AnsiblePlanHandler(store), store.PreparedActionRepository, store.UnitOfWork);
+
+    private static ExecutePreparedActionHandler ExecuteActionHandler(FakeStore store, FakeAwxClient awx) =>
+        new(store.PreparedActionRepository, ValidateHandler(store), LaunchRunHandler(store, awx), store.InstallationRunRepository, new FakeClock(Now), store.UnitOfWork);
+
+    private static CancelPreparedActionHandler CancelActionHandler(FakeStore store) =>
+        new(store.PreparedActionRepository, new FakeClock(Now), store.UnitOfWork);
+
+    private static ListPreparedActionsHandler ListActionsHandler(FakeStore store) =>
+        new(store.PreparedActionRepository, store.ApplicationInstallationRepository, store.ApplicationRepository, store.ServerRepository, store.CustomerRepository, store.InstallationRunRepository);
+
+    private static GetPreparedActionHandler GetActionHandler(FakeStore store) =>
+        new(store.PreparedActionRepository, store.InstallationRunRepository);
+
+    [Fact]
+    public async Task PrepareApplicationInstallationAction_freezes_a_reviewable_plan_and_validation_snapshot()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, new ApplicationInstallationAwxLaunchRequest(JobTemplateId: 42)));
+
+        Assert.Equal("Prepared", prepared.Status);
+        Assert.Equal(installationId, prepared.InstallationId);
+        Assert.True(prepared.Validation.IsValid);
+        Assert.Equal(42, prepared.RequestedLaunchOptions.JobTemplateId);
+        Assert.Null(prepared.InstallationRunId);
+        Assert.Null(prepared.Run);
+        var stored = Assert.Single(store.PreparedActions);
+        Assert.Equal(PreparedActionStatus.Prepared, stored.Status);
+        Assert.Contains(installationId.ToString(), stored.PlanSnapshotJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PrepareApplicationInstallationAction_throws_not_found_for_missing_installation() =>
+        await Assert.ThrowsAsync<NotFoundException>(() => PrepareActionHandler(new FakeStore()).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(Guid.NewGuid(), null)));
+
+    [Fact]
+    public async Task ExecutePreparedAction_launches_the_awx_job_and_marks_the_action_executed()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+        var awx = new FakeAwxClient
+        {
+            LaunchResult = new AwxJobLaunchResult(999, "successful", "https://awx.example/#/jobs/999", null),
+        };
+
+        var executed = await ExecuteActionHandler(store, awx).HandleAsync(new ExecutePreparedActionCommand(prepared.Id));
+
+        Assert.Equal("Executed", executed.Status);
+        Assert.NotNull(executed.InstallationRunId);
+        Assert.NotNull(executed.Run);
+        Assert.Equal("Succeeded", executed.Run!.Status);
+        var stored = Assert.Single(store.PreparedActions);
+        Assert.Equal(PreparedActionStatus.Executed, stored.Status);
+        Assert.Equal(1, awx.LaunchCalls);
+    }
+
+    [Fact]
+    public async Task ExecutePreparedAction_throws_when_already_executed()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+        var awx = new FakeAwxClient();
+        await ExecuteActionHandler(store, awx).HandleAsync(new ExecutePreparedActionCommand(prepared.Id));
+
+        await Assert.ThrowsAsync<ValidationException>(() => ExecuteActionHandler(store, awx)
+            .HandleAsync(new ExecutePreparedActionCommand(prepared.Id)));
+    }
+
+    [Fact]
+    public async Task ExecutePreparedAction_blocks_when_fresh_validation_now_has_errors()
+    {
+        var store = new FakeStore();
+        var server = new ServerNode(
+            Guid.CreateVersion7(), "engine01", null,
+            ServerOs.Linux, ServerHostingType.SelfHosted, null, "10.0.0.20", ContextKind.Production);
+        server.UpdateCapacity([NodeCapability.Database], new ResourceProfile(2, 1024, 50), [8080]);
+        store.WithServer(server);
+
+        var runtime = new RuntimeMetadataRequest(
+            "java17", "Linux", 2, 1024, [8080, 8443],
+            OsSupport: [new RuntimeOsSupportInfo("windows", null, "2022")],
+            MinimumCpuCores: 8,
+            MinimumMemoryMb: 4096);
+        var (appId, versionId) = await SeedEngineVersion(
+            store,
+            runtime,
+            [new ConfigurationKeyInput(
+                "spring.datasource.url", "application.properties", true, true, null,
+                "conn", null, "domain.augeg4.postgres.connectionString")],
+            [new DependencyInput("postgres", "database", true, "db", "domain.augeg4.postgres.connectionString")],
+            [new PlaceholderInput("domain.augeg4.postgres.connectionString", "database", null, true)],
+            []);
+        var installation = await CreateInstallationHandler(store).HandleAsync(new CreateApplicationInstallationCommand(
+            appId, "augeg4-engine-master-prd", versionId, server.Id, SeedCustomerContext(store),
+            "augeg4.engine.master", null, null, []));
+
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installation.Id, null));
+        Assert.False(prepared.Validation.IsValid); // Prepare still succeeds — seeing the risk is the point.
+
+        var awx = new FakeAwxClient();
+        await Assert.ThrowsAsync<ValidationException>(() => ExecuteActionHandler(store, awx)
+            .HandleAsync(new ExecutePreparedActionCommand(prepared.Id)));
+        Assert.Equal(0, awx.LaunchCalls);
+        Assert.Equal(PreparedActionStatus.Prepared, Assert.Single(store.PreparedActions).Status);
+    }
+
+    [Fact]
+    public async Task CancelPreparedAction_transitions_to_canceled()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+
+        var canceled = await CancelActionHandler(store).HandleAsync(
+            new CancelPreparedActionCommand(prepared.Id, "not needed anymore"));
+
+        Assert.Equal("Canceled", canceled.Status);
+        Assert.Equal("not needed anymore", canceled.CancelReason);
+    }
+
+    [Fact]
+    public async Task CancelPreparedAction_throws_when_already_executed()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+        await ExecuteActionHandler(store, new FakeAwxClient()).HandleAsync(new ExecutePreparedActionCommand(prepared.Id));
+
+        await Assert.ThrowsAsync<ValidationException>(() => CancelActionHandler(store)
+            .HandleAsync(new CancelPreparedActionCommand(prepared.Id, null)));
+    }
+
+    [Fact]
+    public async Task ListPreparedActions_reports_the_linked_run_status_as_the_effective_status_once_executed()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+        var awx = new FakeAwxClient
+        {
+            LaunchResult = new AwxJobLaunchResult(1, "running", null, null),
+        };
+        await ExecuteActionHandler(store, awx).HandleAsync(new ExecutePreparedActionCommand(prepared.Id));
+
+        var summaries = await ListActionsHandler(store).HandleAsync(new ListPreparedActionsQuery());
+
+        var summary = Assert.Single(summaries);
+        Assert.Equal("Running", summary.EffectiveStatus);
+        Assert.Equal(installationId, summary.InstallationId);
+        Assert.Equal("augeg4-engine", summary.ApplicationSlug);
+    }
+
+    [Fact]
+    public async Task ListPreparedActions_filters_by_application_and_status()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+        var otherApplicationId = Guid.NewGuid();
+
+        var byWrongApplication = await ListActionsHandler(store).HandleAsync(
+            new ListPreparedActionsQuery(ApplicationId: otherApplicationId));
+        Assert.Empty(byWrongApplication);
+
+        var byStatus = await ListActionsHandler(store).HandleAsync(new ListPreparedActionsQuery(Status: "Prepared"));
+        Assert.Single(byStatus);
+
+        var byWrongStatus = await ListActionsHandler(store).HandleAsync(new ListPreparedActionsQuery(Status: "Canceled"));
+        Assert.Empty(byWrongStatus);
+        _ = prepared;
+    }
+
+    [Fact]
+    public async Task GetPreparedAction_returns_the_frozen_snapshot_and_throws_for_unknown_id()
+    {
+        var store = new FakeStore();
+        var installationId = await SeedInstallation(store);
+        var prepared = await PrepareActionHandler(store).HandleAsync(
+            new PrepareApplicationInstallationActionCommand(installationId, null));
+
+        var fetched = await GetActionHandler(store).HandleAsync(new GetPreparedActionQuery(prepared.Id));
+
+        Assert.Equal(prepared.Id, fetched.Id);
+        Assert.Equal(installationId, fetched.Plan.InstallationId);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => GetActionHandler(store)
+            .HandleAsync(new GetPreparedActionQuery(Guid.NewGuid())));
     }
 }

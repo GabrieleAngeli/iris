@@ -67,6 +67,13 @@ public sealed class InstallationRun : Entity<Guid>, IAggregateRoot, IAuditableEn
 
     public DateTimeOffset? CompletedAtUtc { get; private set; }
 
+    /// <summary>AWX's reported job duration, in seconds — captured once, alongside <see cref="Output"/>.</summary>
+    public double? ElapsedSeconds { get; private set; }
+
+    /// <summary>The job's captured stdout, truncated to a bounded size — populated once the run is
+    /// first observed terminal; never fetched again after that.</summary>
+    public string? Output { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -115,6 +122,14 @@ public sealed class InstallationRun : Entity<Guid>, IAggregateRoot, IAuditableEn
 
         Message = message.Trim();
         Apply(InstallationRunStatus.Failed, nowUtc);
+    }
+
+    /// <summary>Captures AWX's reported duration and stdout once the run is known to be terminal —
+    /// called by <c>IInstallationRunRefresher</c> right after a poll flips the status, not on every tick.</summary>
+    public void CaptureOutcome(double? elapsedSeconds, string? output)
+    {
+        ElapsedSeconds = elapsedSeconds;
+        Output = string.IsNullOrWhiteSpace(output) ? null : output;
     }
 
     private void Apply(InstallationRunStatus status, DateTimeOffset nowUtc)

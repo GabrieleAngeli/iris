@@ -43,12 +43,15 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 	/// <summary>Same reasoning as <see cref="CanManageUsers"/>: <c>/applications/installations</c> has no scope route parameter.</summary>
 	public bool CanSeeDeployments => _auth.Me?.EffectivePermissions.Contains("deployments.read") == true;
 
+	/// <summary>The Actions module (Prepare → Review → Execute). <c>/actions</c> has no scope route parameter, same reasoning as <see cref="CanManageUsers"/>.</summary>
+	public bool CanSeeActions => _auth.Me?.EffectivePermissions.Contains("actions.read") == true;
+
 	/// <summary>
-	/// Deployments lives inside the Governance section (composed per customer/environment),
-	/// so the section itself must open for either governance or deployments visibility —
-	/// a caller with only <c>deployments.read</c> must still reach it.
+	/// Deployments/Actions live inside the Governance section (composed per customer/environment),
+	/// so the section itself must open for either governance, deployments or actions visibility —
+	/// a caller with only <c>deployments.read</c>/<c>actions.read</c> must still reach it.
 	/// </summary>
-	public bool CanSeeGovernanceSection => CanManageUsers || CanSeeDeployments;
+	public bool CanSeeGovernanceSection => CanManageUsers || CanSeeDeployments || CanSeeActions;
 
 	[ObservableProperty] private string _currentRoute = "startup";
 	[ObservableProperty] private bool _isWorkspaceExpanded;
@@ -73,6 +76,8 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 
 	public bool IsDeploymentsActive => CurrentRoute == "deployments";
 
+	public bool IsActionsActive => CurrentRoute == "actions";
+
 	public bool IsComponentsActive => CurrentRoute == "components";
 
 	public bool IsProfileActive => CurrentRoute == "profile";
@@ -81,7 +86,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 
 	public bool IsWorkspaceActive => IsAccessActive;
 
-	public bool IsGovernanceActive => IsUsersActive || IsCustomersActive || IsDeploymentsActive;
+	public bool IsGovernanceActive => IsUsersActive || IsCustomersActive || IsDeploymentsActive || IsActionsActive;
 
 	public bool IsInfrastructureActive => IsServersActive;
 
@@ -168,6 +173,7 @@ public sealed partial class AppShellViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(CanManageInfrastructure));
 		OnPropertyChanged(nameof(CanSeeApplications));
 		OnPropertyChanged(nameof(CanSeeDeployments));
+		OnPropertyChanged(nameof(CanSeeActions));
 		OnPropertyChanged(nameof(CanSeeGovernanceSection));
 	}
 

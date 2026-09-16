@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:Iris.App.ViewModels"
+    xmlns:controls="clr-namespace:Iris.App.Controls"
     x:DataType="vm:ApplicationInstallationRowViewModel"
     Title="Installation">
 
@@ -92,24 +93,85 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Deploy -->
+                <!-- Deploy: Prepare -> Review -> Execute -->
                 <Border Style="{StaticResource SubtleCard}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Deploy" Style="{StaticResource Subtitle}" />
-                        <Label Text="Launches the configured AWX job template with the Iris Ansible plan for this installation."
-                               Style="{StaticResource Caption}" />
 
-                        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
-                            <ActivityIndicator IsRunning="{Binding IsDeploying}" IsVisible="{Binding IsDeploying}" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="Deploy now"
-                                    Command="{Binding DeployCommand}"
-                                    IsEnabled="{Binding IsDeploying, Converter={StaticResource InvertBoolConverter}}"
-                                    IsVisible="{Binding CanManageDeployments}" />
-                        </Grid>
+                        <!-- Not yet prepared: only action is to prepare a reviewable plan. -->
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding HasPreparedAction, Converter={StaticResource InvertBoolConverter}}">
+                            <Label Text="Freezes a reviewable Ansible plan and validation snapshot — nothing is sent to AWX until you confirm."
+                                   Style="{StaticResource Caption}" />
+                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+                                <ActivityIndicator IsRunning="{Binding IsPreparingAction}" IsVisible="{Binding IsPreparingAction}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="Prepare"
+                                        Command="{Binding PrepareActionCommand}"
+                                        IsEnabled="{Binding IsPreparingAction, Converter={StaticResource InvertBoolConverter}}"
+                                        IsVisible="{Binding CanManageDeployments}" />
+                            </Grid>
+                            <Label Text="{Binding PrepareActionError}" IsVisible="{Binding HasPrepareActionError}" Style="{StaticResource Caption}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                        </VerticalStackLayout>
 
-                        <Label Text="{Binding DeployMessage}" IsVisible="{Binding HasDeployMessage}" Style="{StaticResource Caption}" />
-                        <Label Text="{Binding DeployError}" IsVisible="{Binding HasDeployError}" Style="{StaticResource Caption}"
-                               TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                        <!-- Prepared: show what will happen and ask for confirmation. -->
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding HasPreparedAction}">
+                            <HorizontalStackLayout Spacing="8">
+                                <Border Style="{StaticResource Badge}"
+                                        BackgroundColor="{AppThemeBinding Light=#DFF6DD, Dark=#24442B}"
+                                        IsVisible="{Binding CanConfirmExecute}">
+                                    <Label Text="Ready to execute" Style="{StaticResource Caption}"
+                                           TextColor="{AppThemeBinding Light=#107C10, Dark=#6CCB5F}" />
+                                </Border>
+                                <Border Style="{StaticResource Badge}"
+                                        BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                                        IsVisible="{Binding CanConfirmExecute, Converter={StaticResource InvertBoolConverter}}">
+                                    <Label Text="Blocked by validation errors" Style="{StaticResource Caption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                </Border>
+                                <Label Text="{Binding PreparedAction.Validation.Errors, StringFormat='{0} error(s)'}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                <Label Text="{Binding PreparedAction.Validation.Warnings, StringFormat='{0} warning(s)'}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+
+                            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding PreparedActionChecks}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ValidationCheckRowViewModel">
+                                        <Grid ColumnDefinitions="72,*" ColumnSpacing="10">
+                                            <Border Style="{StaticResource Badge}"
+                                                    BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                                                    IsVisible="{Binding IsError}">
+                                                <Label Text="Error" Style="{StaticResource Caption}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}"
+                                                    BackgroundColor="{AppThemeBinding Light=#FFF4CE, Dark=#4A3A1C}"
+                                                    IsVisible="{Binding IsWarning}">
+                                                <Label Text="Warning" Style="{StaticResource Caption}" TextColor="{StaticResource Warning}" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}"
+                                                    IsVisible="{Binding IsInfo}">
+                                                <Label Text="Info" Style="{StaticResource Caption}" />
+                                            </Border>
+                                            <Label Grid.Column="1" Text="{Binding Message}" Style="{StaticResource Body}" FontSize="13" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="10">
+                                <ActivityIndicator IsRunning="{Binding IsExecutingAction}" IsVisible="{Binding IsExecutingAction}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="Confirm &amp; execute"
+                                        Command="{Binding ExecutePreparedActionCommand}"
+                                        IsEnabled="{Binding CanConfirmExecute}"
+                                        IsVisible="{Binding CanManageDeployments}" />
+                                <Button Grid.Column="2" Text="Cancel" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding CancelPreparedActionCommand}"
+                                        IsEnabled="{Binding IsExecutingAction, Converter={StaticResource InvertBoolConverter}}"
+                                        IsVisible="{Binding CanManageDeployments}" />
+                            </Grid>
+                            <Label Text="{Binding ExecuteActionError}" IsVisible="{Binding HasExecuteActionError}" Style="{StaticResource Caption}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 
@@ -134,32 +196,46 @@
                         <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Runs}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:InstallationRunRowViewModel">
-                                    <Grid ColumnDefinitions="88,*,Auto" ColumnSpacing="10">
-                                        <Border Style="{StaticResource Badge}"
-                                                BackgroundColor="{AppThemeBinding Light=#DFF6DD, Dark=#24442B}"
-                                                IsVisible="{Binding IsSucceeded}">
-                                            <Label Text="Succeeded" Style="{StaticResource Caption}"
-                                                   TextColor="{AppThemeBinding Light=#107C10, Dark=#6CCB5F}" />
-                                        </Border>
-                                        <Border Style="{StaticResource Badge}"
-                                                BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
-                                                IsVisible="{Binding IsFailed}">
-                                            <Label Text="{Binding Status}" Style="{StaticResource Caption}"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
-                                        </Border>
-                                        <Border Style="{StaticResource Badge}" IsVisible="{Binding IsInProgress}">
-                                            <Label Text="{Binding Status}" Style="{StaticResource Caption}" />
-                                        </Border>
+                                    <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="88,*,Auto,Auto" ColumnSpacing="10">
+                                            <Border Style="{StaticResource Badge}"
+                                                    BackgroundColor="{AppThemeBinding Light=#DFF6DD, Dark=#24442B}"
+                                                    IsVisible="{Binding IsSucceeded}">
+                                                <Label Text="Succeeded" Style="{StaticResource Caption}"
+                                                       TextColor="{AppThemeBinding Light=#107C10, Dark=#6CCB5F}" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}"
+                                                    BackgroundColor="{AppThemeBinding Light=#FDE7E9, Dark=#442726}"
+                                                    IsVisible="{Binding IsFailed}">
+                                                <Label Text="{Binding Status}" Style="{StaticResource Caption}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" IsVisible="{Binding IsInProgress}">
+                                                <Label Text="{Binding Status}" Style="{StaticResource Caption}" />
+                                            </Border>
 
-                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="{Binding CreatedAtText}" Style="{StaticResource Caption}" />
-                                            <Label Text="{Binding Message}" Style="{StaticResource Caption}" IsVisible="{Binding HasMessage}"
-                                                   LineBreakMode="TailTruncation" />
-                                        </VerticalStackLayout>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                                <HorizontalStackLayout Spacing="6">
+                                                    <Label Text="{Binding CreatedAtText}" Style="{StaticResource Caption}" />
+                                                    <Label Text="{Binding ElapsedText}" Style="{StaticResource Caption}" IsVisible="{Binding HasElapsed}" />
+                                                </HorizontalStackLayout>
+                                                <Label Text="{Binding Message}" Style="{StaticResource Caption}" IsVisible="{Binding HasMessage}"
+                                                       LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
 
-                                        <Label Grid.Column="2" Text="{Binding ExternalJobId, StringFormat='Job #{0}'}" Style="{StaticResource Caption}"
-                                               IsVisible="{Binding HasExternalUrl}" VerticalOptions="Center" />
-                                    </Grid>
+                                            <Label Grid.Column="2" Text="{Binding ExternalJobId, StringFormat='Job #{0}'}" Style="{StaticResource Caption}"
+                                                   IsVisible="{Binding HasExternalUrl}" VerticalOptions="Center" />
+
+                                            <Button Grid.Column="3" Text="Log"
+                                                    Style="{StaticResource SecondaryButton}" Command="{Binding ToggleLogCommand}"
+                                                    IsVisible="{Binding HasOutput}" FontSize="12" Padding="10,4" HeightRequest="30" />
+                                        </Grid>
+
+                                        <controls:CodeBlock IsVisible="{Binding IsLogExpanded}"
+                                                             Title="{Binding ExternalJobId, StringFormat='Job #{0} output'}"
+                                                             Language="text"
+                                                             Text="{Binding Output}" />
+                                    </VerticalStackLayout>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>

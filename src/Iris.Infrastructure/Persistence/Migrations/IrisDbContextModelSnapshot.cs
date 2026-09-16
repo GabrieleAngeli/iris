@@ -723,6 +723,9 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<double?>("ElapsedSeconds")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("ExternalJobId")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
@@ -740,6 +743,9 @@ namespace Iris.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Output")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -754,6 +760,8 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApplicationInstallationId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("InstallationRuns", (string)null);
                 });
@@ -787,6 +795,69 @@ namespace Iris.Infrastructure.Persistence.Migrations
                     b.HasIndex("ApplicationVersionId");
 
                     b.ToTable("ApplicationPlaceholders", (string)null);
+                });
+
+            modelBuilder.Entity("Iris.Domain.Applications.PreparedAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ApplicationInstallationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("CanceledAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ExecutedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InstallationRunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PlanSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("RequestedCheckMode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestedInventory")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("RequestedJobTemplateId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestedLimit")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValidationSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationInstallationId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("PreparedActions", (string)null);
                 });
 
             modelBuilder.Entity("Iris.Domain.Audit.TransactionLogEntry", b =>

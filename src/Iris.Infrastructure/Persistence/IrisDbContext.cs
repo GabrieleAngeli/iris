@@ -56,6 +56,8 @@ public sealed class IrisDbContext(DbContextOptions<IrisDbContext> options) : DbC
 
     public DbSet<InstallationRun> InstallationRuns => Set<InstallationRun>();
 
+    public DbSet<PreparedAction> PreparedActions => Set<PreparedAction>();
+
     public DbSet<EnvironmentServerAssignment> EnvironmentServerAssignments => Set<EnvironmentServerAssignment>();
 
     public DbSet<MailProviderSettings> MailProviderSettings => Set<MailProviderSettings>();

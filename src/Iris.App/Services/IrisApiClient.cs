@@ -98,6 +98,23 @@ public interface IIrisApiClient
 	/// <summary>One recorded deployment attempt; refreshes its status from AWX when still running. Requires <c>deployments.read</c>.</summary>
 	Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default);
 
+	/// <summary>Step 1 of Prepare → Review → Execute: freezes a reviewable plan+validation snapshot. Requires <c>deployments.prepare</c>.</summary>
+	Task<PreparedActionResponse> PrepareApplicationInstallationActionAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest? request, CancellationToken cancellationToken = default);
+
+	/// <summary>The operator's confirmation — launches the AWX job. Requires <c>actions.run</c>.</summary>
+	Task<PreparedActionResponse> ExecutePreparedActionAsync(Guid actionId, CancellationToken cancellationToken = default);
+
+	/// <summary>The operator declined a prepared action instead of confirming it. Requires <c>actions.run</c>.</summary>
+	Task<PreparedActionResponse> CancelPreparedActionAsync(Guid actionId, string? reason, CancellationToken cancellationToken = default);
+
+	/// <summary>Prepared actions across every installation, filterable by customer context/application/server/status. Requires <c>actions.read</c>.</summary>
+	Task<IReadOnlyList<ActionSummaryResponse>> ListActionsAsync(
+		Guid? customerContextId = null, Guid? applicationId = null, Guid? serverNodeId = null, string? status = null,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>One prepared action's frozen snapshot, plus its linked run once executed. Requires <c>actions.read</c>.</summary>
+	Task<PreparedActionResponse> GetPreparedActionAsync(Guid actionId, CancellationToken cancellationToken = default);
+
 	/// <summary>Servers assigned to every visible customer environment. Requires <c>deployments.read</c>.</summary>
 	Task<IReadOnlyList<EnvironmentServerAssignmentResponse>> GetEnvironmentServerAssignmentsAsync(CancellationToken cancellationToken = default);
 
@@ -319,6 +336,32 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 
 	public Task<InstallationRunResponse> GetInstallationRunAsync(Guid installationId, Guid runId, CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<InstallationRunResponse>(HttpMethod.Get, $"/applications/installations/{installationId}/runs/{runId}", cancellationToken);
+
+	public Task<PreparedActionResponse> PrepareApplicationInstallationActionAsync(Guid installationId, ApplicationInstallationAwxLaunchRequest? request, CancellationToken cancellationToken = default) =>
+		PostAsync<PreparedActionResponse>($"/applications/installations/{installationId}/actions/prepare", request!, cancellationToken);
+
+	public Task<PreparedActionResponse> ExecutePreparedActionAsync(Guid actionId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<PreparedActionResponse>(HttpMethod.Post, $"/actions/{actionId}/execute", cancellationToken);
+
+	public Task<PreparedActionResponse> CancelPreparedActionAsync(Guid actionId, string? reason, CancellationToken cancellationToken = default) =>
+		PostAsync<PreparedActionResponse>($"/actions/{actionId}/cancel", new CancelPreparedActionRequest(reason), cancellationToken);
+
+	public Task<IReadOnlyList<ActionSummaryResponse>> ListActionsAsync(
+		Guid? customerContextId = null, Guid? applicationId = null, Guid? serverNodeId = null, string? status = null,
+		CancellationToken cancellationToken = default)
+	{
+		var query = new List<string>();
+		if (customerContextId is { } contextId) query.Add($"customerContextId={contextId}");
+		if (applicationId is { } appId) query.Add($"applicationId={appId}");
+		if (serverNodeId is { } serverId) query.Add($"serverNodeId={serverId}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+
+		var path = query.Count == 0 ? "/actions" : $"/actions?{string.Join('&', query)}";
+		return GetListAsync<ActionSummaryResponse>(path, cancellationToken);
+	}
+
+	public Task<PreparedActionResponse> GetPreparedActionAsync(Guid actionId, CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<PreparedActionResponse>(HttpMethod.Get, $"/actions/{actionId}", cancellationToken);
 
 	public Task<IReadOnlyList<EnvironmentServerAssignmentResponse>> GetEnvironmentServerAssignmentsAsync(CancellationToken cancellationToken = default) =>
 		GetListAsync<EnvironmentServerAssignmentResponse>("/deployments/server-assignments", cancellationToken);

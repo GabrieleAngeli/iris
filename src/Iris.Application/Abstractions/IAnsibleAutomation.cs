@@ -32,7 +32,8 @@ public sealed record AwxJobStatusResult(
     bool Finished,
     bool Succeeded,
     string? Url,
-    string? Message);
+    string? Message,
+    double? ElapsedSeconds = null);
 
 /// <summary>Result of looking up a host's cached <c>ansible_facts</c> by name. AWX's fact
 /// cache (a Job Template run with <c>use_fact_cache=True</c>) is per-host, keyed by the host's
@@ -54,6 +55,13 @@ public interface IAwxClient
 
     /// <summary>Polls the executor for the current state of a previously launched job.</summary>
     Task<AwxJobStatusResult> GetJobStatusAsync(
+        string jobId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The job's captured stdout (AWX's <c>/stdout/?format=txt</c>), for a finished job.
+    /// Returns null when AWX has no stdout for this job id (e.g. it never ran, or is old enough to
+    /// have been purged) — treated the same as a 404, not an error.</summary>
+    Task<string?> GetJobOutputAsync(
         string jobId,
         CancellationToken cancellationToken = default);
 

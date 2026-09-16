@@ -3088,41 +3088,117 @@ public sealed partial class ApplicationInstallationRowViewModel : ObservableObje
 		}
 	}
 
-	// ---- Deploy (AWX launch) ----
+	// ---- Deploy: Prepare -> Review -> Execute ----
 
-	[ObservableProperty] private bool _isDeploying;
-	[ObservableProperty] private string? _deployError;
-	[ObservableProperty] private string? _deployMessage;
+	[ObservableProperty] private bool _isPreparingAction;
+	[ObservableProperty] private string? _prepareActionError;
+	[ObservableProperty] private PreparedActionResponse? _preparedAction;
+	[ObservableProperty] private bool _isExecutingAction;
+	[ObservableProperty] private string? _executeActionError;
 
-	public bool HasDeployError => !string.IsNullOrWhiteSpace(DeployError);
+	public bool HasPrepareActionError => !string.IsNullOrWhiteSpace(PrepareActionError);
 
-	public bool HasDeployMessage => !string.IsNullOrWhiteSpace(DeployMessage);
+	public bool HasPreparedAction => PreparedAction is not null;
 
-	partial void OnDeployErrorChanged(string? value) => OnPropertyChanged(nameof(HasDeployError));
+	public bool CanConfirmExecute => PreparedAction is { Validation.Errors: 0 };
 
-	partial void OnDeployMessageChanged(string? value) => OnPropertyChanged(nameof(HasDeployMessage));
+	public bool HasExecuteActionError => !string.IsNullOrWhiteSpace(ExecuteActionError);
 
-	[RelayCommand]
-	private async Task DeployAsync()
+	public ObservableCollection<ValidationCheckRowViewModel> PreparedActionChecks { get; } = [];
+
+	partial void OnPrepareActionErrorChanged(string? value) => OnPropertyChanged(nameof(HasPrepareActionError));
+
+	partial void OnExecuteActionErrorChanged(string? value) => OnPropertyChanged(nameof(HasExecuteActionError));
+
+	partial void OnPreparedActionChanged(PreparedActionResponse? value)
 	{
-		IsDeploying = true;
-		DeployError = null;
-		DeployMessage = null;
+		OnPropertyChanged(nameof(HasPreparedAction));
+		OnPropertyChanged(nameof(CanConfirmExecute));
+	}
+
+	/// <summary>Step 1: freezes a reviewable plan+validation snapshot — nothing is sent to AWX yet.</summary>
+	[RelayCommand]
+	private async Task PrepareActionAsync()
+	{
+		IsPreparingAction = true;
+		PrepareActionError = null;
+		ExecuteActionError = null;
 
 		try
 		{
-			var result = await _api.LaunchApplicationInstallationAwxJobAsync(Id, new ApplicationInstallationAwxLaunchRequest());
-			DeployMessage = $"Launched (status: {result.Status}).";
+			var result = await _api.PrepareApplicationInstallationActionAsync(Id, null);
+			PreparedAction = result;
+			PreparedActionChecks.Clear();
+			foreach (var check in result.Validation.Checks)
+			{
+				PreparedActionChecks.Add(new ValidationCheckRowViewModel(check));
+			}
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			PrepareActionError = ex.Message;
+		}
+		finally
+		{
+			IsPreparingAction = false;
+		}
+	}
+
+	/// <summary>Step 3: the operator's confirmation. Left Prepared (not cleared) on failure so the
+	/// operator can retry Execute without having to re-review the plan.</summary>
+	[RelayCommand]
+	private async Task ExecutePreparedActionAsync()
+	{
+		if (PreparedAction is not { } action)
+		{
+			return;
+		}
+
+		IsExecutingAction = true;
+		ExecuteActionError = null;
+
+		try
+		{
+			await _api.ExecutePreparedActionAsync(action.Id);
+			PreparedAction = null;
+			PreparedActionChecks.Clear();
 			await LoadRunsAsync();
 		}
 		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
 		{
-			DeployError = ex.Message;
-			await LoadRunsAsync();
+			ExecuteActionError = ex.Message;
 		}
 		finally
 		{
-			IsDeploying = false;
+			IsExecutingAction = false;
+		}
+	}
+
+	/// <summary>The operator declined a prepared action instead of confirming it.</summary>
+	[RelayCommand]
+	private async Task CancelPreparedActionAsync()
+	{
+		if (PreparedAction is not { } action)
+		{
+			return;
+		}
+
+		IsExecutingAction = true;
+		ExecuteActionError = null;
+
+		try
+		{
+			await _api.CancelPreparedActionAsync(action.Id, null);
+			PreparedAction = null;
+			PreparedActionChecks.Clear();
+		}
+		catch (Exception ex) when (ex is IrisApiException or HttpRequestException)
+		{
+			ExecuteActionError = ex.Message;
+		}
+		finally
+		{
+			IsExecutingAction = false;
 		}
 	}
 
@@ -3185,8 +3261,9 @@ public sealed class ValidationCheckRowViewModel(ApplicationInstallationValidatio
 	public string Message => check.Message;
 }
 
-/// <summary>One recorded deployment attempt (<c>GET .../installations/{id}/runs</c>).</summary>
-public sealed class InstallationRunRowViewModel(InstallationRunResponse run)
+/// <summary>One recorded deployment attempt (<c>GET .../installations/{id}/runs</c>). Status/duration/
+/// log are kept current by the server-side background poller — this row never calls AWX itself.</summary>
+public sealed partial class InstallationRunRowViewModel(InstallationRunResponse run) : ObservableObject
 {
 	public string Status => run.Status;
 
@@ -3208,6 +3285,21 @@ public sealed class InstallationRunRowViewModel(InstallationRunResponse run)
 	public bool HasMessage => !string.IsNullOrWhiteSpace(run.Message);
 
 	public string CreatedAtText => run.CreatedAtUtc.ToLocalTime().ToString("g");
+
+	public double? ElapsedSeconds => run.ElapsedSeconds;
+
+	public bool HasElapsed => ElapsedSeconds is not null;
+
+	public string ElapsedText => ElapsedSeconds is { } seconds ? $"{seconds:0.#}s" : string.Empty;
+
+	public string? Output => run.Output;
+
+	public bool HasOutput => !string.IsNullOrWhiteSpace(run.Output);
+
+	[ObservableProperty] private bool _isLogExpanded;
+
+	[RelayCommand]
+	private void ToggleLog() => IsLogExpanded = !IsLogExpanded;
 }
 
 /// <summary>One generated file/snippet from <c>GET .../ansible-scaffold</c> — a starting point the

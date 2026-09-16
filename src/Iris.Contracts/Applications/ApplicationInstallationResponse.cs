@@ -105,7 +105,9 @@ public sealed record ApplicationInstallationAwxLaunchResponse(
     string? Message,
     IReadOnlyDictionary<string, string?> SubmittedVariablesPreview);
 
-/// <summary>One recorded deployment attempt for an installation (an AWX job launch).</summary>
+/// <summary>One recorded deployment attempt for an installation (an AWX job launch).
+/// <see cref="ElapsedSeconds"/>/<see cref="Output"/> are populated once, the first time a
+/// background poll (or a manual refresh) observes the run go terminal.</summary>
 public sealed record InstallationRunResponse(
     Guid Id,
     Guid InstallationId,
@@ -118,4 +120,6 @@ public sealed record InstallationRunResponse(
     IReadOnlyDictionary<string, string?> SubmittedVariablesPreview,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    DateTimeOffset? CompletedAtUtc);
+    DateTimeOffset? CompletedAtUtc,
+    double? ElapsedSeconds = null,
+    string? Output = null);

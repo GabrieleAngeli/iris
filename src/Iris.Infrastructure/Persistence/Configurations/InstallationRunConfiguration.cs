@@ -20,9 +20,12 @@ internal sealed class InstallationRunConfiguration : IEntityTypeConfiguration<In
         builder.Property(run => run.SubmittedVariablesJson);
         builder.Property(run => run.Message).HasMaxLength(2000);
         builder.Property(run => run.CompletedAtUtc);
+        builder.Property(run => run.ElapsedSeconds);
+        builder.Property(run => run.Output);
         builder.Property(run => run.CreatedAtUtc);
         builder.Property(run => run.UpdatedAtUtc);
 
         builder.HasIndex(run => run.ApplicationInstallationId);
+        builder.HasIndex(run => run.Status);
     }
 }

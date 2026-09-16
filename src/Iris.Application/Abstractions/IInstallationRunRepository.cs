@@ -13,5 +13,8 @@ public interface IInstallationRunRepository
     /// <summary>A single run, change-tracked for mutation.</summary>
     Task<InstallationRun?> GetForUpdateAsync(Guid runId, CancellationToken cancellationToken = default);
 
+    /// <summary>Every non-terminal run, change-tracked, across every installation — for the background poller.</summary>
+    Task<IReadOnlyList<InstallationRun>> GetActiveAsync(CancellationToken cancellationToken = default);
+
     Task AddAsync(InstallationRun run, CancellationToken cancellationToken = default);
 }

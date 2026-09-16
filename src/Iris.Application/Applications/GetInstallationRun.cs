@@ -9,8 +9,7 @@ public sealed record GetInstallationRunQuery(Guid InstallationId, Guid RunId);
 
 public sealed class GetInstallationRunHandler(
     IInstallationRunRepository runs,
-    IAwxClient awx,
-    IClock clock,
+    IInstallationRunRefresher refresher,
     IUnitOfWork unitOfWork)
 {
     public async Task<InstallationRunResponse> HandleAsync(
@@ -25,21 +24,8 @@ public sealed class GetInstallationRunHandler(
             throw new NotFoundException("Installation run", query.RunId);
         }
 
-        if (run.IsTerminal || run.Kind != InstallationRunKind.AwxJob || string.IsNullOrWhiteSpace(run.ExternalJobId))
-        {
-            return run.ToResponse();
-        }
-
-        try
-        {
-            var status = await awx.GetJobStatusAsync(run.ExternalJobId, cancellationToken).ConfigureAwait(false);
-            run.UpdateStatus(InstallationRunMapping.FromAwxStatus(status.Status), status.Message, clock.UtcNow);
-            await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (ValidationException)
-        {
-            // AWX not configured / unreachable — keep the last known status, do not fail the read.
-        }
+        await refresher.RefreshAsync(run, cancellationToken).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return run.ToResponse();
     }

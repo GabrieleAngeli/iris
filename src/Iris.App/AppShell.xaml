@@ -220,6 +220,21 @@
                                             Command="{Binding NavigateCommand}" CommandParameter="//deployments" />
                                 </Grid>
                             </Border>
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Margin="22,2,12,2" BackgroundColor="Transparent"
+                                    IsVisible="{Binding CanSeeActions}">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsActionsActive}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SubtleFillDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12" Padding="0,9,8,9">
+                                    <BoxView Grid.Column="0" WidthRequest="4" Color="Transparent" />
+                                    <Label Grid.Column="1" Text="&#xE73E;" Style="{StaticResource FlyoutRowIconStyle}" />
+                                    <Label Grid.Column="2" Text="Actions" Style="{StaticResource FlyoutRowTextStyle}" />
+                                    <Button Grid.ColumnSpan="3" Text="" SemanticProperties.Description="Actions" Style="{StaticResource FlyoutRowButtonStyle}"
+                                            Command="{Binding NavigateCommand}" CommandParameter="//actions" />
+                                </Grid>
+                            </Border>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
 
@@ -451,6 +466,9 @@
     </FlyoutItem>
     <FlyoutItem Title="Deployments" Route="deployments" FlyoutItemIsVisible="False">
         <ShellContent Title="Deployments" ContentTemplate="{DataTemplate views:DeploymentsPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Actions" Route="actions" FlyoutItemIsVisible="False">
+        <ShellContent Title="Actions" ContentTemplate="{DataTemplate views:ActionsPage}" />
     </FlyoutItem>
     <FlyoutItem Title="Extractor guide" Route="extractor-guide" FlyoutItemIsVisible="False">
         <ShellContent Title="Extractor guide" ContentTemplate="{DataTemplate views:ExtractorGuidePage}" />

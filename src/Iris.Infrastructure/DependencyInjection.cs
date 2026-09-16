@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IApplicationInstallationRepository, ApplicationInstallationRepository>();
         services.AddScoped<IInstallationRunRepository, InstallationRunRepository>();
+        services.AddScoped<IPreparedActionRepository, PreparedActionRepository>();
         services.AddScoped<IEnvironmentServerAssignmentRepository, EnvironmentServerAssignmentRepository>();
         services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();

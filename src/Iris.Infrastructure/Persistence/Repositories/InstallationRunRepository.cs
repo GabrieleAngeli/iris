@@ -29,6 +29,12 @@ internal sealed class InstallationRunRepository(IrisDbContext dbContext) : IInst
         dbContext.InstallationRuns
             .SingleOrDefaultAsync(run => run.Id == runId, cancellationToken);
 
+    public async Task<IReadOnlyList<InstallationRun>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+        await dbContext.InstallationRuns
+            .Where(run => run.Status == InstallationRunStatus.Pending || run.Status == InstallationRunStatus.Running)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
     public async Task AddAsync(InstallationRun run, CancellationToken cancellationToken = default) =>
         await dbContext.InstallationRuns.AddAsync(run, cancellationToken).ConfigureAwait(false);
 }

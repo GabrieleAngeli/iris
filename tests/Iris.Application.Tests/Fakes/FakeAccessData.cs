@@ -31,6 +31,8 @@ internal sealed class FakeStore
 
     public List<InstallationRun> InstallationRuns { get; } = [];
 
+    public List<PreparedAction> PreparedActions { get; } = [];
+
     public List<EnvironmentServerAssignment> EnvironmentServerAssignments { get; } = [];
 
     public List<UserInvitation> Invitations { get; } = [];
@@ -106,6 +108,8 @@ internal sealed class FakeStore
     public FakeApplicationInstallationRepository ApplicationInstallationRepository => new(this);
 
     public FakeInstallationRunRepository InstallationRunRepository => new(this);
+
+    public FakePreparedActionRepository PreparedActionRepository => new(this);
 
     public FakeEnvironmentServerAssignmentRepository EnvironmentServerAssignmentRepository => new(this);
 
@@ -522,9 +526,32 @@ internal sealed class FakeInstallationRunRepository(FakeStore store) : IInstalla
     public Task<InstallationRun?> GetForUpdateAsync(Guid runId, CancellationToken cancellationToken = default) =>
         Task.FromResult(store.InstallationRuns.SingleOrDefault(run => run.Id == runId));
 
+    public Task<IReadOnlyList<InstallationRun>> GetActiveAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InstallationRun>>(store.InstallationRuns
+            .Where(run => !run.IsTerminal)
+            .ToList());
+
     public Task AddAsync(InstallationRun run, CancellationToken cancellationToken = default)
     {
         store.InstallationRuns.Add(run);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakePreparedActionRepository(FakeStore store) : IPreparedActionRepository
+{
+    public Task<IReadOnlyList<PreparedAction>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PreparedAction>>(store.PreparedActions.ToList());
+
+    public Task<PreparedAction?> GetAsync(Guid actionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.PreparedActions.SingleOrDefault(action => action.Id == actionId));
+
+    public Task<PreparedAction?> GetForUpdateAsync(Guid actionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(store.PreparedActions.SingleOrDefault(action => action.Id == actionId));
+
+    public Task AddAsync(PreparedAction action, CancellationToken cancellationToken = default)
+    {
+        store.PreparedActions.Add(action);
         return Task.CompletedTask;
     }
 }
@@ -586,6 +613,20 @@ internal sealed class FakeAwxClient : IAwxClient
         return JobStatus is null
             ? throw new ValidationException("AWX is not configured.")
             : Task.FromResult(JobStatus);
+    }
+
+    public string? JobOutput { get; set; }
+
+    public bool ThrowOnOutput { get; set; }
+
+    public int OutputCalls { get; private set; }
+
+    public Task<string?> GetJobOutputAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        OutputCalls++;
+        return ThrowOnOutput
+            ? throw new ValidationException("AWX is not configured.")
+            : Task.FromResult(JobOutput);
     }
 
     public AwxHostFactsResult HostFacts { get; set; } = new(false, null);

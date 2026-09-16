@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Iris.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Iris.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(IrisDbContext))]
-    partial class IrisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916141104_AddPreparedActions")]
+    partial class AddPreparedActions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -728,9 +731,6 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<double?>("ElapsedSeconds")
-                        .HasColumnType("double precision");
-
                     b.Property<string>("ExternalJobId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -748,9 +748,6 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<string>("Output")
-                        .HasColumnType("text");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -765,8 +762,6 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApplicationInstallationId");
-
-                    b.HasIndex("Status");
 
                     b.ToTable("InstallationRuns", (string)null);
                 });

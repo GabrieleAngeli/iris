@@ -314,4 +314,78 @@ public sealed class AwxClientTests
 
         Assert.Equal(1, tokenCalls);
     }
+
+    [Fact]
+    public async Task GetJobStatus_reads_the_elapsed_field()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK,
+            """{"status":"successful","finished":"2026-01-01T00:00:00Z","failed":false,"elapsed":12.345}"""));
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetJobStatusAsync("42");
+
+        Assert.Equal(12.345, result.ElapsedSeconds);
+    }
+
+    [Fact]
+    public async Task GetJobStatus_leaves_elapsed_null_when_the_field_is_absent()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """{"status":"pending","finished":null,"failed":false}"""));
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var result = await client.GetJobStatusAsync("42");
+
+        Assert.Null(result.ElapsedSeconds);
+    }
+
+    [Fact]
+    public async Task GetJobOutput_returns_the_raw_stdout_text()
+    {
+        var handler = new StubHandler(request =>
+        {
+            Assert.Equal("/api/v2/jobs/42/stdout/", request.RequestUri!.AbsolutePath);
+            Assert.Contains("format=txt", request.RequestUri.Query);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("PLAY [deploy] ***\nok: [host]") };
+        });
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var output = await client.GetJobOutputAsync("42");
+
+        Assert.Equal("PLAY [deploy] ***\nok: [host]", output);
+    }
+
+    [Fact]
+    public async Task GetJobOutput_returns_null_on_404()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        var output = await client.GetJobOutputAsync("42");
+
+        Assert.Null(output);
+    }
+
+    [Fact]
+    public async Task GetJobOutput_throws_on_other_error_statuses()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("boom") });
+        using var client = new AwxClient(
+            new AwxOptions { Endpoint = "https://awx.example", Token = "static", JobTemplateId = 7 },
+            new RecordingSecretStore(),
+            handler);
+
+        await Assert.ThrowsAsync<ValidationException>(() => client.GetJobOutputAsync("42"));
+    }
 }

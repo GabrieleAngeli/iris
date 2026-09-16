@@ -38,6 +38,9 @@ public sealed class AwxBlueprintDriftConnectorTests
         public Task<AwxJobStatusResult> GetJobStatusAsync(string jobId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<string?> GetJobOutputAsync(string jobId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<AwxHostFactsResult> GetHostFactsAsync(int jobTemplateId, string hostname, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

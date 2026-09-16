@@ -101,8 +101,15 @@ public static class DependencyInjection
         services.TryAddScoped<GenerateApplicationAnsibleScaffoldHandler>();
         services.TryAddScoped<ProposeAnsibleScaffoldToAwxRepoHandler>();
         services.TryAddScoped<LaunchApplicationInstallationAwxJobHandler>();
+        services.TryAddScoped<IInstallationRunRefresher, InstallationRunRefresher>();
         services.TryAddScoped<ListInstallationRunsHandler>();
         services.TryAddScoped<GetInstallationRunHandler>();
+        services.TryAddScoped<PollActiveInstallationRunsHandler>();
+        services.TryAddScoped<PrepareApplicationInstallationActionHandler>();
+        services.TryAddScoped<ExecutePreparedActionHandler>();
+        services.TryAddScoped<CancelPreparedActionHandler>();
+        services.TryAddScoped<ListPreparedActionsHandler>();
+        services.TryAddScoped<GetPreparedActionHandler>();
 
         // Deployments - environment topology (server assignment, prerequisite of composing installations)
         services.TryAddScoped<AssignServerToEnvironmentHandler>();

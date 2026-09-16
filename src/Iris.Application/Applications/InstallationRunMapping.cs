@@ -18,7 +18,9 @@ internal static class InstallationRunMapping
         PreviewVariables(run.SubmittedVariablesJson),
         run.CreatedAtUtc,
         run.UpdatedAtUtc,
-        run.CompletedAtUtc);
+        run.CompletedAtUtc,
+        run.ElapsedSeconds,
+        run.Output);
 
     /// <summary>Maps an AWX job status string onto the Iris run lifecycle.</summary>
     public static InstallationRunStatus FromAwxStatus(string? status) => status?.Trim().ToLowerInvariant() switch

@@ -187,8 +187,46 @@ internal sealed class AwxClient : IAwxClient, IIntegrationConnector, IDisposable
         var message = root.TryGetProperty("job_explanation", out var explanationProperty)
             ? explanationProperty.GetString()
             : null;
+        double? elapsedSeconds = root.TryGetProperty("elapsed", out var elapsedProperty) &&
+            elapsedProperty.TryGetDouble(out var elapsed)
+            ? elapsed
+            : null;
 
-        return new AwxJobStatusResult(status, finished, finished && !failed, url, message);
+        return new AwxJobStatusResult(status, finished, finished && !failed, url, message, elapsedSeconds);
+    }
+
+    public async Task<string?> GetJobOutputAsync(
+        string jobId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.IsConfigured)
+        {
+            throw new ValidationException("AWX is not configured. Set endpoint, token and job template id.");
+        }
+
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            throw new ValidationException("AWX job id is required.");
+        }
+
+        await EnsureCredentialsAsync(cancellationToken).ConfigureAwait(false);
+
+        var uri = new Uri(new Uri(_options.Endpoint!), $"/api/v2/jobs/{jobId}/stdout/?format=txt");
+        using var response = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ValidationException($"AWX rejected the job output request ({(int)response.StatusCode}): {body}");
+        }
+
+        return body;
     }
 
     public async Task<AwxHostFactsResult> GetHostFactsAsync(

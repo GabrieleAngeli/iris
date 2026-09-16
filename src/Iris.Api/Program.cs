@@ -36,6 +36,7 @@ builder.Services.AddIrisAuthorization();
 builder.Services.AddScoped<ICurrentUser, ClaimsPrincipalCurrentUser>();
 builder.Services.AddScoped<IClaimsTransformation, AccessProvisioningClaimsTransformation>();
 builder.Services.AddHostedService<IntegrationHealthCheckBackgroundService>();
+builder.Services.AddHostedService<InstallationRunPollingBackgroundService>();
 
 var app = builder.Build();
 
@@ -71,6 +72,7 @@ app.MapGovernanceEndpoints();
 app.MapInfrastructureEndpoints();
 app.MapApplicationsEndpoints();
 app.MapDeploymentsEndpoints();
+app.MapActionsEndpoints();
 app.MapSetupEndpoints();
 
 if (builder.Configuration.GetValue("Iris:Database:MigrateOnStartup", true))
