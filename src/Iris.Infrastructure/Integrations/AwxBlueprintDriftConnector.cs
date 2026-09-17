@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Application.Common;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -17,7 +18,7 @@ internal sealed class AwxBlueprintDriftConnector(
     IAzureDevOpsRepositoryReader repositoryReader,
     AzureDevOpsOptions azureDevOpsOptions,
     IAwxClient awx,
-    AwxOptions awxOptions) : IIntegrationConnector
+    AwxOptions awxOptions) : IIntegrationConnector, IAwxBlueprintReader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -53,22 +54,7 @@ internal sealed class AwxBlueprintDriftConnector(
 
         try
         {
-            var manifestText = await repositoryReader
-                .GetFileContentAsync(
-                    azureDevOpsOptions.Project!, azureDevOpsOptions.Repository!, azureDevOpsOptions.Branch, azureDevOpsOptions.ManifestPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (manifestText is null)
-            {
-                return new IntegrationConnectorStatus(
-                    Key, Name, "Unreachable", Endpoint, $"Manifest not found at {azureDevOpsOptions.ManifestPath}.");
-            }
-
-            var manifest = Deserializer.Deserialize<BlueprintManifest>(manifestText);
-            var declaredTemplates = (manifest.AwxContextBlueprints ?? [])
-                .SelectMany(context => context.Templates ?? [])
-                .ToList();
-
+            var declaredTemplates = await ReadDeclaredTemplatesAsync(cancellationToken).ConfigureAwait(false);
             if (declaredTemplates.Count == 0)
             {
                 return new IntegrationConnectorStatus(Key, Name, "Unreachable", Endpoint, "Manifest declares no templates.");
@@ -98,6 +84,55 @@ internal sealed class AwxBlueprintDriftConnector(
             // probe must never throw, only report "Unreachable" with why.
             return new IntegrationConnectorStatus(Key, Name, "Unreachable", Endpoint, ex.Message);
         }
+    }
+
+    /// <summary>Lets a Configure dialog (AWX's job template fields) offer a picker of known
+    /// template names instead of a free-typed numeric id — see <see cref="IAwxBlueprintReader"/>.
+    /// Unlike <see cref="GetStatusAsync"/>, a resolution failure for one template (AWX unreachable,
+    /// or the template declared in the repo not yet synced) doesn't drop it from the list — it's
+    /// just returned with a null <see cref="AwxBlueprintTemplateOption.ResolvedJobTemplateId"/>.</summary>
+    public async Task<IReadOnlyList<AwxBlueprintTemplateOption>> ListDeclaredTemplatesAsync(CancellationToken cancellationToken = default)
+    {
+        if (!azureDevOpsOptions.CanReadManifest)
+        {
+            throw new ValidationException(
+                "Configure the AWX blueprint repo's project/repository (Configure Azure DevOps) before listing its templates.");
+        }
+
+        var declaredTemplates = await ReadDeclaredTemplatesAsync(cancellationToken).ConfigureAwait(false);
+        var options = new List<AwxBlueprintTemplateOption>();
+        foreach (var declared in declaredTemplates)
+        {
+            int? resolvedId = null;
+            try
+            {
+                var actual = await awx.GetJobTemplateAsync(declared.Name, cancellationToken).ConfigureAwait(false);
+                resolvedId = actual?.Id;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // AWX unreachable/unconfigured — still show the declared name, just without an id.
+            }
+
+            options.Add(new AwxBlueprintTemplateOption(declared.Name, declared.Playbook, declared.UseFactCache, resolvedId));
+        }
+
+        return options;
+    }
+
+    private async Task<List<BlueprintTemplate>> ReadDeclaredTemplatesAsync(CancellationToken cancellationToken)
+    {
+        var manifestText = await repositoryReader
+            .GetFileContentAsync(
+                azureDevOpsOptions.Project!, azureDevOpsOptions.Repository!, azureDevOpsOptions.Branch, azureDevOpsOptions.ManifestPath,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new ValidationException($"Manifest not found at {azureDevOpsOptions.ManifestPath}.");
+
+        var manifest = Deserializer.Deserialize<BlueprintManifest>(manifestText);
+        return (manifest.AwxContextBlueprints ?? [])
+            .SelectMany(context => context.Templates ?? [])
+            .ToList();
     }
 
     private sealed class BlueprintManifest

@@ -119,6 +119,8 @@ public partial class ApplicationsViewModel : ObservableObject
 	[ObservableProperty] private string _newApplicationAwxRepositoryProject = string.Empty;
 	[ObservableProperty] private string _newApplicationAwxRepositoryName = string.Empty;
 	[ObservableProperty] private string _newApplicationAwxRepositoryBranch = string.Empty;
+	[ObservableProperty] private string _newApplicationAwxRepositoryEndpoint = string.Empty;
+	[ObservableProperty] private string _newApplicationAwxRepositoryToken = string.Empty;
 	[ObservableProperty] private bool _isCreatingApplication;
 	[ObservableProperty] private string? _createApplicationError;
 
@@ -143,6 +145,8 @@ public partial class ApplicationsViewModel : ObservableObject
 		NewApplicationAwxRepositoryProject = string.Empty;
 		NewApplicationAwxRepositoryName = string.Empty;
 		NewApplicationAwxRepositoryBranch = string.Empty;
+		NewApplicationAwxRepositoryEndpoint = string.Empty;
+		NewApplicationAwxRepositoryToken = string.Empty;
 		CreateApplicationError = null;
 		NewApplicationRequested?.Invoke(this, EventArgs.Empty);
 	}
@@ -179,7 +183,9 @@ public partial class ApplicationsViewModel : ObservableObject
 				Clean(NewApplicationBuildPipelineUrl),
 				Clean(NewApplicationAwxRepositoryProject),
 				Clean(NewApplicationAwxRepositoryName),
-				Clean(NewApplicationAwxRepositoryBranch)));
+				Clean(NewApplicationAwxRepositoryBranch),
+				Clean(NewApplicationAwxRepositoryEndpoint),
+				Clean(NewApplicationAwxRepositoryToken)));
 
 			Applications.Insert(0, new ApplicationRowViewModel(created, _api, this));
 			NewApplicationCompleted?.Invoke(this, EventArgs.Empty);
@@ -2091,6 +2097,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private string? _awxRepositoryProject;
 	[ObservableProperty] private string? _awxRepositoryName;
 	[ObservableProperty] private string? _awxRepositoryBranch;
+	[ObservableProperty] private string? _awxRepositoryEndpoint;
+	[ObservableProperty] private bool _hasAwxRepositoryToken;
 	[ObservableProperty] private bool _isActive;
 	[ObservableProperty] private int _versionCount;
 	[ObservableProperty] private int _configurationKeyCount;
@@ -2269,6 +2277,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		AwxRepositoryProject = application.AwxRepositoryProject;
 		AwxRepositoryName = application.AwxRepositoryName;
 		AwxRepositoryBranch = application.AwxRepositoryBranch;
+		AwxRepositoryEndpoint = application.AwxRepositoryEndpoint;
+		HasAwxRepositoryToken = application.HasAwxRepositoryToken;
 		IsActive = application.IsActive;
 		VersionCount = application.Versions.Count;
 		ConfigurationKeyCount = application.Versions.Sum(v => v.ConfigurationKeyCount);
@@ -2850,6 +2860,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 	[ObservableProperty] private string _editAwxRepositoryProject = string.Empty;
 	[ObservableProperty] private string _editAwxRepositoryName = string.Empty;
 	[ObservableProperty] private string _editAwxRepositoryBranch = string.Empty;
+	[ObservableProperty] private string _editAwxRepositoryEndpoint = string.Empty;
+	[ObservableProperty] private string _editAwxRepositoryToken = string.Empty;
 	[ObservableProperty] private bool _editActive;
 	[ObservableProperty] private bool _isEditBusy;
 	[ObservableProperty] private string? _editError;
@@ -2899,6 +2911,8 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 		EditAwxRepositoryProject = AwxRepositoryProject ?? string.Empty;
 		EditAwxRepositoryName = AwxRepositoryName ?? string.Empty;
 		EditAwxRepositoryBranch = AwxRepositoryBranch ?? string.Empty;
+		EditAwxRepositoryEndpoint = AwxRepositoryEndpoint ?? string.Empty;
+		EditAwxRepositoryToken = string.Empty; // never pre-filled — blank means "keep the existing one"
 		EditActive = IsActive;
 		_parent.RaiseEditRequested(this);
 	}
@@ -2993,7 +3007,9 @@ public sealed partial class ApplicationRowViewModel : ObservableObject
 				ApplicationsViewModel.Clean(EditBuildPipelineUrl),
 				ApplicationsViewModel.Clean(EditAwxRepositoryProject),
 				ApplicationsViewModel.Clean(EditAwxRepositoryName),
-				ApplicationsViewModel.Clean(EditAwxRepositoryBranch)));
+				ApplicationsViewModel.Clean(EditAwxRepositoryBranch),
+				ApplicationsViewModel.Clean(EditAwxRepositoryEndpoint),
+				ApplicationsViewModel.Clean(EditAwxRepositoryToken)));
 
 			ApplyFrom(updated);
 			EditCompleted?.Invoke(this, EventArgs.Empty);

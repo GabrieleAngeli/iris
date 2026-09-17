@@ -1,6 +1,7 @@
 using Iris.Application.Abstractions;
 using Iris.Application.Access;
 using Iris.Application.Common;
+using Iris.Application.Settings;
 using Iris.Domain.Access;
 using Iris.Domain.Applications;
 using Iris.Domain.Deployments;
@@ -223,6 +224,31 @@ internal sealed class FakeIntegrationSettingsReloader : IIntegrationSettingsRelo
         ReloadCalls++;
         return Task.CompletedTask;
     }
+}
+
+/// <summary>Stand-in for the real (Iris.Infrastructure) connection tester — application-layer
+/// tests for the five <c>Test*IntegrationSettingsHandler</c>s only need to confirm the handler
+/// maps a given <see cref="IntegrationConnectorStatus"/> down to <c>Succeeded</c> correctly, not
+/// that any real probing happens (that's covered in Iris.Infrastructure.Tests). Every method
+/// returns whatever <see cref="NextStatus"/> is set to, defaulting to "Reachable".</summary>
+internal sealed class FakeIntegrationConnectionTester : IIntegrationConnectionTester
+{
+    public IntegrationConnectorStatus NextStatus { get; set; } = new("key", "Name", "Reachable", "endpoint");
+
+    public Task<IntegrationConnectorStatus> TestOpenBaoAsync(SaveOpenBaoIntegrationSettingsCommand candidate, CancellationToken cancellationToken = default) =>
+        Task.FromResult(NextStatus);
+
+    public Task<IntegrationConnectorStatus> TestAwxAsync(SaveAwxIntegrationSettingsCommand candidate, CancellationToken cancellationToken = default) =>
+        Task.FromResult(NextStatus);
+
+    public Task<IntegrationConnectorStatus> TestAzureDevOpsAsync(SaveAzureDevOpsIntegrationSettingsCommand candidate, CancellationToken cancellationToken = default) =>
+        Task.FromResult(NextStatus);
+
+    public Task<IntegrationConnectorStatus> TestNexusAsync(SaveNexusIntegrationSettingsCommand candidate, CancellationToken cancellationToken = default) =>
+        Task.FromResult(NextStatus);
+
+    public Task<IntegrationConnectorStatus> TestOpsHostAsync(SaveOpsHostIntegrationSettingsCommand candidate, CancellationToken cancellationToken = default) =>
+        Task.FromResult(NextStatus);
 }
 
 /// <summary>Records every send/test call instead of touching real SMTP. Set <see cref="FailTestWith"/> to simulate a bad connection.</summary>

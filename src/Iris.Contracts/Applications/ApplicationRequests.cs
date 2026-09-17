@@ -15,9 +15,13 @@ public sealed record CreateApplicationRequest(
     string? BuildPipelineUrl = null,
     // Optional overrides of the global Azure DevOps "AWX automation repo" settings, used only by
     // POST .../ansible-scaffold/propose — left unset, that feature falls back to the global ones.
+    // The organization/PAT can differ too (a different Azure DevOps org under different
+    // credentials); AwxRepositoryToken is the raw PAT — blank keeps whatever is already stored.
     string? AwxRepositoryProject = null,
     string? AwxRepositoryName = null,
-    string? AwxRepositoryBranch = null);
+    string? AwxRepositoryBranch = null,
+    string? AwxRepositoryEndpoint = null,
+    string? AwxRepositoryToken = null);
 
 /// <summary>Body of <c>PUT /applications/{applicationId}</c>. The catalog slug is immutable.</summary>
 public sealed record UpdateApplicationRequest(
@@ -34,7 +38,9 @@ public sealed record UpdateApplicationRequest(
     string? BuildPipelineUrl = null,
     string? AwxRepositoryProject = null,
     string? AwxRepositoryName = null,
-    string? AwxRepositoryBranch = null);
+    string? AwxRepositoryBranch = null,
+    string? AwxRepositoryEndpoint = null,
+    string? AwxRepositoryToken = null);
 
 public sealed record RuntimeMetadataRequest(
     string RuntimeName,

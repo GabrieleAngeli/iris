@@ -110,6 +110,21 @@
                     </VerticalStackLayout>
                 </Grid>
 
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Organization URL (leave blank to use the global one)" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationAwxRepositoryEndpoint}" Placeholder="https://dev.azure.com/other-org" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Label Text="Personal access token (leave blank to use the global one)" Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource FieldBorder}">
+                            <Entry Text="{Binding NewApplicationAwxRepositoryToken}" IsPassword="True" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Description" Style="{StaticResource Caption}" />
                     <Border Style="{StaticResource FieldBorder}" MinimumHeightRequest="96">

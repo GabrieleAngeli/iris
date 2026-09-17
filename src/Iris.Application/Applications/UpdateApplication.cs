@@ -21,9 +21,12 @@ public sealed record UpdateApplicationCommand(
     string? BuildPipelineUrl = null,
     string? AwxRepositoryProject = null,
     string? AwxRepositoryName = null,
-    string? AwxRepositoryBranch = null);
+    string? AwxRepositoryBranch = null,
+    string? AwxRepositoryEndpoint = null,
+    string? AwxRepositoryToken = null);
 
-public sealed class UpdateApplicationHandler(IApplicationRepository applications, IUnitOfWork unitOfWork)
+public sealed class UpdateApplicationHandler(
+    IApplicationRepository applications, ISecretStore secretStore, IUnitOfWork unitOfWork)
 {
     public async Task<ApplicationResponse> HandleAsync(UpdateApplicationCommand command, CancellationToken cancellationToken = default)
     {
@@ -55,6 +58,15 @@ public sealed class UpdateApplicationHandler(IApplicationRepository applications
             .ConfigureAwait(false)
             ?? throw new NotFoundException("Application", command.ApplicationId);
 
+        // Same "blank keeps existing" rule as every other credential save in this codebase.
+        var tokenReference = application.AwxRepositoryTokenSecretReference;
+        if (!string.IsNullOrEmpty(command.AwxRepositoryToken))
+        {
+            tokenReference = await secretStore
+                .StoreAsync($"applications/{application.Slug}/awx-repository-token", command.AwxRepositoryToken, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         application.UpdateInventory(
             command.Name,
             runtimeType,
@@ -69,7 +81,9 @@ public sealed class UpdateApplicationHandler(IApplicationRepository applications
             command.BuildPipelineUrl,
             command.AwxRepositoryProject,
             command.AwxRepositoryName,
-            command.AwxRepositoryBranch);
+            command.AwxRepositoryBranch,
+            command.AwxRepositoryEndpoint,
+            tokenReference);
 
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 

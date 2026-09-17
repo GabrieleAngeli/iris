@@ -127,9 +127,11 @@ public partial class SystemSettingsViewModel(
 				var canManageOpenBao = canManage && isOpenBao && !integration.IsSecretStoreActive;
 				var canProvision = canManageOpenBao;
 				var canSync = canManage && isAwxBlueprint;
-				// awx-blueprint has no Configure dialog of its own — it's entirely derived from
-				// the azure-devops (repo/manifest) and awx (job templates) settings.
-				var canConfigure = canManage && !isAwxBlueprint;
+				// awx-blueprint has no Configure dialog of its own — clicking Configure on it
+				// opens the *same* Azure DevOps dialog as the "azure-devops" row (they save
+				// through the same PUT /system/integrations/azure-devops; there's only one
+				// underlying settings row) — see the switch below.
+				var canConfigure = canManage;
 				var row = new IntegrationConnectionRow(
 					integration, TestIntegrationAsync, hasRealConnector, canProvision ? ProvisionOpenBaoAsync : null, canConfigure,
 					canManageOpenBao ? PromoteSecretStoreAsync : null,
@@ -142,8 +144,8 @@ public partial class SystemSettingsViewModel(
 						"openbao" => new ConfigureOpenBaoDialogViewModel(api, integration.Endpoint),
 						"awx" => new ConfigureAwxDialogViewModel(
 						api, integration.Endpoint, integration.AwxJobTemplateId, integration.AwxOAuthClientId, integration.AwxFactsJobTemplateId),
-						"azure-devops" => new ConfigureAzureDevOpsDialogViewModel(
-						api, integration.Endpoint, integration.AzureDevOpsProject, integration.AzureDevOpsRepository,
+						"azure-devops" or "awx-blueprint" => new ConfigureAzureDevOpsDialogViewModel(
+						api, integration.AzureDevOpsEndpoint, integration.AzureDevOpsProject, integration.AzureDevOpsRepository,
 						integration.AzureDevOpsBranch, integration.AzureDevOpsManifestPath),
 						"nexus" => new ConfigureNexusDialogViewModel(api, integration.Endpoint),
 						"ops-host" => new ConfigureOpsHostDialogViewModel(
@@ -551,8 +553,12 @@ public sealed partial class ConfigureOpenBaoDialogViewModel : ObservableObject
 	[ObservableProperty] private bool _useKvV2 = true;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string? _info;
+	[ObservableProperty] private bool _isTested;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool HasInfo => !string.IsNullOrEmpty(Info);
 
 	public bool WasSaved { get; private set; }
 
@@ -560,7 +566,65 @@ public sealed partial class ConfigureOpenBaoDialogViewModel : ObservableObject
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+	partial void OnInfoChanged(string? value) => OnPropertyChanged(nameof(HasInfo));
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		SaveCommand.NotifyCanExecuteChanged();
+		TestConnectionCommand.NotifyCanExecuteChanged();
+	}
+
+	partial void OnIsTestedChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	partial void OnEndpointChanged(string value) => IsTested = false;
+
+	partial void OnTokenChanged(string value) => IsTested = false;
+
+	partial void OnMountPathChanged(string value) => IsTested = false;
+
+	partial void OnUseKvV2Changed(bool value) => IsTested = false;
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestConnectionAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the OpenBao endpoint.";
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+		Info = null;
+
+		try
+		{
+			var result = await _api.TestOpenBaoIntegrationSettingsAsync(new SaveOpenBaoIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token,
+				string.IsNullOrWhiteSpace(MountPath) ? "secret" : MountPath.Trim(),
+				UseKvV2));
+			IsTested = result.Succeeded;
+			if (result.Succeeded)
+			{
+				Info = result.Message is { Length: > 0 } m ? m : "Connection successful.";
+			}
+			else
+			{
+				Error = result.Message is { Length: > 0 } m ? m : $"Test failed: {result.Status}.";
+			}
+		}
+		catch (Exception ex)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
 
 	[RelayCommand(CanExecute = nameof(CanSave))]
 	private async Task SaveAsync()
@@ -594,7 +658,7 @@ public sealed partial class ConfigureOpenBaoDialogViewModel : ObservableObject
 		}
 	}
 
-	private bool CanSave() => !IsBusy;
+	private bool CanSave() => !IsBusy && IsTested;
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -630,8 +694,12 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 	[ObservableProperty] private string _factsJobTemplateId = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string? _info;
+	[ObservableProperty] private bool _isTested;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool HasInfo => !string.IsNullOrEmpty(Info);
 
 	public bool WasSaved { get; private set; }
 
@@ -639,7 +707,139 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+	partial void OnInfoChanged(string? value) => OnPropertyChanged(nameof(HasInfo));
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		SaveCommand.NotifyCanExecuteChanged();
+		TestConnectionCommand.NotifyCanExecuteChanged();
+	}
+
+	partial void OnIsTestedChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	partial void OnEndpointChanged(string value) => IsTested = false;
+
+	partial void OnTokenChanged(string value) => IsTested = false;
+
+	partial void OnJobTemplateIdChanged(string value) => IsTested = false;
+
+	partial void OnOAuthClientIdChanged(string value) => IsTested = false;
+
+	partial void OnOAuthClientSecretChanged(string value) => IsTested = false;
+
+	partial void OnRefreshTokenChanged(string value) => IsTested = false;
+
+	partial void OnFactsJobTemplateIdChanged(string value) => IsTested = false;
+
+	// ---- AWX blueprint template picker — deduces the numeric id from the repo's manifest
+	// instead of requiring the operator to type it from memory. Best-effort: if the blueprint
+	// repo isn't configured/reachable yet, TemplatesError explains why and the two fields above
+	// stay directly editable, unchanged.
+
+	public ObservableCollection<AwxBlueprintTemplateRowViewModel> Templates { get; } = [];
+
+	[ObservableProperty] private bool _isLoadingTemplates;
+	[ObservableProperty] private string? _templatesError;
+	[ObservableProperty] private AwxBlueprintTemplateRowViewModel? _selectedDeployTemplate;
+	[ObservableProperty] private AwxBlueprintTemplateRowViewModel? _selectedFactsTemplate;
+
+	public bool HasTemplatesError => !string.IsNullOrEmpty(TemplatesError);
+
+	public bool HasTemplates => Templates.Count > 0;
+
+	partial void OnTemplatesErrorChanged(string? value) => OnPropertyChanged(nameof(HasTemplatesError));
+
+	partial void OnSelectedDeployTemplateChanged(AwxBlueprintTemplateRowViewModel? value)
+	{
+		if (value is not null)
+		{
+			JobTemplateId = value.JobTemplateId?.ToString() ?? string.Empty;
+		}
+	}
+
+	partial void OnSelectedFactsTemplateChanged(AwxBlueprintTemplateRowViewModel? value)
+	{
+		if (value is not null)
+		{
+			FactsJobTemplateId = value.JobTemplateId?.ToString() ?? string.Empty;
+		}
+	}
+
+	[RelayCommand]
+	private async Task LoadTemplatesAsync()
+	{
+		IsLoadingTemplates = true;
+		TemplatesError = null;
+
+		try
+		{
+			var templates = await _api.ListAwxBlueprintTemplatesAsync();
+			Templates.Clear();
+			foreach (var template in templates)
+			{
+				Templates.Add(new AwxBlueprintTemplateRowViewModel(template));
+			}
+
+			OnPropertyChanged(nameof(HasTemplates));
+		}
+		catch (Exception ex)
+		{
+			// Non-fatal — the numeric fields remain directly editable either way.
+			TemplatesError = $"Couldn't list templates from the AWX blueprint repo: {ex.Message}";
+		}
+		finally
+		{
+			IsLoadingTemplates = false;
+		}
+	}
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestConnectionAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the AWX endpoint.";
+			return;
+		}
+
+		var jobTemplateId = int.TryParse(JobTemplateId, out var parsed) ? parsed : (int?)null;
+		var factsJobTemplateId = int.TryParse(FactsJobTemplateId, out var parsedFacts) ? parsedFacts : (int?)null;
+
+		IsBusy = true;
+		Error = null;
+		Info = null;
+
+		try
+		{
+			var result = await _api.TestAwxIntegrationSettingsAsync(new SaveAwxIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token,
+				jobTemplateId,
+				string.IsNullOrWhiteSpace(OAuthClientId) ? null : OAuthClientId.Trim(),
+				string.IsNullOrEmpty(OAuthClientSecret) ? null : OAuthClientSecret,
+				string.IsNullOrEmpty(RefreshToken) ? null : RefreshToken,
+				factsJobTemplateId));
+			IsTested = result.Succeeded;
+			if (result.Succeeded)
+			{
+				Info = result.Message is { Length: > 0 } m ? m : "Connection successful.";
+			}
+			else
+			{
+				Error = result.Message is { Length: > 0 } m ? m : $"Test failed: {result.Status}.";
+			}
+		}
+		catch (Exception ex)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
 
 	[RelayCommand(CanExecute = nameof(CanSave))]
 	private async Task SaveAsync()
@@ -679,7 +879,7 @@ public sealed partial class ConfigureAwxDialogViewModel : ObservableObject
 		}
 	}
 
-	private bool CanSave() => !IsBusy;
+	private bool CanSave() => !IsBusy && IsTested;
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -718,8 +918,12 @@ public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObje
 	[ObservableProperty] private string _manifestPath = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string? _info;
+	[ObservableProperty] private bool _isTested;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool HasInfo => !string.IsNullOrEmpty(Info);
 
 	public bool WasSaved { get; private set; }
 
@@ -727,7 +931,71 @@ public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObje
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+	partial void OnInfoChanged(string? value) => OnPropertyChanged(nameof(HasInfo));
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		SaveCommand.NotifyCanExecuteChanged();
+		TestConnectionCommand.NotifyCanExecuteChanged();
+	}
+
+	partial void OnIsTestedChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	partial void OnEndpointChanged(string value) => IsTested = false;
+
+	partial void OnTokenChanged(string value) => IsTested = false;
+
+	partial void OnProjectChanged(string value) => IsTested = false;
+
+	partial void OnRepositoryChanged(string value) => IsTested = false;
+
+	partial void OnBranchChanged(string value) => IsTested = false;
+
+	partial void OnManifestPathChanged(string value) => IsTested = false;
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestConnectionAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the Azure DevOps organization URL.";
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+		Info = null;
+
+		try
+		{
+			var result = await _api.TestAzureDevOpsIntegrationSettingsAsync(new SaveAzureDevOpsIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token,
+				string.IsNullOrWhiteSpace(Project) ? null : Project.Trim(),
+				string.IsNullOrWhiteSpace(Repository) ? null : Repository.Trim(),
+				string.IsNullOrWhiteSpace(Branch) ? null : Branch.Trim(),
+				string.IsNullOrWhiteSpace(ManifestPath) ? null : ManifestPath.Trim()));
+			IsTested = result.Succeeded;
+			if (result.Succeeded)
+			{
+				Info = result.Message is { Length: > 0 } m ? m : "Connection successful.";
+			}
+			else
+			{
+				Error = result.Message is { Length: > 0 } m ? m : $"Test failed: {result.Status}.";
+			}
+		}
+		catch (Exception ex)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
 
 	[RelayCommand(CanExecute = nameof(CanSave))]
 	private async Task SaveAsync()
@@ -763,7 +1031,7 @@ public sealed partial class ConfigureAzureDevOpsDialogViewModel : ObservableObje
 		}
 	}
 
-	private bool CanSave() => !IsBusy;
+	private bool CanSave() => !IsBusy && IsTested;
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -803,8 +1071,12 @@ public sealed partial class ConfigureOpsHostDialogViewModel : ObservableObject
 	[ObservableProperty] private string _repoPath = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string? _info;
+	[ObservableProperty] private bool _isTested;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool HasInfo => !string.IsNullOrEmpty(Info);
 
 	public bool WasSaved { get; private set; }
 
@@ -812,7 +1084,79 @@ public sealed partial class ConfigureOpsHostDialogViewModel : ObservableObject
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+	partial void OnInfoChanged(string? value) => OnPropertyChanged(nameof(HasInfo));
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		SaveCommand.NotifyCanExecuteChanged();
+		TestConnectionCommand.NotifyCanExecuteChanged();
+	}
+
+	partial void OnIsTestedChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	partial void OnEndpointChanged(string value) => IsTested = false;
+
+	partial void OnPortChanged(string value) => IsTested = false;
+
+	partial void OnUsernameChanged(string value) => IsTested = false;
+
+	partial void OnAuthMethodChanged(string value) => IsTested = false;
+
+	partial void OnSecretChanged(string value) => IsTested = false;
+
+	partial void OnRepoPathChanged(string value) => IsTested = false;
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestConnectionAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the ops host address.";
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(Username))
+		{
+			Error = "Enter the SSH username.";
+			return;
+		}
+
+		var port = int.TryParse(Port, out var parsedPort) ? parsedPort : 22;
+
+		IsBusy = true;
+		Error = null;
+		Info = null;
+
+		try
+		{
+			var result = await _api.TestOpsHostIntegrationSettingsAsync(new SaveOpsHostIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				port,
+				Username.Trim(),
+				AuthMethod,
+				string.IsNullOrEmpty(Secret) ? null : Secret,
+				string.IsNullOrWhiteSpace(RepoPath) ? null : RepoPath.Trim()));
+			IsTested = result.Succeeded;
+			if (result.Succeeded)
+			{
+				Info = result.Message is { Length: > 0 } m ? m : "Connection successful.";
+			}
+			else
+			{
+				Error = result.Message is { Length: > 0 } m ? m : $"Test failed: {result.Status}.";
+			}
+		}
+		catch (Exception ex)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
 
 	[RelayCommand(CanExecute = nameof(CanSave))]
 	private async Task SaveAsync()
@@ -856,7 +1200,7 @@ public sealed partial class ConfigureOpsHostDialogViewModel : ObservableObject
 		}
 	}
 
-	private bool CanSave() => !IsBusy;
+	private bool CanSave() => !IsBusy && IsTested;
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -880,8 +1224,12 @@ public sealed partial class ConfigureNexusDialogViewModel : ObservableObject
 	[ObservableProperty] private string _token = string.Empty;
 	[ObservableProperty] private bool _isBusy;
 	[ObservableProperty] private string? _error;
+	[ObservableProperty] private string? _info;
+	[ObservableProperty] private bool _isTested;
 
 	public bool HasError => !string.IsNullOrEmpty(Error);
+
+	public bool HasInfo => !string.IsNullOrEmpty(Info);
 
 	public bool WasSaved { get; private set; }
 
@@ -889,7 +1237,59 @@ public sealed partial class ConfigureNexusDialogViewModel : ObservableObject
 
 	partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-	partial void OnIsBusyChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+	partial void OnInfoChanged(string? value) => OnPropertyChanged(nameof(HasInfo));
+
+	partial void OnIsBusyChanged(bool value)
+	{
+		SaveCommand.NotifyCanExecuteChanged();
+		TestConnectionCommand.NotifyCanExecuteChanged();
+	}
+
+	partial void OnIsTestedChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+
+	partial void OnEndpointChanged(string value) => IsTested = false;
+
+	partial void OnTokenChanged(string value) => IsTested = false;
+
+	[RelayCommand(CanExecute = nameof(CanTest))]
+	private async Task TestConnectionAsync()
+	{
+		if (string.IsNullOrWhiteSpace(Endpoint))
+		{
+			Error = "Enter the Nexus endpoint.";
+			return;
+		}
+
+		IsBusy = true;
+		Error = null;
+		Info = null;
+
+		try
+		{
+			var result = await _api.TestNexusIntegrationSettingsAsync(new SaveNexusIntegrationSettingsRequest(
+				Endpoint.Trim(),
+				string.IsNullOrEmpty(Token) ? null : Token));
+			IsTested = result.Succeeded;
+			if (result.Succeeded)
+			{
+				Info = result.Message is { Length: > 0 } m ? m : "Connection successful.";
+			}
+			else
+			{
+				Error = result.Message is { Length: > 0 } m ? m : $"Test failed: {result.Status}.";
+			}
+		}
+		catch (Exception ex)
+		{
+			Error = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private bool CanTest() => !IsBusy;
 
 	[RelayCommand(CanExecute = nameof(CanSave))]
 	private async Task SaveAsync()
@@ -921,7 +1321,7 @@ public sealed partial class ConfigureNexusDialogViewModel : ObservableObject
 		}
 	}
 
-	private bool CanSave() => !IsBusy;
+	private bool CanSave() => !IsBusy && IsTested;
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -1218,4 +1618,19 @@ public sealed partial class UnlockFallbackSecretsDialogViewModel(IIrisApiClient 
 
 	[RelayCommand]
 	private void Cancel() => CloseRequested?.Invoke(this, EventArgs.Empty);
+}
+
+/// <summary>One Job Template declared in the AWX blueprint manifest (<c>GET
+/// /system/integrations/awx-blueprint/templates</c>) — a row in "Configure AWX"'s template picker.</summary>
+public sealed class AwxBlueprintTemplateRowViewModel(AwxBlueprintTemplateResponse template)
+{
+	public string Name => template.Name;
+
+	public int? JobTemplateId => template.JobTemplateId;
+
+	public bool IsSynced => JobTemplateId is not null;
+
+	/// <summary>What the Picker actually displays — the raw AWX id if already synced, otherwise a
+	/// clear "not synced yet" so the operator knows why picking it won't fill the id field in.</summary>
+	public string DisplayName => IsSynced ? $"{Name} (#{JobTemplateId})" : $"{Name} (not synced yet)";
 }

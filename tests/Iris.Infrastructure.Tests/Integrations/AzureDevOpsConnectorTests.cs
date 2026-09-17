@@ -8,12 +8,13 @@ public sealed class AzureDevOpsConnectorTests
 {
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
-        public List<(string Method, string Path, string Query, string? AuthScheme, string? Body)> Calls { get; } = [];
+        public List<(string Method, string Path, string Query, string? AuthScheme, string? Body, string? AuthParameter)> Calls { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var body = request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
-            Calls.Add((request.Method.Method, request.RequestUri!.AbsolutePath, request.RequestUri.Query, request.Headers.Authorization?.Scheme, body));
+            Calls.Add((request.Method.Method, request.RequestUri!.AbsolutePath, request.RequestUri.Query,
+                request.Headers.Authorization?.Scheme, body, request.Headers.Authorization?.Parameter));
             return Task.FromResult(respond(request));
         }
     }
@@ -153,6 +154,46 @@ public sealed class AzureDevOpsConnectorTests
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"value":[]}""") }
             : new HttpResponseMessage(HttpStatusCode.NotFound));
         using var connector = new AzureDevOpsConnector(Options(), handler);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => connector.ProposeChangeAsync(Proposal()));
+    }
+
+    [Fact]
+    public async Task ProposeChange_targets_the_proposal_s_own_organization_and_token_when_given()
+    {
+        // An application's AWX repo can live in a different Azure DevOps organization, under
+        // different credentials, than the connector's own globally-configured one.
+        var handler = ProposeHandler();
+        using var connector = new AzureDevOpsConnector(Options(), handler);
+
+        var result = await connector.ProposeChangeAsync(Proposal() with
+        {
+            Endpoint = "https://dev.azure.com/some-other-org",
+            Token = "other-org-pat",
+        });
+
+        Assert.Contains("https://dev.azure.com/some-other-org", result.Url);
+        Assert.DoesNotContain(handler.Calls, c => c.Path.Contains("algorab-devops", StringComparison.Ordinal));
+        var expectedAuth = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(":other-org-pat"));
+        Assert.All(handler.Calls, call => Assert.Equal(expectedAuth, call.AuthParameter));
+    }
+
+    [Fact]
+    public async Task ProposeChange_falls_back_to_the_connectors_own_organization_and_token_when_not_overridden()
+    {
+        var handler = ProposeHandler();
+        using var connector = new AzureDevOpsConnector(Options(), handler);
+
+        var result = await connector.ProposeChangeAsync(Proposal());
+
+        Assert.Contains("https://dev.azure.com/algorab-devops", result.Url);
+    }
+
+    [Fact]
+    public async Task ProposeChange_throws_when_neither_the_proposal_nor_the_connector_has_credentials()
+    {
+        var handler = ProposeHandler();
+        using var connector = new AzureDevOpsConnector(new AzureDevOpsOptions(), handler);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => connector.ProposeChangeAsync(Proposal()));
     }

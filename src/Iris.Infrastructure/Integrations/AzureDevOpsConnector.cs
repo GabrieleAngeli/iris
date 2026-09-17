@@ -127,13 +127,21 @@ internal sealed class AzureDevOpsConnector
         AzureDevOpsChangeProposal proposal, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(proposal);
-        EnsureConfigured();
+
+        // An application-level override (different org, different PAT) wins over the connector's
+        // own globally-configured organization/token — see AzureDevOpsChangeProposal's remarks.
+        var endpoint = string.IsNullOrWhiteSpace(proposal.Endpoint) ? options.Endpoint : proposal.Endpoint;
+        var token = string.IsNullOrWhiteSpace(proposal.Token) ? options.Token : proposal.Token;
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("Azure DevOps is not configured (endpoint/token required).");
+        }
 
         var repoBaseUri = $"{Uri.EscapeDataString(proposal.Project)}/_apis/git/repositories/{Uri.EscapeDataString(proposal.Repository)}";
 
         // 1. Resolve the base branch's current commit — the new branch and its first commit both
         //    build directly on top of it.
-        var baseObjectId = await GetBranchObjectIdAsync(repoBaseUri, proposal.BaseBranch, cancellationToken).ConfigureAwait(false)
+        var baseObjectId = await GetBranchObjectIdAsync(endpoint, token, repoBaseUri, proposal.BaseBranch, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Base branch '{proposal.BaseBranch}' not found in {proposal.Project}/{proposal.Repository}.");
 
         // 2. One push both creates the new branch ref (Azure DevOps creates a ref that doesn't
@@ -143,7 +151,7 @@ internal sealed class AzureDevOpsConnector
         var changes = new List<object>();
         foreach (var (path, content) in proposal.Files)
         {
-            var exists = await FileExistsAsync(repoBaseUri, proposal.BaseBranch, path, cancellationToken).ConfigureAwait(false);
+            var exists = await FileExistsAsync(endpoint, token, repoBaseUri, proposal.BaseBranch, path, cancellationToken).ConfigureAwait(false);
             changes.Add(new
             {
                 changeType = exists ? "edit" : "add",
@@ -158,7 +166,7 @@ internal sealed class AzureDevOpsConnector
             commits = new[] { new { comment = proposal.CommitMessage, changes } },
         };
 
-        using (var pushResponse = await SendAsync(HttpMethod.Post, $"{repoBaseUri}/pushes?api-version=7.1", pushBody, cancellationToken)
+        using (var pushResponse = await SendAsync(endpoint, token, HttpMethod.Post, $"{repoBaseUri}/pushes?api-version=7.1", pushBody, cancellationToken)
             .ConfigureAwait(false))
         {
             if (!pushResponse.IsSuccessStatusCode)
@@ -177,7 +185,7 @@ internal sealed class AzureDevOpsConnector
             description = proposal.PrDescription,
         };
 
-        using var prResponse = await SendAsync(HttpMethod.Post, $"{repoBaseUri}/pullrequests?api-version=7.1", prBody, cancellationToken)
+        using var prResponse = await SendAsync(endpoint, token, HttpMethod.Post, $"{repoBaseUri}/pullrequests?api-version=7.1", prBody, cancellationToken)
             .ConfigureAwait(false);
         var prResponseBody = await prResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!prResponse.IsSuccessStatusCode)
@@ -187,15 +195,15 @@ internal sealed class AzureDevOpsConnector
 
         using var prJson = JsonDocument.Parse(prResponseBody);
         var pullRequestId = prJson.RootElement.GetProperty("pullRequestId").GetInt32();
-        var url = $"{options.Endpoint!.TrimEnd('/')}/{proposal.Project}/_git/{proposal.Repository}/pullrequest/{pullRequestId}";
+        var url = $"{endpoint.TrimEnd('/')}/{proposal.Project}/_git/{proposal.Repository}/pullrequest/{pullRequestId}";
 
         return new AzureDevOpsPullRequestResult(pullRequestId, url);
     }
 
-    private async Task<string?> GetBranchObjectIdAsync(string repoBaseUri, string branch, CancellationToken cancellationToken)
+    private async Task<string?> GetBranchObjectIdAsync(string endpoint, string token, string repoBaseUri, string branch, CancellationToken cancellationToken)
     {
         using var response = await SendAsync(
-            HttpMethod.Get, $"{repoBaseUri}/refs?filter={Uri.EscapeDataString($"heads/{branch}")}&api-version=7.1", null, cancellationToken)
+            endpoint, token, HttpMethod.Get, $"{repoBaseUri}/refs?filter={Uri.EscapeDataString($"heads/{branch}")}&api-version=7.1", null, cancellationToken)
             .ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
@@ -212,35 +220,27 @@ internal sealed class AzureDevOpsConnector
         return value[0].GetProperty("objectId").GetString();
     }
 
-    private async Task<bool> FileExistsAsync(string repoBaseUri, string branch, string path, CancellationToken cancellationToken)
+    private async Task<bool> FileExistsAsync(string endpoint, string token, string repoBaseUri, string branch, string path, CancellationToken cancellationToken)
     {
         var uri = $"{repoBaseUri}/items?path={Uri.EscapeDataString(NormalizeItemPath(path))}" +
             $"&versionDescriptor.version={Uri.EscapeDataString(branch)}&versionDescriptor.versionType=branch&api-version=7.1";
-        using var response = await SendAsync(HttpMethod.Get, uri, null, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(endpoint, token, HttpMethod.Get, uri, null, cancellationToken).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
     private static string NormalizeItemPath(string path) => path.StartsWith('/') ? path : $"/{path}";
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativeUri, object? body, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(string endpoint, string token, HttpMethod method, string relativeUri, object? body, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, new Uri(new Uri(options.Endpoint!.TrimEnd('/') + "/"), relativeUri));
+        using var request = new HttpRequestMessage(method, new Uri(new Uri(endpoint.TrimEnd('/') + "/"), relativeUri));
         request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{options.Token}")));
+            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{token}")));
         if (body is not null)
         {
             request.Content = JsonContent.Create(body);
         }
 
         return await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-    }
-
-    private void EnsureConfigured()
-    {
-        if (string.IsNullOrWhiteSpace(options.Endpoint) || string.IsNullOrWhiteSpace(options.Token))
-        {
-            throw new InvalidOperationException("Azure DevOps is not configured (endpoint/token required).");
-        }
     }
 
     public void Dispose() => _http.Dispose();

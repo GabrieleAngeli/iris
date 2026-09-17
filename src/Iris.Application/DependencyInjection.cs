@@ -51,6 +51,12 @@ public static class DependencyInjection
         services.TryAddScoped<SaveNexusIntegrationSettingsHandler>();
         services.TryAddScoped<SaveOpsHostIntegrationSettingsHandler>();
         services.TryAddScoped<SyncAwxBlueprintHandler>();
+        services.TryAddScoped<ListAwxBlueprintTemplatesHandler>();
+        services.TryAddScoped<TestOpenBaoIntegrationSettingsHandler>();
+        services.TryAddScoped<TestAwxIntegrationSettingsHandler>();
+        services.TryAddScoped<TestAzureDevOpsIntegrationSettingsHandler>();
+        services.TryAddScoped<TestNexusIntegrationSettingsHandler>();
+        services.TryAddScoped<TestOpsHostIntegrationSettingsHandler>();
         services.TryAddScoped<UnlockFallbackSecretsHandler>();
         services.TryAddScoped<ProvisionOpenBaoHandler>();
         services.TryAddScoped<PromoteSecretStoreToOpenBaoHandler>();

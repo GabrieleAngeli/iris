@@ -42,4 +42,8 @@ public sealed record ApplicationResponse(
     IReadOnlyList<ApplicationVersionSummaryResponse> Versions,
     string? AwxRepositoryProject = null,
     string? AwxRepositoryName = null,
-    string? AwxRepositoryBranch = null);
+    string? AwxRepositoryBranch = null,
+    string? AwxRepositoryEndpoint = null,
+    // Never the raw token — just whether one is stored, so the Edit dialog can show
+    // "a token is set" without ever round-tripping the secret itself.
+    bool HasAwxRepositoryToken = false);

@@ -4,7 +4,11 @@ namespace Iris.Application.Abstractions;
 /// <see cref="BaseBranch"/>, one commit adding/updating every file in <see cref="Files"/>
 /// (path → full new content), and a Pull Request from that branch back into
 /// <see cref="BaseBranch"/>. Iris never pushes to <see cref="BaseBranch"/> directly — a human
-/// always merges the PR.</summary>
+/// always merges the PR.
+/// <see cref="Endpoint"/>/<see cref="Token"/> let a caller target a different Azure DevOps
+/// organization/PAT than the connector's own globally-configured one (e.g. an application whose
+/// AWX automation repo lives in a different org, under different credentials) — left null, the
+/// connector's configured organization/token apply as before.</summary>
 public sealed record AzureDevOpsChangeProposal(
     string Project,
     string Repository,
@@ -13,7 +17,9 @@ public sealed record AzureDevOpsChangeProposal(
     string CommitMessage,
     string PrTitle,
     string PrDescription,
-    IReadOnlyDictionary<string, string> Files);
+    IReadOnlyDictionary<string, string> Files,
+    string? Endpoint = null,
+    string? Token = null);
 
 public sealed record AzureDevOpsPullRequestResult(int PullRequestId, string Url);
 

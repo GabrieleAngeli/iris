@@ -185,17 +185,29 @@ public interface IIrisApiClient
 
 	Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
+	Task<TestIntegrationConnectionResponse> TestOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
 	Task<IntegrationSettingsSavedResponse> SaveAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<TestIntegrationConnectionResponse> TestAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
 	Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
 	Task<IntegrationSettingsSavedResponse> SaveAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
+	Task<TestIntegrationConnectionResponse> TestAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
 	Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
+	Task<TestIntegrationConnectionResponse> TestNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
 	Task<IntegrationSettingsSavedResponse> SaveOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
 
+	Task<TestIntegrationConnectionResponse> TestOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default);
+
 	Task<SyncAwxBlueprintResponse> SyncAwxBlueprintAsync(CancellationToken cancellationToken = default);
+
+	Task<IReadOnlyList<AwxBlueprintTemplateResponse>> ListAwxBlueprintTemplatesAsync(CancellationToken cancellationToken = default);
 
 	Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default);
 
@@ -444,8 +456,14 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<IntegrationSettingsSavedResponse> SaveOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/openbao", request, cancellationToken);
 
+	public Task<TestIntegrationConnectionResponse> TestOpenBaoIntegrationSettingsAsync(SaveOpenBaoIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<TestIntegrationConnectionResponse>(HttpMethod.Post, "/system/integrations/openbao/test", request, cancellationToken);
+
 	public Task<IntegrationSettingsSavedResponse> SaveAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/awx", request, cancellationToken);
+
+	public Task<TestIntegrationConnectionResponse> TestAwxIntegrationSettingsAsync(SaveAwxIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<TestIntegrationConnectionResponse>(HttpMethod.Post, "/system/integrations/awx/test", request, cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveAnsibleIntegrationSettingsAsync(SaveAnsibleIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/ansible", request, cancellationToken);
@@ -453,14 +471,26 @@ public sealed class IrisApiClient(HttpClient http) : IIrisApiClient
 	public Task<IntegrationSettingsSavedResponse> SaveAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/azure-devops", request, cancellationToken);
 
+	public Task<TestIntegrationConnectionResponse> TestAzureDevOpsIntegrationSettingsAsync(SaveAzureDevOpsIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<TestIntegrationConnectionResponse>(HttpMethod.Post, "/system/integrations/azure-devops/test", request, cancellationToken);
+
 	public Task<IntegrationSettingsSavedResponse> SaveNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/nexus", request, cancellationToken);
+
+	public Task<TestIntegrationConnectionResponse> TestNexusIntegrationSettingsAsync(SaveNexusIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<TestIntegrationConnectionResponse>(HttpMethod.Post, "/system/integrations/nexus/test", request, cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/integrations/ops-host", request, cancellationToken);
 
+	public Task<TestIntegrationConnectionResponse> TestOpsHostIntegrationSettingsAsync(SaveOpsHostIntegrationSettingsRequest request, CancellationToken cancellationToken = default) =>
+		SendAsync<TestIntegrationConnectionResponse>(HttpMethod.Post, "/system/integrations/ops-host/test", request, cancellationToken);
+
 	public Task<SyncAwxBlueprintResponse> SyncAwxBlueprintAsync(CancellationToken cancellationToken = default) =>
 		SendNoBodyAsync<SyncAwxBlueprintResponse>(HttpMethod.Post, "/system/integrations/awx/sync-blueprint", cancellationToken);
+
+	public Task<IReadOnlyList<AwxBlueprintTemplateResponse>> ListAwxBlueprintTemplatesAsync(CancellationToken cancellationToken = default) =>
+		SendNoBodyAsync<IReadOnlyList<AwxBlueprintTemplateResponse>>(HttpMethod.Get, "/system/integrations/awx-blueprint/templates", cancellationToken);
 
 	public Task<IntegrationSettingsSavedResponse> SaveMailProviderSettingsAsync(MailProviderInput request, CancellationToken cancellationToken = default) =>
 		SendAsync<IntegrationSettingsSavedResponse>(HttpMethod.Put, "/system/settings/mail", request, cancellationToken);

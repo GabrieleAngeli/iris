@@ -163,6 +163,10 @@ public static class DependencyInjection
         // singletons are fine the other way around (a scoped service may depend on singletons).
         services.TryAddScoped<IIntegrationSettingsReloader, IntegrationSettingsReloader>();
 
+        // Same captive-dependency reasoning as the reloader above: it also reads
+        // IIntegrationSettingsRepository (scoped), so it can't be a singleton either.
+        services.TryAddScoped<IIntegrationConnectionTester, IntegrationConnectionTester>();
+
         services.AddSingleton<IIntegrationReachabilityProbe, IntegrationReachabilityProbe>();
 
         services.AddSingleton<AwxClient>();
@@ -184,6 +188,7 @@ public static class DependencyInjection
 
         services.AddSingleton<AwxBlueprintDriftConnector>();
         services.AddSingleton<IIntegrationConnector>(sp => sp.GetRequiredService<AwxBlueprintDriftConnector>());
+        services.AddSingleton<IAwxBlueprintReader>(sp => sp.GetRequiredService<AwxBlueprintDriftConnector>());
     }
 
     /// <summary>

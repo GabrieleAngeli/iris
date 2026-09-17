@@ -159,6 +159,80 @@ public static class SystemSettingsEndpoints
             .WithSummary("Persist the Nexus endpoint/token. Takes effect after an Iris.Api restart.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
+        system.MapPost("/integrations/openbao/test", async (
+                SaveOpenBaoIntegrationSettingsRequest body,
+                TestOpenBaoIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveOpenBaoIntegrationSettingsCommand(body.Endpoint, body.Token, body.MountPath, body.UseKvV2), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("TestOpenBaoIntegrationSettings")
+            .WithSummary("Probes the given OpenBao endpoint/token without saving them — backs the mandatory Test-before-Save step in the Configure dialog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/integrations/awx/test", async (
+                SaveAwxIntegrationSettingsRequest body,
+                TestAwxIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveAwxIntegrationSettingsCommand(
+                        body.Endpoint, body.Token, body.JobTemplateId,
+                        body.OAuthClientId, body.OAuthClientSecret, body.RefreshToken, body.FactsJobTemplateId), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("TestAwxIntegrationSettings")
+            .WithSummary("Probes the given AWX endpoint/token/job template without saving them — backs the mandatory Test-before-Save step in the Configure dialog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/integrations/azure-devops/test", async (
+                SaveAzureDevOpsIntegrationSettingsRequest body,
+                TestAzureDevOpsIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(
+                        body.Endpoint, body.Token, body.Project, body.Repository, body.Branch, body.ManifestPath), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("TestAzureDevOpsIntegrationSettings")
+            .WithSummary("Probes the given Azure DevOps org/PAT (and the AWX blueprint manifest, if a repo is given) without saving them — backs the mandatory Test-before-Save step in the Configure dialog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/integrations/nexus/test", async (
+                SaveNexusIntegrationSettingsRequest body,
+                TestNexusIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveNexusIntegrationSettingsCommand(body.Endpoint, body.Token), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("TestNexusIntegrationSettings")
+            .WithSummary("Probes the given Nexus endpoint without saving it — backs the mandatory Test-before-Save step in the Configure dialog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapPost("/integrations/ops-host/test", async (
+                SaveOpsHostIntegrationSettingsRequest body,
+                TestOpsHostIntegrationSettingsHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler
+                    .HandleAsync(new SaveOpsHostIntegrationSettingsCommand(
+                        body.Endpoint, body.Port, body.Username, body.AuthMethod, body.Secret, body.RepoPath), ct)
+                    .ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("TestOpsHostIntegrationSettings")
+            .WithSummary("Probes the given ops host SSH credentials without saving them — backs the mandatory Test-before-Save step in the Configure dialog.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
         system.MapPost("/integrations/openbao/provision", async (
                 ProvisionOpenBaoHandler handler,
                 CancellationToken ct) =>
@@ -190,6 +264,17 @@ public static class SystemSettingsEndpoints
             })
             .WithName("SyncAwxBlueprint")
             .WithSummary("Runs the AWX automation repo's blueprint-sync playbook over SSH on the ops host, reconciling AWX's Job Templates against the repo's manifest.")
+            .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
+
+        system.MapGet("/integrations/awx-blueprint/templates", async (
+                ListAwxBlueprintTemplatesHandler handler,
+                CancellationToken ct) =>
+            {
+                var result = await handler.HandleAsync(new ListAwxBlueprintTemplatesQuery(), ct).ConfigureAwait(false);
+                return Results.Ok(result);
+            })
+            .WithName("ListAwxBlueprintTemplates")
+            .WithSummary("Job Templates declared in the AWX automation repo's blueprint manifest, with their real AWX id when already synced — backs the \"Configure AWX\" dialog's template picker.")
             .RequireAuthorization(PermissionPolicy.Name(Permissions.PlatformAdmin));
 
         system.MapGet("/integrations/{key}/status", async (

@@ -21,6 +21,10 @@ public sealed record IntegrationLinkResponse(
     int? AwxJobTemplateId = null,
     string? AwxOAuthClientId = null,
     int? AwxFactsJobTemplateId = null,
+    // Set for "azure-devops" AND "awx-blueprint" — the org URL a Configure dialog should pre-fill
+    // (distinct from Endpoint, which for "awx-blueprint" is a human-readable
+    // "project/repo@branch:path" summary, not the organization URL).
+    string? AzureDevOpsEndpoint = null,
     string? AzureDevOpsProject = null,
     string? AzureDevOpsRepository = null,
     string? AzureDevOpsBranch = null,

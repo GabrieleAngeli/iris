@@ -1,4 +1,5 @@
 using Iris.Application.Abstractions;
+using Iris.Application.Common;
 using Iris.Infrastructure.Integrations;
 
 namespace Iris.Infrastructure.Tests.Integrations;
@@ -137,5 +138,46 @@ public sealed class AwxBlueprintDriftConnectorTests
         var status = await connector.GetStatusAsync(probe: false);
 
         Assert.Equal("Configured", status.Status);
+    }
+
+    [Fact]
+    public async Task ListDeclaredTemplates_resolves_the_real_awx_id_for_each_declared_template()
+    {
+        var awx = new FakeAwxClient();
+        awx.Templates["cloud_02-trial-site"] = new AwxJobTemplateInfo(1, "automation/orchestration/cloud_02/trial/site.yml", false);
+        awx.Templates["cloud_02-trial-facts"] = new AwxJobTemplateInfo(2, "playbooks/validation/discover-host-facts.yml", true);
+        var connector = new AwxBlueprintDriftConnector(new FakeRepositoryReader(Manifest), ConfiguredAzureDevOps(), awx, ConfiguredAwx());
+
+        var templates = await connector.ListDeclaredTemplatesAsync();
+
+        Assert.Equal(2, templates.Count);
+        var site = Assert.Single(templates, t => t.Name == "cloud_02-trial-site");
+        Assert.Equal(1, site.ResolvedJobTemplateId);
+        Assert.False(site.UseFactCache);
+        var facts = Assert.Single(templates, t => t.Name == "cloud_02-trial-facts");
+        Assert.Equal(2, facts.ResolvedJobTemplateId);
+        Assert.True(facts.UseFactCache);
+    }
+
+    [Fact]
+    public async Task ListDeclaredTemplates_leaves_the_id_null_when_awx_has_not_synced_that_template_yet()
+    {
+        var awx = new FakeAwxClient(); // nothing synced
+        var connector = new AwxBlueprintDriftConnector(new FakeRepositoryReader(Manifest), ConfiguredAzureDevOps(), awx, ConfiguredAwx());
+
+        var templates = await connector.ListDeclaredTemplatesAsync();
+
+        Assert.Equal(2, templates.Count);
+        Assert.All(templates, t => Assert.Null(t.ResolvedJobTemplateId));
+    }
+
+    [Fact]
+    public async Task ListDeclaredTemplates_throws_when_azure_devops_is_not_configured()
+    {
+        var connector = new AwxBlueprintDriftConnector(
+            new FakeRepositoryReader(Manifest), new AzureDevOpsOptions { Endpoint = "https://dev.azure.com/x", Token = "t" },
+            new FakeAwxClient(), ConfiguredAwx());
+
+        await Assert.ThrowsAsync<ValidationException>(() => connector.ListDeclaredTemplatesAsync());
     }
 }

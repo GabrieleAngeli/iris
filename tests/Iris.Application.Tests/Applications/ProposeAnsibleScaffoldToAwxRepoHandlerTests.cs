@@ -12,7 +12,7 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandlerTests
     private static readonly DateTimeOffset Now = new(2026, 9, 16, 9, 30, 0, TimeSpan.Zero);
 
     private static CreateApplicationHandler CreateHandler(FakeStore store) =>
-        new(store.ApplicationRepository, store.UnitOfWork);
+        new(store.ApplicationRepository, store.SecretStore, store.UnitOfWork);
 
     private static AddApplicationVersionHandler AddVersionHandler(FakeStore store) =>
         new(store.ApplicationRepository, store.UnitOfWork);
@@ -22,6 +22,7 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandlerTests
             new GenerateApplicationAnsibleScaffoldHandler(store.ApplicationRepository, new FakeClock(Now)),
             store.ApplicationRepository,
             store.IntegrationSettingsRepository,
+            store.SecretStore,
             writer,
             new FakeClock(Now));
 
@@ -106,6 +107,45 @@ public sealed class ProposeAnsibleScaffoldToAwxRepoHandlerTests
         Assert.Equal("SomeOtherProject", proposal.Project);
         Assert.Equal("custom-awx-repo", proposal.Repository);
         Assert.Equal("develop", proposal.BaseBranch);
+    }
+
+    [Fact]
+    public async Task Propose_uses_the_applications_own_organization_and_token_instead_of_the_global_ones()
+    {
+        // The application's AWX repo can live in an entirely different Azure DevOps organization,
+        // under different credentials, than the one configured globally.
+        var store = new FakeStore();
+        var settings = await store.IntegrationSettingsRepository.GetOrCreateAsync();
+        settings.ConfigureAzureDevOps("https://dev.azure.com/algorab-devops", "global-pat", "Refactoring_ops_flow", "awx", "master", null);
+        var app = await CreateHandler(store).HandleAsync(new CreateApplicationCommand(
+            "AugeG4 Engine", null, "Java", "https://git.example/augeg4-engine", "main", null,
+            AwxRepositoryProject: "SomeOtherProject", AwxRepositoryName: "custom-awx-repo",
+            AwxRepositoryEndpoint: "https://dev.azure.com/some-other-org", AwxRepositoryToken: "other-org-pat"));
+        var version = await AddVersionHandler(store).HandleAsync(new AddApplicationVersionCommand(
+            app.Id, "4.0.0", "refs/tags/4.0.0", new RuntimeMetadataRequest("java17", "Linux", 2, 1024, [8080])));
+        var writer = new FakeAzureDevOpsRepositoryWriter();
+
+        await Handler(store, writer).HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(app.Id, version.Id));
+
+        var proposal = Assert.Single(writer.Proposals);
+        Assert.Equal("https://dev.azure.com/some-other-org", proposal.Endpoint);
+        Assert.Equal("other-org-pat", proposal.Token);
+    }
+
+    [Fact]
+    public async Task Propose_falls_back_to_the_global_organization_and_token_when_the_application_has_no_override()
+    {
+        var store = new FakeStore();
+        var settings = await store.IntegrationSettingsRepository.GetOrCreateAsync();
+        settings.ConfigureAzureDevOps("https://dev.azure.com/algorab-devops", "global-pat", "Refactoring_ops_flow", "awx", "master", null);
+        var (appId, versionId) = await SeedApplicationVersion(store);
+        var writer = new FakeAzureDevOpsRepositoryWriter();
+
+        await Handler(store, writer).HandleAsync(new ProposeAnsibleScaffoldToAwxRepoCommand(appId, versionId));
+
+        var proposal = Assert.Single(writer.Proposals);
+        Assert.Null(proposal.Endpoint);
+        Assert.Null(proposal.Token);
     }
 
     [Fact]

@@ -50,10 +50,16 @@ public sealed class GetSystemSettingsHandler(
                 };
             }
 
-            if (link.Key == "azure-devops" && persisted is not null)
+            // "awx-blueprint" has no Configure dialog of its own — it opens the same one as
+            // "azure-devops" (they save through the same PUT /system/integrations/azure-devops),
+            // so both need the same pre-fill fields. "awx-blueprint"'s own Endpoint is a
+            // human-readable "project/repo@branch:path" summary, not the org URL — hence the
+            // separate AzureDevOpsEndpoint field for the dialog to actually pre-fill from.
+            if ((link.Key == "azure-devops" || link.Key == "awx-blueprint") && persisted is not null)
             {
                 link = link with
                 {
+                    AzureDevOpsEndpoint = persisted.AzureDevOpsEndpoint,
                     AzureDevOpsProject = persisted.AzureDevOpsProject,
                     AzureDevOpsRepository = persisted.AzureDevOpsRepository,
                     AzureDevOpsBranch = persisted.AzureDevOpsBranch,

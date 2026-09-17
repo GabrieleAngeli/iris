@@ -36,7 +36,9 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         string? buildPipelineUrl = null,
         string? awxRepositoryProject = null,
         string? awxRepositoryName = null,
-        string? awxRepositoryBranch = null)
+        string? awxRepositoryBranch = null,
+        string? awxRepositoryEndpoint = null,
+        string? awxRepositoryTokenSecretReference = null)
         : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -58,6 +60,8 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         AwxRepositoryProject = Clean(awxRepositoryProject);
         AwxRepositoryName = Clean(awxRepositoryName);
         AwxRepositoryBranch = Clean(awxRepositoryBranch);
+        AwxRepositoryEndpoint = Clean(awxRepositoryEndpoint);
+        AwxRepositoryTokenSecretReference = Clean(awxRepositoryTokenSecretReference);
         IsActive = true;
     }
 
@@ -85,12 +89,19 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
 
     /// <summary>Optional overrides of the global Azure DevOps <c>AWX automation repo</c> settings
     /// (<c>IntegrationSettings.AzureDevOps*</c>), used only by "propose Ansible scaffold as PR" —
-    /// when unset, that feature falls back to the global project/repository/branch.</summary>
+    /// when unset, that feature falls back to the global project/repository/branch. The
+    /// organization/PAT (<see cref="AwxRepositoryEndpoint"/>/<see cref="AwxRepositoryTokenSecretReference"/>)
+    /// can differ too — this application's AWX repo may live in an entirely different Azure DevOps
+    /// organization, under different credentials, than the global one.</summary>
     public string? AwxRepositoryProject { get; private set; }
 
     public string? AwxRepositoryName { get; private set; }
 
     public string? AwxRepositoryBranch { get; private set; }
+
+    public string? AwxRepositoryEndpoint { get; private set; }
+
+    public string? AwxRepositoryTokenSecretReference { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -126,7 +137,9 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         string? buildPipelineUrl = null,
         string? awxRepositoryProject = null,
         string? awxRepositoryName = null,
-        string? awxRepositoryBranch = null)
+        string? awxRepositoryBranch = null,
+        string? awxRepositoryEndpoint = null,
+        string? awxRepositoryTokenSecretReference = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryUrl);
@@ -145,6 +158,8 @@ public sealed class ApplicationDefinition : Entity<Guid>, IAggregateRoot, IAudit
         AwxRepositoryProject = Clean(awxRepositoryProject);
         AwxRepositoryName = Clean(awxRepositoryName);
         AwxRepositoryBranch = Clean(awxRepositoryBranch);
+        AwxRepositoryEndpoint = Clean(awxRepositoryEndpoint);
+        AwxRepositoryTokenSecretReference = Clean(awxRepositoryTokenSecretReference);
         IsActive = isActive;
     }
 

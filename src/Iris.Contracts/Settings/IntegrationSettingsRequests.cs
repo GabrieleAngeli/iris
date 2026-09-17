@@ -83,3 +83,14 @@ public sealed record PromoteSecretStoreResponse(bool Promoted, int MigratedSecre
 /// thrown <c>ValidationException</c> — <c>Error</c> stays for forward compatibility, currently
 /// always null on a 200 response).</summary>
 public sealed record SyncAwxBlueprintResponse(bool Succeeded, string Output, string? Error);
+
+/// <summary>One Job Template declared in the AWX automation repo's blueprint manifest — a row in
+/// the "Configure AWX" dialog's picker. <c>JobTemplateId</c> is AWX's real numeric id, resolved by
+/// name; null when the repo declares this template but AWX hasn't been synced to create it yet.</summary>
+public sealed record AwxBlueprintTemplateResponse(string Name, string? Playbook, bool UseFactCache, int? JobTemplateId);
+
+/// <summary>Result of <c>POST /system/integrations/{key}/test</c> — probing the values an operator
+/// just typed into a "Configure X" dialog, before they're saved. <c>Status</c>/<c>Message</c> mirror
+/// the same connector status strings shown elsewhere ("Reachable"/"Unreachable"/"Not configured"/
+/// "Configured"); <c>Succeeded</c> is what the dialog gates its "Save" button on.</summary>
+public sealed record TestIntegrationConnectionResponse(bool Succeeded, string Status, string? Message);

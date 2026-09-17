@@ -21,9 +21,12 @@ public sealed record CreateApplicationCommand(
     string? BuildPipelineUrl = null,
     string? AwxRepositoryProject = null,
     string? AwxRepositoryName = null,
-    string? AwxRepositoryBranch = null);
+    string? AwxRepositoryBranch = null,
+    string? AwxRepositoryEndpoint = null,
+    string? AwxRepositoryToken = null);
 
-public sealed partial class CreateApplicationHandler(IApplicationRepository applications, IUnitOfWork unitOfWork)
+public sealed partial class CreateApplicationHandler(
+    IApplicationRepository applications, ISecretStore secretStore, IUnitOfWork unitOfWork)
 {
     public async Task<ApplicationResponse> HandleAsync(CreateApplicationCommand command, CancellationToken cancellationToken = default)
     {
@@ -56,6 +59,14 @@ public sealed partial class CreateApplicationHandler(IApplicationRepository appl
             throw new ConflictException($"An application with slug '{slug}' already exists.");
         }
 
+        string? tokenReference = null;
+        if (!string.IsNullOrEmpty(command.AwxRepositoryToken))
+        {
+            tokenReference = await secretStore
+                .StoreAsync($"applications/{slug}/awx-repository-token", command.AwxRepositoryToken, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var application = new ApplicationDefinition(
             Guid.CreateVersion7(),
             command.Name,
@@ -71,7 +82,9 @@ public sealed partial class CreateApplicationHandler(IApplicationRepository appl
             command.BuildPipelineUrl,
             command.AwxRepositoryProject,
             command.AwxRepositoryName,
-            command.AwxRepositoryBranch);
+            command.AwxRepositoryBranch,
+            command.AwxRepositoryEndpoint,
+            tokenReference);
 
         await applications.AddAsync(application, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

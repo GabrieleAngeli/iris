@@ -217,9 +217,58 @@ public sealed class IntegrationSettingsApiTests(IrisApiFactory factory) : IClass
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Reader_cannot_test_any_integration_settings()
+    {
+        var reader = Reader();
+
+        var openBao = await reader.PostAsJsonAsync("/system/integrations/openbao/test",
+            new { endpoint = "https://openbao.example.com", token = "t", mountPath = "secret", useKvV2 = true });
+        var awx = await reader.PostAsJsonAsync("/system/integrations/awx/test",
+            new { endpoint = "https://awx.example.com", token = "t", jobTemplateId = 1 });
+        var azureDevOps = await reader.PostAsJsonAsync("/system/integrations/azure-devops/test",
+            new { endpoint = "https://dev.azure.com/contoso", token = "t" });
+        var nexus = await reader.PostAsJsonAsync("/system/integrations/nexus/test",
+            new { endpoint = "https://nexus.example.com", token = "t" });
+        var opsHost = await reader.PostAsJsonAsync("/system/integrations/ops-host/test",
+            new { endpoint = "opshost.example.com", port = 22, username = "ops", authMethod = "SshKey", secret = "s" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, openBao.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, awx.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, azureDevOps.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, nexus.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, opsHost.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_test_integration_settings_without_saving_them()
+    {
+        // Testing must never persist anything — the whole point is to probe candidate values
+        // before the operator commits to Save.
+        var admin = Admin();
+        var before = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        var endpointBeforeTest = before!.Integrations.Single(i => i.Key == "nexus").Endpoint;
+
+        // A loopback port nothing listens on: fails immediately (ECONNREFUSED), no DNS lookup —
+        // fast and deterministic instead of depending on a real external host.
+        var test = await admin.PostAsJsonAsync("/system/integrations/nexus/test",
+            new { endpoint = "http://127.0.0.1:1", token = (string?)null });
+
+        Assert.Equal(HttpStatusCode.OK, test.StatusCode);
+        var result = await test.Content.ReadFromJsonAsync<TestedDto>();
+        Assert.False(result!.Succeeded);
+        Assert.Equal("Unreachable", result.Status);
+
+        var after = await admin.GetFromJsonAsync<SystemSettingsDto>("/system/settings");
+        var endpointAfterTest = after!.Integrations.Single(i => i.Key == "nexus").Endpoint;
+        Assert.Equal(endpointBeforeTest, endpointAfterTest);
+    }
+
     private sealed record SavedDto(bool RestartRequired, string Message);
 
     private sealed record ProvisionedDto(string Endpoint, bool RestartRequired, string Message);
+
+    private sealed record TestedDto(bool Succeeded, string Status, string? Message);
 
     private sealed record IntegrationLinkDto(string Key, string Name, string Status, string? Endpoint, string? Message, DateTimeOffset? CheckedAtUtc = null);
 

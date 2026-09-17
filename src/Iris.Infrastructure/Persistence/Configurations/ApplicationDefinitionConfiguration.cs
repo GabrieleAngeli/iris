@@ -29,6 +29,8 @@ internal sealed class ApplicationDefinitionConfiguration : IEntityTypeConfigurat
         builder.Property(a => a.AwxRepositoryProject).HasMaxLength(200);
         builder.Property(a => a.AwxRepositoryName).HasMaxLength(200);
         builder.Property(a => a.AwxRepositoryBranch).HasMaxLength(200);
+        builder.Property(a => a.AwxRepositoryEndpoint).HasMaxLength(500);
+        builder.Property(a => a.AwxRepositoryTokenSecretReference).HasMaxLength(500);
         builder.Property(a => a.IsActive);
 
         builder.Property(a => a.CreatedAtUtc);

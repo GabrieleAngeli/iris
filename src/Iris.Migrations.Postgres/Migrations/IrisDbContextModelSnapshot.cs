@@ -298,6 +298,10 @@ namespace Iris.Migrations.Postgres.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("AwxRepositoryEndpoint")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("AwxRepositoryName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -305,6 +309,10 @@ namespace Iris.Migrations.Postgres.Migrations
                     b.Property<string>("AwxRepositoryProject")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("AwxRepositoryTokenSecretReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("BuildPipelineUrl")
                         .HasMaxLength(1000)

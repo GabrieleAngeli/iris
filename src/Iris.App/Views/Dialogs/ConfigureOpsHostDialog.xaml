@@ -27,6 +27,14 @@
                            TextColor="{AppThemeBinding Light={StaticResource Danger}, Dark={StaticResource DangerDark}}" />
                 </Border>
 
+                <Border IsVisible="{Binding HasInfo}"
+                        BackgroundColor="{AppThemeBinding Light=#E6F4EA, Dark=#1F3A28}"
+                        Stroke="{AppThemeBinding Light=#B7DFC2, Dark=#356241}"
+                        StrokeThickness="1" Padding="12,10" StrokeShape="RoundRectangle 6">
+                    <Label Text="{Binding Info}" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource SuccessDark}}" />
+                </Border>
+
                 <Grid ColumnDefinitions="2*,1*" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="5">
                         <Label Text="Host" Style="{StaticResource Caption}" />
@@ -73,11 +81,13 @@
             </VerticalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="22,12"
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10" Padding="22,12"
               BackgroundColor="{AppThemeBinding Light={StaticResource LayerLight}, Dark={StaticResource LayerDark}}">
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Cancel" Style="{StaticResource SecondaryButton}" HorizontalOptions="End" Clicked="OnCancel" />
-            <Button Grid.Column="2" Text="Save" Command="{Binding SaveCommand}" />
+            <Label Grid.Column="1" Text="Test the connection before saving." Style="{StaticResource Caption}" VerticalOptions="Center" />
+            <Button Grid.Column="2" Text="Cancel" Style="{StaticResource SecondaryButton}" HorizontalOptions="End" Clicked="OnCancel" />
+            <Button Grid.Column="3" Text="Test connection" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
+            <Button Grid.Column="4" Text="Save" Command="{Binding SaveCommand}" />
         </Grid>
     </Grid>
 </ContentPage>

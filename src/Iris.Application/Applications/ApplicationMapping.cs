@@ -23,7 +23,9 @@ internal static class ApplicationMapping
         application.Versions.Select(v => v.ToSummaryResponse()).ToArray(),
         application.AwxRepositoryProject,
         application.AwxRepositoryName,
-        application.AwxRepositoryBranch);
+        application.AwxRepositoryBranch,
+        application.AwxRepositoryEndpoint,
+        !string.IsNullOrWhiteSpace(application.AwxRepositoryTokenSecretReference));
 
     public static ApplicationVersionSummaryResponse ToSummaryResponse(this ApplicationVersion version) => new(
         version.Id,

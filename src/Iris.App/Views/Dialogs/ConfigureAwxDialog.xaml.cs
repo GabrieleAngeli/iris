@@ -14,6 +14,15 @@ public partial class ConfigureAwxDialog : ContentPage
 		_vm.CloseRequested += OnCloseRequested;
 	}
 
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		if (_vm.LoadTemplatesCommand.CanExecute(null))
+		{
+			_vm.LoadTemplatesCommand.Execute(null);
+		}
+	}
+
 	private void OnCloseRequested(object? sender, EventArgs e) => Close();
 
 	private void OnCancel(object? sender, EventArgs e) => _vm.CancelCommand.Execute(null);

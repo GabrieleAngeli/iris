@@ -430,6 +430,33 @@ public sealed class IntegrationSettingsHandlersTests
     }
 
     [Fact]
+    public async Task GetSystemSettings_prefills_the_awx_blueprint_row_with_the_same_azure_devops_settings()
+    {
+        // "AWX blueprint" has no Configure dialog of its own — clicking Configure on it opens the
+        // same Azure DevOps dialog (they save through the same PUT /system/integrations/azure-devops),
+        // so it needs the same pre-fill fields, under a dedicated AzureDevOpsEndpoint (its own
+        // Endpoint is a "project/repo@branch:path" summary, not the organization URL).
+        var store = new FakeStore();
+        await AzureDevOpsHandler(store).HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand(
+            "https://dev.azure.com/algorab-devops", "pat", "Refactoring_ops_flow", "awx", "master",
+            "automation/manifests/awx_context_blueprints.yml"));
+
+        var result = await SystemSettingsHandler(
+                store,
+                [new FakeConnector("awx-blueprint", "AWX blueprint", endpoint: "Refactoring_ops_flow/awx@master:automation/manifests/awx_context_blueprints.yml")])
+            .HandleAsync(new GetSystemSettingsQuery(true));
+
+        var blueprint = Assert.Single(result.Integrations, i => i.Key == "awx-blueprint");
+        Assert.Equal("https://dev.azure.com/algorab-devops", blueprint.AzureDevOpsEndpoint);
+        Assert.Equal("Refactoring_ops_flow", blueprint.AzureDevOpsProject);
+        Assert.Equal("awx", blueprint.AzureDevOpsRepository);
+        Assert.Equal("master", blueprint.AzureDevOpsBranch);
+        Assert.Equal("automation/manifests/awx_context_blueprints.yml", blueprint.AzureDevOpsManifestPath);
+        // Its own Endpoint is untouched — still the human-readable summary, not the org URL.
+        Assert.Equal("Refactoring_ops_flow/awx@master:automation/manifests/awx_context_blueprints.yml", blueprint.Endpoint);
+    }
+
+    [Fact]
     public async Task GetSystemSettings_hides_mail_settings_from_callers_who_cannot_manage_the_system()
     {
         var store = new FakeStore();
@@ -438,5 +465,78 @@ public sealed class IntegrationSettingsHandlersTests
 
         Assert.False(result.CanManageSystem);
         Assert.Null(result.Mail);
+    }
+
+    [Theory]
+    [InlineData("Reachable", true)]
+    [InlineData("Unreachable", false)]
+    [InlineData("Not configured", false)]
+    public async Task TestOpenBao_maps_reachable_to_succeeded(string status, bool expectedSucceeded)
+    {
+        var tester = new FakeIntegrationConnectionTester { NextStatus = new IntegrationConnectorStatus("openbao", "OpenBao", status, "endpoint", "a message") };
+        var handler = new TestOpenBaoIntegrationSettingsHandler(tester);
+
+        var result = await handler.HandleAsync(new SaveOpenBaoIntegrationSettingsCommand("https://openbao.example", "token", "secret", true));
+
+        Assert.Equal(expectedSucceeded, result.Succeeded);
+        Assert.Equal(status, result.Status);
+        Assert.Equal("a message", result.Message);
+    }
+
+    [Theory]
+    [InlineData("Reachable", true)]
+    [InlineData("Configured", false)]
+    public async Task TestAwx_only_reachable_counts_as_succeeded(string status, bool expectedSucceeded)
+    {
+        var tester = new FakeIntegrationConnectionTester { NextStatus = new IntegrationConnectorStatus("awx", "AWX", status, "endpoint") };
+        var handler = new TestAwxIntegrationSettingsHandler(tester);
+
+        var result = await handler.HandleAsync(new SaveAwxIntegrationSettingsCommand("https://awx.example", "token", 1));
+
+        Assert.Equal(expectedSucceeded, result.Succeeded);
+    }
+
+    [Fact]
+    public async Task TestAzureDevOps_reports_reachable_as_succeeded()
+    {
+        var tester = new FakeIntegrationConnectionTester
+        {
+            NextStatus = new IntegrationConnectorStatus("azure-devops", "Azure DevOps", "Reachable", "endpoint", "Organization reachable; blueprint manifest found."),
+        };
+        var handler = new TestAzureDevOpsIntegrationSettingsHandler(tester);
+
+        var result = await handler.HandleAsync(new SaveAzureDevOpsIntegrationSettingsCommand("https://dev.azure.com/org", "pat"));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Organization reachable; blueprint manifest found.", result.Message);
+    }
+
+    [Fact]
+    public async Task TestNexus_reports_unreachable_as_not_succeeded()
+    {
+        var tester = new FakeIntegrationConnectionTester
+        {
+            NextStatus = new IntegrationConnectorStatus("nexus", "Nexus", "Unreachable", "endpoint", "Connection refused"),
+        };
+        var handler = new TestNexusIntegrationSettingsHandler(tester);
+
+        var result = await handler.HandleAsync(new SaveNexusIntegrationSettingsCommand("http://nexus.example", null));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Connection refused", result.Message);
+    }
+
+    [Fact]
+    public async Task TestOpsHost_reports_reachable_as_succeeded()
+    {
+        var tester = new FakeIntegrationConnectionTester
+        {
+            NextStatus = new IntegrationConnectorStatus("ops-host", "Ops host", "Reachable", "endpoint"),
+        };
+        var handler = new TestOpsHostIntegrationSettingsHandler(tester);
+
+        var result = await handler.HandleAsync(new SaveOpsHostIntegrationSettingsCommand("opshost.example", 22, "ops", "SshKey", "secret"));
+
+        Assert.True(result.Succeeded);
     }
 }

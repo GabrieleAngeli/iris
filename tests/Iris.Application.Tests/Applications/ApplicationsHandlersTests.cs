@@ -15,13 +15,13 @@ public sealed class ApplicationsHandlersTests
     private static readonly DateTimeOffset Now = new(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
 
     private static CreateApplicationHandler CreateHandler(FakeStore store) =>
-        new(store.ApplicationRepository, store.UnitOfWork);
+        new(store.ApplicationRepository, store.SecretStore, store.UnitOfWork);
 
     private static AddApplicationVersionHandler AddVersionHandler(FakeStore store) =>
         new(store.ApplicationRepository, store.UnitOfWork);
 
     private static UpdateApplicationHandler UpdateHandler(FakeStore store) =>
-        new(store.ApplicationRepository, store.UnitOfWork);
+        new(store.ApplicationRepository, store.SecretStore, store.UnitOfWork);
 
     private static ImportConfigurationPackageHandler ImportHandler(FakeStore store) =>
         new(store.ApplicationRepository, new FakeClock(Now), store.UnitOfWork);
